@@ -1,1 +1,22 @@
-# Dockerfile — volledige configuratie in fase 1.4 (CI/CD & Deployment)
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DJANGO_SETTINGS_MODULE=config.settings.production
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq-dev gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements/ requirements/
+RUN pip install --no-cache-dir -r requirements/production.txt
+
+COPY . .
+
+RUN chmod +x scripts/start.sh
+
+EXPOSE 8000
+
+CMD ["./scripts/start.sh"]
