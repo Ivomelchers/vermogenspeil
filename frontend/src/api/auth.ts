@@ -13,8 +13,8 @@ export interface TokenResponse {
 export interface RegisterPayload {
   email: string;
   password: string;
-  first_name?: string;
-  last_name?: string;
+  first_name: string;
+  terms_accepted: boolean;
 }
 
 export const login = async (
@@ -41,6 +41,11 @@ export const register = async (data: RegisterPayload) => {
 
 export const verifyEmail = async (token: string) => {
   const res = await api.post("auth/verify-email/", { token });
+  return res.data;
+};
+
+export const resendVerificationEmail = async (email: string) => {
+  const res = await api.post("auth/resend-verification/", { email });
   return res.data;
 };
 

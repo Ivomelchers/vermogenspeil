@@ -1,0 +1,171 @@
+from datetime import timedelta
+
+from django.contrib.auth import get_user_model
+from django.core import mail
+from django.test import TestCase, override_settings
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APIClient
+
+from apps.accounts.models import EmailVerificationToken
+
+User = get_user_model()
+
+
+@override_settings(FRONTEND_URL="http://localhost:5173")
+class RegistrationTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/api/v1/auth/register/"
+        self.payload = {
+            "email": "jan@example.com",
+            "password": "SecurePass123!",
+            "first_name": "Jan",
+            "terms_accepted": True,
+        }
+
+    def test_register_creates_user_and_sends_email(self):
+        response = self.client.post(self.url, self.payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(response.data["error"])
+        self.assertFalse(response.data["data"]["email_verified"])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("jan@example.com", mail.outbox[0].to)
+
+        user = User.objects.get(email="jan@example.com")
+        self.assertFalse(user.email_verified)
+        self.assertIsNotNone(user.terms_accepted_at)
+        self.assertEqual(EmailVerificationToken.objects.filter(user=user).count(), 1)
+
+    def test_register_requires_terms_accepted(self):
+        payload = {**self.payload, "terms_accepted": False}
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(User.objects.count(), 0)
+
+    def test_register_rejects_duplicate_email(self):
+        User.objects.create_user(
+            email="jan@example.com",
+            password="SecurePass123!",
+            first_name="Bestaand",
+        )
+
+        response = self.client.post(self.url, self.payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_register_rejects_short_password(self):
+        payload = {**self.payload, "password": "short"}
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(User.objects.count(), 0)
+
+
+@override_settings(FRONTEND_URL="http://localhost:5173")
+class VerifyEmailTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/api/v1/auth/verify-email/"
+        self.user = User.objects.create_user(
+            email="verify@example.com",
+            password="SecurePass123!",
+            first_name="Verify",
+        )
+        self.token = EmailVerificationToken.create_for_user(self.user)
+
+    def test_verify_email_with_valid_token(self):
+        response = self.client.post(
+            self.url,
+            {"token": self.token.token},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["data"]["email_verified"])
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.email_verified)
+        self.assertIsNotNone(self.user.email_verified_at)
+
+        self.token.refresh_from_db()
+        self.assertIsNotNone(self.token.used_at)
+
+    def test_verify_email_rejects_invalid_token(self):
+        response = self.client.post(
+            self.url,
+            {"token": "invalid-token"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "invalid_token")
+
+    def test_verify_email_rejects_expired_token(self):
+        EmailVerificationToken.objects.filter(pk=self.token.pk).update(
+            expires_at=timezone.now() - timedelta(hours=1),
+        )
+
+        response = self.client.post(
+            self.url,
+            {"token": self.token.token},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "expired_token")
+
+
+@override_settings(FRONTEND_URL="http://localhost:5173")
+class ResendVerificationTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/api/v1/auth/resend-verification/"
+
+    def test_resend_sends_new_email_for_unverified_user(self):
+        user = User.objects.create_user(
+            email="resend@example.com",
+            password="SecurePass123!",
+            first_name="Resend",
+        )
+        EmailVerificationToken.create_for_user(user)
+        mail.outbox.clear()
+
+        response = self.client.post(
+            self.url,
+            {"email": "resend@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_resend_does_not_reveal_unknown_email(self):
+        response = self.client.post(
+            self.url,
+            {"email": "unknown@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_resend_skips_already_verified_user(self):
+        user = User.objects.create_user(
+            email="done@example.com",
+            password="SecurePass123!",
+            first_name="Done",
+        )
+        user.email_verified = True
+        user.save(update_fields=["email_verified"])
+
+        response = self.client.post(
+            self.url,
+            {"email": "done@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 0)

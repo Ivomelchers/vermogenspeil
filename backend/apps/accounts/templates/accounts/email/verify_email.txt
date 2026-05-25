@@ -1,0 +1,12 @@
+Hoi {{ user.first_name }},
+
+Bedankt voor je registratie bij MijnVermogen.
+
+Bevestig je e-mailadres door op onderstaande link te klikken (geldig {{ valid_hours }} uur):
+
+{{ verification_url }}
+
+Heb je geen account aangemaakt? Negeer deze e-mail.
+
+Met vriendelijke groet,
+Het MijnVermogen-team
