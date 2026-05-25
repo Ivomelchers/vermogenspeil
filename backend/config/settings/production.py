@@ -12,13 +12,13 @@ if not SECRET_KEY or SECRET_KEY.startswith("django-insecure"):  # noqa: F405
 if not DATABASE_URL:  # noqa: F405
     raise ValueError("DATABASE_URL must be set in production")
 
-_railway_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
-if _railway_domain and _railway_domain not in ALLOWED_HOSTS:  # noqa: F405
-    ALLOWED_HOSTS.append(_railway_domain)  # noqa: F405
+_render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if _render_hostname and _render_hostname not in ALLOWED_HOSTS:  # noqa: F405
+    ALLOWED_HOSTS.append(_render_hostname)  # noqa: F405
 
-_railway_static_url = os.environ.get("RAILWAY_STATIC_URL")
-if _railway_static_url:
-    host = _railway_static_url.removeprefix("https://").removeprefix("http://")
+_render_url = os.environ.get("RENDER_EXTERNAL_URL")
+if _render_url:
+    host = _render_url.removeprefix("https://").removeprefix("http://").split("/")[0]
     if host and host not in ALLOWED_HOSTS:  # noqa: F405
         ALLOWED_HOSTS.append(host)  # noqa: F405
 
