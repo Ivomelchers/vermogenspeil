@@ -1,0 +1,383 @@
+{
+  "info": {
+    "_postman_id": "vermogenspeil-api-v1",
+    "name": "Vermogenspeil API",
+    "description": "MijnVermogen / Vermogenspeil REST API (v1).\n\n**Werkend nu:** Health, Register, Verify Email, Resend Verification.\n\n**Gepland (fase 2.3+):** Login, JWT, logout, password reset, 2FA — endpoints staan er al in maar geven 404 tot geïmplementeerd.\n\nStel `baseUrl` in:\n- Lokaal: `http://localhost:8000/api/v1`\n- Render: `https://vermogenspeil-api.onrender.com/api/v1`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "verificationToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testEmail",
+      "value": "test@example.com",
+      "type": "string"
+    },
+    {
+      "key": "testPassword",
+      "value": "SecurePass123!",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", ""]
+            },
+            "description": "Publiek endpoint. Verwacht `{\"data\":{\"status\":\"ok\"},...}`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth (live)",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.test('Registration succeeded', () => {",
+                  "        pm.expect(json.error).to.eql(null);",
+                  "        pm.expect(json.data.email_verified).to.eql(false);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"first_name\": \"Jan\",\n  \"terms_accepted\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register", ""]
+            },
+            "description": "Registratie. Wachtwoord min. 12 tekens. Geen JWT terug — verificatie vereist.\n\nLokaal: check backend terminal voor verificatie-e-mail (console backend)."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.test('Email verified', () => {",
+                  "        pm.expect(json.data.email_verified).to.eql(true);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-email/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify-email", ""]
+            },
+            "description": "Bevestig e-mail met token uit verificatie-e-mail (24u geldig).\n\nZet `verificationToken` in collection variables."
+          },
+          "response": []
+        },
+        {
+          "name": "Resend Verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-verification/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "resend-verification", ""]
+            },
+            "description": "Stuurt nieuwe verificatielink (alleen voor ongeverifieerde accounts). Geeft altijd 200 (geen e-mail enumeration)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth (planned — fase 2.3+)",
+      "description": "Endpoints uit roadmap — nog niet geïmplementeerd. Verwacht 404 tot fase 2.3–2.5.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login", ""]
+            },
+            "description": "Fase 2.3 — JWT login. Blokkeert ongeverifieerde users."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token/refresh/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "token", "refresh", ""]
+            },
+            "description": "Fase 2.3 — JWT refresh."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout", ""]
+            },
+            "description": "Fase 2.3 — JWT blacklist logout."
+          },
+          "response": []
+        },
+        {
+          "name": "Password Reset Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password/reset/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "password", "reset", ""]
+            },
+            "description": "Fase 2.5 — Wachtwoord reset aanvragen."
+          },
+          "response": []
+        },
+        {
+          "name": "Password Reset Validate Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/password/reset/:token/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "password", "reset", ":token", ""],
+              "variable": [
+                {
+                  "key": "token",
+                  "value": "reset-token-here"
+                }
+              ]
+            },
+            "description": "Fase 2.5 — Reset token valideren."
+          },
+          "response": []
+        },
+        {
+          "name": "Password Reset Confirm",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"NewSecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/password/reset/:token/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "password", "reset", ":token", ""],
+              "variable": [
+                {
+                  "key": "token",
+                  "value": "reset-token-here"
+                }
+              ]
+            },
+            "description": "Fase 2.5 — Nieuw wachtwoord instellen."
+          },
+          "response": []
+        },
+        {
+          "name": "2FA Setup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/setup/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "setup", ""]
+            },
+            "description": "Fase 2.4 — TOTP QR code genereren."
+          },
+          "response": []
+        },
+        {
+          "name": "2FA Verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/verify/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "verify", ""]
+            },
+            "description": "Fase 2.4 — TOTP verificatie."
+          },
+          "response": []
+        },
+        {
+          "name": "2FA Disable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/disable/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "disable", ""]
+            },
+            "description": "Fase 2.4 — 2FA uitschakelen."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

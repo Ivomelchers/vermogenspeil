@@ -1,8 +1,9 @@
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
-const baseURL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1/";
+const rawBaseURL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
+const baseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
 
 interface TokenResponse {
   access: string;
