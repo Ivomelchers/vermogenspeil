@@ -53,6 +53,14 @@ class User(AbstractUser):
         help_text="Verdubbelt het heffingsvrije vermogen in box 3-berekeningen.",
     )
 
+    totp_secret_encrypted = models.TextField(
+        "TOTP-geheim (versleuteld)",
+        blank=True,
+        default="",
+    )
+    is_2fa_enabled = models.BooleanField("2FA ingeschakeld", default=False)
+    totp_confirmed_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -140,3 +148,54 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f"Wachtwoord reset voor {self.user.email}"
+
+
+class MfaLoginChallenge(models.Model):
+    """Tijdelijke challenge na wachtwoordlogin wanneer 2FA actief is."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="mfa_login_challenges",
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    tokens_encrypted = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "MFA-login challenge"
+        verbose_name_plural = "MFA-login challenges"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"MFA challenge voor {self.user.email}"
+
+    def is_valid(self):
+        return self.used_at is None and timezone.now() < self.expires_at
+
+    def mark_used(self):
+        self.used_at = timezone.now()
+        self.save(update_fields=["used_at"])
+
+
+class TwoFactorBackupCode(models.Model):
+    """Eenmalige backupcode voor 2FA."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="two_factor_backup_codes",
+    )
+    code_hash = models.CharField(max_length=128)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "2FA-backupcode"
+        verbose_name_plural = "2FA-backupcodes"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Backupcode voor {self.user.email}"

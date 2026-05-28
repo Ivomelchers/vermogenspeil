@@ -43,8 +43,8 @@ export default function LoginPage() {
       const result = await loginWithUsernameAndPassword(email.trim(), password, rememberMe);
       localStorage.setItem("rememberMe", rememberMe ? "true" : "false");
 
-      if (result.status === "mfa_required" || result.status === "enrollment_required") {
-        navigate("/auth/mfa-select", { replace: true });
+      if (result.status === "mfa_required") {
+        navigate("/auth/otp-challenge", { replace: true });
         return;
       }
 

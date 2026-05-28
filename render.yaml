@@ -40,3 +40,5 @@ services:
         sync: false
       - key: AUTH0_FRONTEND_CLIENT_ID
         sync: false
+      - key: ENCRYPTION_KEY
+        sync: false

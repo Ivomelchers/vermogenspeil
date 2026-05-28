@@ -3,9 +3,7 @@ import { Navigate, Outlet, Route, useLocation } from "react-router-dom";
 import PublicLayout from "../components/common/PublicLayout";
 import HomePage from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
-import MfaSelectPage from "../pages/MfaSelectPage";
 import OtpChallengePage from "../pages/OtpChallengePage";
-import OtpEnrollPage from "../pages/OtpEnrollPage";
 import PasswordResetConfirmPage from "../pages/PasswordResetConfirmPage";
 import PasswordResetRequestPage from "../pages/PasswordResetRequestPage";
 import RegisterPage from "../pages/RegisterPage";
@@ -18,8 +16,6 @@ const PUBLIC_AUTH_EXCEPTIONS = new Set([
   "/auth/password/forgot",
   "/auth/password/reset",
   "/auth/otp-challenge",
-  "/auth/mfa-select",
-  "/auth/otp-enroll",
 ]);
 
 function PublicAuthGuard() {
@@ -48,9 +44,7 @@ export function PublicRoutes() {
       <Route element={<PublicAuthGuard />}>
         <Route path="/auth/login" element={<LoginPage />} />
         <Route path="/auth/register" element={<RegisterPage />} />
-        <Route path="/auth/mfa-select" element={<MfaSelectPage />} />
         <Route path="/auth/otp-challenge" element={<OtpChallengePage />} />
-        <Route path="/auth/otp-enroll" element={<OtpEnrollPage />} />
       </Route>
     </>
   );

@@ -2,27 +2,22 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
-from apps.accounts.authentication import (
-    UnlinkedAuth0User,
-    auth0_sub_from_id_token,
-    get_user_mfa_status,
-    reset_mfa,
-)
 from apps.accounts.serializers import (
     LoginSerializer,
-    MfaEnrollStartSerializer,
+    MfaLoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RefreshTokenSerializer,
     RegisterSerializer,
     ResendVerificationSerializer,
+    TwoFactorDisableSerializer,
+    TwoFactorVerifySerializer,
     UserSerializer,
     VerifyEmailSerializer,
 )
 from apps.accounts.services.auth0_login import (
     Auth0LoginError,
     exchange_password,
-    exchange_password_for_mfa_setup,
     exchange_refresh_token,
 )
 from apps.accounts.services.password_reset import (
@@ -30,7 +25,22 @@ from apps.accounts.services.password_reset import (
     reset_password,
     validate_password_reset_token,
 )
+from apps.accounts.services.totp import (
+    complete_mfa_login,
+    confirm_totp_setup,
+    create_mfa_login_challenge,
+    disable_totp,
+    get_user_2fa_status,
+    start_totp_setup,
+    verify_user_otp,
+)
+from apps.accounts.services.password_reset import (
+    request_password_reset,
+    reset_password,
+    validate_password_reset_token,
+)
 from apps.accounts.services.verification import resend_verification_email, verify_email_token
+from apps.accounts.authentication import UnlinkedAuth0User, auth0_sub_from_id_token
 from apps.accounts.models import User
 from apps.accounts.utils.responses import api_error, api_response, first_validation_message
 
@@ -186,6 +196,15 @@ class LoginView(APIView):
             user.auth_0_id = auth0_sub_from_id_token(tokens["id_token"])
             user.save(update_fields=["auth_0_id"])
 
+        if user.is_2fa_enabled:
+            challenge = create_mfa_login_challenge(user, tokens)
+            return api_error(
+                message="Voer uw tweefactorcode in.",
+                error="mfa_required",
+                data={"mfa_token": challenge.token},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         return api_response(data=tokens, message="Ingelogd.")
 
 
@@ -247,12 +266,12 @@ class MfaStatusView(APIView):
             return error_response
 
         return api_response(
-            data=get_user_mfa_status(user),
-            message="MFA-status opgehaald.",
+            data=get_user_2fa_status(user),
+            message="2FA-status opgehaald.",
         )
 
 
-class MfaEnrollStartView(APIView):
+class TwoFactorSetupView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -260,7 +279,79 @@ class MfaEnrollStartView(APIView):
         if error_response:
             return error_response
 
-        serializer = MfaEnrollStartSerializer(data=request.data)
+        try:
+            setup_data = start_totp_setup(user)
+        except ValueError as exc:
+            if str(exc) == "already_enabled":
+                return api_error(
+                    message="2FA is al actief op uw account.",
+                    error="already_enabled",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            raise
+
+        return api_response(
+            data=setup_data,
+            message="Scan de QR-code en bevestig met een verificatiecode.",
+        )
+
+
+class TwoFactorVerifyView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user, error_response = _linked_user_or_error(request)
+        if error_response:
+            return error_response
+
+        serializer = TwoFactorVerifySerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            backup_codes = confirm_totp_setup(user, serializer.validated_data["otp"])
+        except ValueError as exc:
+            error_code = str(exc)
+            if error_code == "invalid_otp":
+                return api_error(
+                    message="Ongeldige verificatiecode.",
+                    error="invalid_otp",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if error_code == "setup_not_started":
+                return api_error(
+                    message="Start eerst de 2FA-setup.",
+                    error="setup_not_started",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if error_code == "already_enabled":
+                return api_error(
+                    message="2FA is al actief op uw account.",
+                    error="already_enabled",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            raise
+
+        return api_response(
+            data={"backup_codes": backup_codes},
+            message="2FA is geactiveerd. Bewaar uw backupcodes op een veilige plek.",
+        )
+
+
+class TwoFactorDisableView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user, error_response = _linked_user_or_error(request)
+        if error_response:
+            return error_response
+
+        serializer = TwoFactorDisableSerializer(data=request.data)
         if not serializer.is_valid():
             return api_error(
                 message=first_validation_message(serializer),
@@ -270,30 +361,11 @@ class MfaEnrollStartView(APIView):
             )
 
         password = serializer.validated_data["password"]
+        otp = serializer.validated_data["otp"]
 
         try:
-            exchange_password_for_mfa_setup(user.email, password)
+            exchange_password(user.email, password)
         except Auth0LoginError as exc:
-            if exc.error == "enrollment_required":
-                return api_response(
-                    data={
-                        "enrolled": False,
-                        "mfa_token": exc.data.get("mfa_token", ""),
-                    },
-                    message="Scan de QR-code en bevestig met een verificatiecode.",
-                )
-            if exc.error == "mfa_required":
-                mfa_token = exc.data.get("mfa_token", "")
-                if mfa_token:
-                    return api_response(
-                        data={"enrolled": False, "mfa_token": mfa_token},
-                        message="2FA is al actief. Voer uw huidige code in om opnieuw te koppelen.",
-                    )
-                return api_error(
-                    message="2FA is al actief op uw account.",
-                    error="already_enrolled",
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
             if exc.error == "invalid_credentials":
                 return api_error(
                     message="Onjuist wachtwoord.",
@@ -306,21 +378,74 @@ class MfaEnrollStartView(APIView):
                 status=exc.status_code,
             )
 
-        return api_response(
-            data={"enrolled": False, "mfa_token": None},
-            message=(
-                "Auth0 start geen 2FA-inschrijving. Zet in Auth0 Dashboard → Security → "
-                "Multi-factor Auth op 'Always' (of adaptive) en probeer opnieuw."
-            ),
-        )
+        if not user.is_2fa_enabled:
+            return api_error(
+                message="2FA is niet actief op uw account.",
+                error="not_enabled",
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not verify_user_otp(user, otp):
+            return api_error(
+                message="Ongeldige verificatiecode.",
+                error="invalid_otp",
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        disable_totp(user)
+        return api_response(message="2FA is uitgeschakeld.")
 
 
 class ResetAuthenticatorView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        reset_mfa(request.user)
-        return api_response(message="Authenticator gereset. Stel 2FA opnieuw in bij de volgende login.")
+        user, error_response = _linked_user_or_error(request)
+        if error_response:
+            return error_response
+
+        disable_totp(user)
+        return api_response(message="Authenticator gereset. Stel 2FA opnieuw in.")
+
+
+class MfaLoginView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = MfaLoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = serializer.validated_data
+        try:
+            tokens = complete_mfa_login(
+                data["mfa_token"],
+                otp=data.get("otp"),
+                backup_code=data.get("backup_code"),
+            )
+        except ValueError as exc:
+            error_code = str(exc)
+            if error_code == "invalid_token":
+                return api_error(
+                    message="MFA-sessie ongeldig of verlopen. Log opnieuw in.",
+                    error="invalid_token",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if error_code == "invalid_otp":
+                return api_error(
+                    message="Ongeldige verificatiecode.",
+                    error="invalid_otp",
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+            raise
+
+        return api_response(data=tokens, message="Ingelogd.")
 
 
 class PasswordResetRequestView(APIView):

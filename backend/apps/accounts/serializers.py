@@ -81,8 +81,30 @@ class RefreshTokenSerializer(serializers.Serializer):
     refresh = serializers.CharField()
 
 
-class MfaEnrollStartSerializer(serializers.Serializer):
+class TwoFactorVerifySerializer(serializers.Serializer):
+    otp = serializers.CharField(max_length=10)
+
+
+class TwoFactorDisableSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
+    otp = serializers.CharField(max_length=10)
+
+
+class MfaLoginSerializer(serializers.Serializer):
+    mfa_token = serializers.CharField(max_length=64)
+    otp = serializers.CharField(max_length=10, required=False, allow_blank=True)
+    backup_code = serializers.CharField(max_length=32, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        otp = (attrs.get("otp") or "").strip()
+        backup_code = (attrs.get("backup_code") or "").strip()
+        if not otp and not backup_code:
+            raise serializers.ValidationError(
+                "Voer een verificatiecode of backupcode in.",
+            )
+        attrs["otp"] = otp or None
+        attrs["backup_code"] = backup_code or None
+        return attrs
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -120,5 +142,6 @@ class UserSerializer(serializers.ModelSerializer):
             "is_premium",
             "active_tax_year",
             "has_fiscal_partner",
+            "is_2fa_enabled",
         ]
         read_only_fields = fields

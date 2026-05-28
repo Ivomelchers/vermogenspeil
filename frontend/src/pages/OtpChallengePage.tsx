@@ -10,7 +10,7 @@ import {
 } from "@chakra-ui/react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 
-import { confirmOtpChallenge } from "../api/auth";
+import { completeMfaLogin } from "../api/auth";
 import AuthAlert from "../components/auth/AuthAlert";
 import AuthFormField from "../components/auth/AuthFormField";
 import FiscalCard from "../components/common/FiscalCard";
@@ -26,6 +26,8 @@ export default function OtpChallengePage() {
   const rememberMe = localStorage.getItem("rememberMe") === "true";
 
   const [otp, setOtp] = useState("");
+  const [backupCode, setBackupCode] = useState("");
+  const [useBackupCode, setUseBackupCode] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,7 +52,11 @@ export default function OtpChallengePage() {
     setIsSubmitting(true);
 
     try {
-      const tokens = await confirmOtpChallenge({ mfa_token: mfaToken, otp: otp.trim() });
+      const tokens = await completeMfaLogin({
+        mfa_token: mfaToken,
+        otp: useBackupCode ? undefined : otp.trim(),
+        backup_code: useBackupCode ? backupCode.trim() : undefined,
+      });
       await completeMfaLoginFlow(tokens, rememberMe);
       navigate("/dashboard", { replace: true });
     } catch (submitError) {
@@ -73,25 +79,51 @@ export default function OtpChallengePage() {
             <Kicker mb={2}>Beveiliging</Kicker>
             <Heading size="lg">Tweefactorauthenticatie</Heading>
             <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.7}>
-              Voer de 6-cijferige code uit uw authenticator-app in.
+              {useBackupCode
+                ? "Voer een ongebruikte backupcode in."
+                : "Voer de 6-cijferige code uit uw authenticator-app in."}
             </Text>
           </Box>
 
           {error && <AuthAlert tone="error">{error}</AuthAlert>}
 
-          <AuthFormField
-            label="Verificatiecode"
-            name="otp"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={otp}
-            onChange={(event) => setOtp(event.target.value)}
-            isRequired
-          />
+          {useBackupCode ? (
+            <AuthFormField
+              label="Backupcode"
+              name="backup_code"
+              type="text"
+              autoComplete="one-time-code"
+              value={backupCode}
+              onChange={(event) => setBackupCode(event.target.value)}
+              isRequired
+            />
+          ) : (
+            <AuthFormField
+              label="Verificatiecode"
+              name="otp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={otp}
+              onChange={(event) => setOtp(event.target.value)}
+              isRequired
+            />
+          )}
 
           <Button type="submit" variant="fiscal" w="full" isLoading={isSubmitting}>
             Verifiëren
+          </Button>
+
+          <Button
+            type="button"
+            variant="fiscalOutline"
+            w="full"
+            onClick={() => {
+              setUseBackupCode((current) => !current);
+              setError("");
+            }}
+          >
+            {useBackupCode ? "Gebruik authenticator-code" : "Gebruik backupcode"}
           </Button>
 
           <Text fontSize="sm" color="ink.dim" textAlign="center">

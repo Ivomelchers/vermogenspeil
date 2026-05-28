@@ -3,32 +3,39 @@ import {
   Badge,
   Box,
   Button,
+  Code,
   Heading,
   Text,
   VStack,
 } from "@chakra-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getMfaStatus, resetMfa, startMfaEnroll, type Auth0TokenResponse } from "../api/auth";
+import {
+  getMfaStatus,
+  resetMfa,
+  startTwoFactorSetup,
+  disableTwoFactor,
+  type TwoFactorSetupResponse,
+} from "../api/auth";
 import AuthAlert from "../components/auth/AuthAlert";
 import AuthFormField from "../components/auth/AuthFormField";
 import MfaEnrollPanel from "../components/auth/MfaEnrollPanel";
 import FiscalCard from "../components/common/FiscalCard";
 import Kicker from "../components/common/Kicker";
-import { useUser } from "../contexts/UserContext";
 import { getApiErrorMessage } from "../utils/apiError";
 
 export default function TwoFactorSetupPage() {
-  const { completeMfaLoginFlow } = useUser();
   const queryClient = useQueryClient();
-  const rememberMe = localStorage.getItem("rememberMe") === "true";
 
-  const [password, setPassword] = useState("");
-  const [enrollToken, setEnrollToken] = useState<string | null>(null);
+  const [setupData, setSetupData] = useState<TwoFactorSetupResponse | null>(null);
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableOtp, setDisableOtp] = useState("");
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
   const [isStartingEnroll, setIsStartingEnroll] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isDisabling, setIsDisabling] = useState(false);
 
   const mfaStatusQuery = useQuery({
     queryKey: ["mfa", "status"],
@@ -36,23 +43,15 @@ export default function TwoFactorSetupPage() {
   });
 
   const enrolled = mfaStatusQuery.data?.enrolled ?? false;
-  const statusAvailable = mfaStatusQuery.data?.status_available ?? true;
 
-  async function handleStartEnroll(event: FormEvent) {
-    event.preventDefault();
+  async function handleStartEnroll() {
     setError("");
     setInfoMessage("");
     setIsStartingEnroll(true);
 
     try {
-      const result = await startMfaEnroll(password);
-      if (result.mfa_token) {
-        setEnrollToken(result.mfa_token);
-        return;
-      }
-      setInfoMessage(
-        "Auth0 start geen 2FA-setup. Zet in Auth0 Dashboard → Security → Multi-factor Auth op 'Always' en probeer opnieuw.",
-      );
+      const result = await startTwoFactorSetup();
+      setSetupData(result);
     } catch (submitError) {
       setError(getApiErrorMessage(submitError, "2FA inschakelen mislukt."));
     } finally {
@@ -67,13 +66,10 @@ export default function TwoFactorSetupPage() {
 
     try {
       const response = await resetMfa();
-      setEnrollToken(null);
-      setPassword("");
+      setSetupData(null);
+      setBackupCodes([]);
       await queryClient.invalidateQueries({ queryKey: ["mfa", "status"] });
-      setInfoMessage(
-        response.message ??
-          "Authenticator gereset. Stel 2FA opnieuw in bij de volgende login.",
-      );
+      setInfoMessage(response.message ?? "Authenticator gereset. Stel 2FA opnieuw in.");
     } catch (submitError) {
       setError(getApiErrorMessage(submitError, "Resetten van 2FA mislukt."));
     } finally {
@@ -81,15 +77,33 @@ export default function TwoFactorSetupPage() {
     }
   }
 
-  async function handleEnrollSuccess(tokens: Auth0TokenResponse) {
-    await completeMfaLoginFlow(tokens, rememberMe);
-    setEnrollToken(null);
-    setPassword("");
+  async function handleEnrollSuccess(codes: string[]) {
+    setSetupData(null);
+    setBackupCodes(codes);
     await queryClient.invalidateQueries({ queryKey: ["mfa", "status"] });
     setInfoMessage("2FA is geactiveerd op uw account.");
   }
 
-  if (enrollToken) {
+  async function handleDisable(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    setInfoMessage("");
+    setIsDisabling(true);
+
+    try {
+      const response = await disableTwoFactor(disablePassword, disableOtp.trim());
+      setDisablePassword("");
+      setDisableOtp("");
+      await queryClient.invalidateQueries({ queryKey: ["mfa", "status"] });
+      setInfoMessage(response.message ?? "2FA is uitgeschakeld.");
+    } catch (submitError) {
+      setError(getApiErrorMessage(submitError, "2FA uitschakelen mislukt."));
+    } finally {
+      setIsDisabling(false);
+    }
+  }
+
+  if (setupData) {
     return (
       <VStack align="stretch" spacing={8} maxW="2xl">
         <Box>
@@ -97,9 +111,9 @@ export default function TwoFactorSetupPage() {
           <Heading size="lg">2FA instellen</Heading>
         </Box>
         <MfaEnrollPanel
-          mfaToken={enrollToken}
+          setupData={setupData}
           onSuccess={handleEnrollSuccess}
-          onCancel={() => setEnrollToken(null)}
+          onCancel={() => setSetupData(null)}
         />
       </VStack>
     );
@@ -118,11 +132,22 @@ export default function TwoFactorSetupPage() {
 
       {error && <AuthAlert tone="error">{error}</AuthAlert>}
       {infoMessage && <AuthAlert tone="success">{infoMessage}</AuthAlert>}
-      {!statusAvailable && !mfaStatusQuery.isLoading && (
-        <AuthAlert tone="info">
-          MFA-status kon niet worden opgehaald. Voeg in Auth0 bij de M2M-app de scope{" "}
-          <strong>read:authentication_methods</strong> toe (naast delete/create/update).
-        </AuthAlert>
+
+      {backupCodes.length > 0 && (
+        <FiscalCard p={6}>
+          <VStack align="stretch" spacing={3}>
+            <Text fontWeight={600}>Backupcodes</Text>
+            <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
+              Bewaar deze codes op een veilige plek. Elke code kan één keer worden gebruikt
+              als uw authenticator niet beschikbaar is.
+            </Text>
+            {backupCodes.map((code) => (
+              <Code key={code} p={2}>
+                {code}
+              </Code>
+            ))}
+          </VStack>
+        </FiscalCard>
       )}
 
       <FiscalCard p={6}>
@@ -142,31 +167,16 @@ export default function TwoFactorSetupPage() {
 
       {!enrolled && !mfaStatusQuery.isLoading && (
         <FiscalCard p={6}>
-          <VStack
-            as="form"
-            align="stretch"
-            spacing={4}
-            onSubmit={handleStartEnroll}
-          >
+          <VStack align="stretch" spacing={4}>
             <Text fontWeight={600}>2FA inschakelen</Text>
             <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
-              Bevestig uw wachtwoord om de setup te starten. Scan daarna de QR-code
-              met uw authenticator-app.
+              Scan daarna de QR-code met uw authenticator-app en bevestig met een code.
             </Text>
-            <AuthFormField
-              label="Huidig wachtwoord"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              isRequired
-            />
             <Button
-              type="submit"
               variant="fiscal"
               alignSelf="flex-start"
               isLoading={isStartingEnroll}
+              onClick={() => void handleStartEnroll()}
             >
               2FA instellen
             </Button>
@@ -175,23 +185,65 @@ export default function TwoFactorSetupPage() {
       )}
 
       {enrolled && (
-        <FiscalCard p={6}>
-          <VStack align="stretch" spacing={4}>
-            <Text fontWeight={600}>Authenticator resetten</Text>
-            <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
-              Verwijdert uw huidige authenticator. Bij de volgende login moet u 2FA
-              opnieuw instellen.
-            </Text>
-            <Button
-              variant="fiscalOutline"
-              alignSelf="flex-start"
-              isLoading={isResetting}
-              onClick={() => void handleResetMfa()}
+        <>
+          <FiscalCard p={6}>
+            <VStack
+              as="form"
+              align="stretch"
+              spacing={4}
+              onSubmit={handleDisable}
             >
-              Authenticator resetten
-            </Button>
-          </VStack>
-        </FiscalCard>
+              <Text fontWeight={600}>2FA uitschakelen</Text>
+              <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
+                Bevestig met uw wachtwoord en een actuele verificatiecode.
+              </Text>
+              <AuthFormField
+                label="Huidig wachtwoord"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                value={disablePassword}
+                onChange={(event) => setDisablePassword(event.target.value)}
+                isRequired
+              />
+              <AuthFormField
+                label="Verificatiecode"
+                name="otp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={disableOtp}
+                onChange={(event) => setDisableOtp(event.target.value)}
+                isRequired
+              />
+              <Button
+                type="submit"
+                variant="fiscalOutline"
+                alignSelf="flex-start"
+                isLoading={isDisabling}
+              >
+                2FA uitschakelen
+              </Button>
+            </VStack>
+          </FiscalCard>
+
+          <FiscalCard p={6}>
+            <VStack align="stretch" spacing={4}>
+              <Text fontWeight={600}>Authenticator resetten</Text>
+              <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
+                Verwijdert uw huidige authenticator zodat u 2FA opnieuw kunt instellen.
+              </Text>
+              <Button
+                variant="fiscalOutline"
+                alignSelf="flex-start"
+                isLoading={isResetting}
+                onClick={() => void handleResetMfa()}
+              >
+                Authenticator resetten
+              </Button>
+            </VStack>
+          </FiscalCard>
+        </>
       )}
     </VStack>
   );

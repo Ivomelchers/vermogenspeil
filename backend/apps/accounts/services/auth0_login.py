@@ -37,19 +37,6 @@ def exchange_password(email: str, password: str) -> dict:
     return _post_token(payload)
 
 
-def exchange_password_for_mfa_setup(email: str, password: str) -> dict:
-    """Password grant with MFA step-up to trigger enrollment or challenge."""
-    payload = {
-        **_base_payload(),
-        "grant_type": "password",
-        "username": email,
-        "password": password,
-        "realm": settings.AUTH0_CONNECTION,
-        "acr_values": "http://schemas.openid.net/pape/policies/2007/06/multi-factor",
-    }
-    return _post_token(payload)
-
-
 def exchange_refresh_token(refresh_token: str) -> dict:
     payload = {
         **_base_payload(),

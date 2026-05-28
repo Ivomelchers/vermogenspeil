@@ -182,22 +182,27 @@ class Auth0LoginViewTests(APITestCase):
         self.assertEqual(response.data["error"], "email_not_verified")
 
     @patch("apps.accounts.views.exchange_password")
-    def test_login_returns_mfa_required(self, mock_exchange):
-        mock_exchange.side_effect = Auth0LoginError(
-            "mfa_required",
-            "Voer uw tweefactorcode in.",
-            status_code=403,
-            data={"mfa_token": "mfa-token-123"},
-        )
-        response = self.client.post(
-            "/api/v1/auth/login/",
-            {"email": "login@example.com", "password": "SecurePass123!"},
-            format="json",
-        )
+    def test_login_returns_mfa_required_for_local_2fa(self, mock_exchange):
+        self.user.is_2fa_enabled = True
+        self.user.totp_secret_encrypted = "encrypted-placeholder"
+        self.user.save(update_fields=["is_2fa_enabled", "totp_secret_encrypted"])
+        mock_exchange.return_value = {
+            "id_token": "id-token",
+            "access_token": "access-token",
+            "refresh_token": "refresh-token",
+        }
+
+        with patch("apps.accounts.views.create_mfa_login_challenge") as mock_challenge:
+            mock_challenge.return_value.token = "local-mfa-token"
+            response = self.client.post(
+                "/api/v1/auth/login/",
+                {"email": "login@example.com", "password": "SecurePass123!"},
+                format="json",
+            )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.data["error"], "mfa_required")
-        self.assertEqual(response.data["data"]["mfa_token"], "mfa-token-123")
+        self.assertEqual(response.data["data"]["mfa_token"], "local-mfa-token")
 
 
 class MfaSettingsTests(APITestCase):
@@ -206,70 +211,14 @@ class MfaSettingsTests(APITestCase):
         self.user = make_user()
 
     @patch("apps.accounts.authentication.jwt_decode_token")
-    @patch("apps.accounts.views.get_user_mfa_status")
-    def test_mfa_status_returns_enrollment_state(self, mock_status, mock_decode):
+    def test_mfa_status_returns_enrollment_state(self, mock_decode):
         mock_decode.return_value = {"sub": self.user.auth_0_id, "email": self.user.email}
-        mock_status.return_value = {"enrolled": True}
+        self.user.is_2fa_enabled = True
+        self.user.save(update_fields=["is_2fa_enabled"])
         self.client.credentials(HTTP_AUTHORIZATION="Bearer fake-token")
 
         response = self.client.get("/api/v1/auth/mfa/status/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["data"]["enrolled"])
-
-    @patch("apps.accounts.authentication.jwt_decode_token")
-    @patch("apps.accounts.views.exchange_password_for_mfa_setup")
-    def test_mfa_enroll_start_returns_mfa_token(self, mock_exchange, mock_decode):
-        mock_decode.return_value = {"sub": self.user.auth_0_id, "email": self.user.email}
-        mock_exchange.side_effect = Auth0LoginError(
-            "enrollment_required",
-            "Stel tweefactorauthenticatie in.",
-            status_code=403,
-            data={"mfa_token": "enroll-token"},
-        )
-        self.client.credentials(HTTP_AUTHORIZATION="Bearer fake-token")
-
-        response = self.client.post(
-            "/api/v1/auth/mfa/enroll/start/",
-            {"password": "SecurePass123!"},
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["data"]["mfa_token"], "enroll-token")
-
-    @patch("apps.accounts.authentication.jwt_decode_token")
-    def test_mfa_enroll_start_rejects_wrong_password(self, mock_decode):
-        mock_decode.return_value = {"sub": self.user.auth_0_id, "email": self.user.email}
-        self.client.credentials(HTTP_AUTHORIZATION="Bearer fake-token")
-
-        with patch("apps.accounts.views.exchange_password_for_mfa_setup") as mock_exchange:
-            mock_exchange.side_effect = Auth0LoginError(
-                "invalid_credentials",
-                "Ongeldige inloggegevens.",
-                status_code=401,
-            )
-            response = self.client.post(
-                "/api/v1/auth/mfa/enroll/start/",
-                {"password": "wrong-password"},
-                format="json",
-            )
-
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(response.data["error"], "invalid_credentials")
-
-    @patch("apps.accounts.authentication.jwt_decode_token")
-    @patch("apps.accounts.authentication.requests.get")
-    def test_mfa_status_handles_auth0_forbidden(self, mock_get, mock_decode):
-        mock_decode.return_value = {"sub": self.user.auth_0_id, "email": self.user.email}
-        mock_response = mock_get.return_value
-        mock_response.status_code = 403
-        mock_response.ok = False
-        mock_response.text = "Forbidden"
-        self.client.credentials(HTTP_AUTHORIZATION="Bearer fake-token")
-
-        response = self.client.get("/api/v1/auth/mfa/status/")
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(response.data["data"]["enrolled"])
-        self.assertFalse(response.data["data"]["status_available"])
+        self.assertTrue(response.data["data"]["status_available"])

@@ -1,6 +1,6 @@
 import axios, { isAxiosError } from "axios";
 
-import { api, authApi } from "./api";
+import { api } from "./api";
 
 const rawBaseURL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
@@ -23,6 +23,7 @@ export interface AuthUser {
   is_premium: boolean;
   active_tax_year: number;
   has_fiscal_partner: boolean;
+  is_2fa_enabled: boolean;
 }
 
 export interface Auth0TokenResponse {
@@ -31,21 +32,14 @@ export interface Auth0TokenResponse {
   refresh_token: string;
 }
 
-export interface Auth0Authenticator {
-  id: string;
-  authenticator_type: "otp" | "oob";
-  active: boolean;
-}
-
 export interface MfaStatus {
   enrolled: boolean;
   status_available?: boolean;
 }
 
-export interface MfaEnrollAssociateResponse {
+export interface TwoFactorSetupResponse {
   secret: string;
   barcode_uri: string;
-  client_secret?: string;
 }
 
 export const auth = async (): Promise<AuthUser> => {
@@ -67,6 +61,22 @@ export const login = async ({
   return res.data.data;
 };
 
+export const completeMfaLogin = async (data: {
+  mfa_token: string;
+  otp?: string;
+  backup_code?: string;
+}): Promise<Auth0TokenResponse> => {
+  const res = await axios.post<ApiEnvelope<Auth0TokenResponse>>(
+    `${baseURL}auth/login/mfa/`,
+    data,
+    {
+      headers: { "Content-Type": "application/json" },
+      timeout: 120_000,
+    },
+  );
+  return res.data.data;
+};
+
 export const refreshToken = async (refreshTokenValue: string): Promise<Auth0TokenResponse> => {
   const res = await axios.post<ApiEnvelope<Auth0TokenResponse>>(
     `${baseURL}auth/token/refresh/`,
@@ -77,70 +87,6 @@ export const refreshToken = async (refreshTokenValue: string): Promise<Auth0Toke
     },
   );
   return res.data.data;
-};
-
-export const getAuthenticators = async (mfaToken: string): Promise<Auth0Authenticator[]> => {
-  const res = await authApi.get<Auth0Authenticator[]>("mfa/authenticators", {
-    headers: {
-      Authorization: `Bearer ${mfaToken}`,
-    },
-  });
-  return res.data.filter(
-    (authenticator) => authenticator.active && authenticator.authenticator_type === "otp",
-  );
-};
-
-function mfaOtpTokenPayload(data: {
-  mfa_token: string;
-  otp: string;
-  binding_secret?: string;
-}): Record<string, string> {
-  const payload: Record<string, string> = {
-    client_id: import.meta.env.VITE_AUTH0_CLIENT_ID,
-    grant_type: "http://auth0.com/oauth/grant-type/mfa-otp",
-    scope: "openid profile email offline_access",
-    mfa_token: data.mfa_token,
-    otp: data.otp,
-  };
-  if (data.binding_secret) {
-    payload.client_secret = data.binding_secret;
-  }
-  return payload;
-}
-
-export const confirmOtpChallenge = async (data: {
-  mfa_token: string;
-  otp: string;
-}): Promise<Auth0TokenResponse> => {
-  const res = await authApi.post<Auth0TokenResponse>(
-    "/oauth/token",
-    mfaOtpTokenPayload(data),
-  );
-  return res.data;
-};
-
-export const enrollAuthenticator = async (mfaToken: string) => {
-  const res = await authApi.post(
-    "mfa/associate/",
-    {
-      authenticator_types: ["otp"],
-      client_id: import.meta.env.VITE_AUTH0_CLIENT_ID,
-    },
-    { headers: { Authorization: `Bearer ${mfaToken}` } },
-  );
-  return res.data as MfaEnrollAssociateResponse;
-};
-
-export const enrollAuthenticatorConfirm = async (data: {
-  mfa_token: string;
-  otp: string;
-  binding_secret?: string;
-}): Promise<Auth0TokenResponse> => {
-  const res = await authApi.post<Auth0TokenResponse>(
-    "/oauth/token",
-    mfaOtpTokenPayload(data),
-  );
-  return res.data;
 };
 
 export const register = async (data: {
@@ -201,16 +147,26 @@ export const getMfaStatus = async (): Promise<MfaStatus> => {
   return res.data.data;
 };
 
-export const startMfaEnroll = async (
-  password: string,
-): Promise<{ enrolled: boolean; mfa_token: string | null }> => {
-  const res = await api.post<
-    ApiEnvelope<{ enrolled: boolean; mfa_token: string | null }>
-  >("auth/mfa/enroll/start/", { password });
+export const startTwoFactorSetup = async (): Promise<TwoFactorSetupResponse> => {
+  const res = await api.post<ApiEnvelope<TwoFactorSetupResponse>>("auth/2fa/setup/");
   return res.data.data;
 };
 
-export function isAuth0MfaRequired(error: unknown): boolean {
+export const verifyTwoFactorSetup = async (
+  otp: string,
+): Promise<{ backup_codes: string[] }> => {
+  const res = await api.post<ApiEnvelope<{ backup_codes: string[] }>>("auth/2fa/verify/", {
+    otp,
+  });
+  return res.data.data;
+};
+
+export const disableTwoFactor = async (password: string, otp: string) => {
+  const res = await api.post<ApiEnvelope<null>>("auth/2fa/disable/", { password, otp });
+  return res.data;
+};
+
+export function isMfaRequired(error: unknown): boolean {
   if (isAxiosError<ApiEnvelope<{ mfa_token?: string }>>(error)) {
     const body = error.response?.data;
     return body?.error === "mfa_required" && Boolean(body?.data?.mfa_token);
@@ -218,21 +174,7 @@ export function isAuth0MfaRequired(error: unknown): boolean {
   return false;
 }
 
-export function getAuth0MfaToken(error: unknown): string | undefined {
-  if (isAxiosError<ApiEnvelope<{ mfa_token?: string }>>(error)) {
-    return error.response?.data?.data?.mfa_token;
-  }
-  return undefined;
-}
-
-export function isAuth0EnrollmentRequired(error: unknown): boolean {
-  if (isAxiosError<ApiEnvelope<{ mfa_token?: string }>>(error)) {
-    return error.response?.data?.error === "enrollment_required";
-  }
-  return false;
-}
-
-export function getAuth0EnrollmentMfaToken(error: unknown): string | undefined {
+export function getMfaToken(error: unknown): string | undefined {
   if (isAxiosError<ApiEnvelope<{ mfa_token?: string }>>(error)) {
     return error.response?.data?.data?.mfa_token;
   }
