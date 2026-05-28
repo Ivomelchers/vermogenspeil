@@ -20,17 +20,19 @@ export interface RegisterPayload {
 export const login = async (
   credentials: LoginCredentials,
 ): Promise<TokenResponse> => {
-  const res = await api.post("auth/login/", credentials);
-  return res.data;
+  const res = await api.post<{ data: TokenResponse }>("auth/login/", credentials);
+  return res.data.data;
 };
 
 export const refreshToken = async (refresh: string): Promise<TokenResponse> => {
-  const res = await api.post("auth/token/refresh/", { refresh });
-  return res.data;
+  const res = await api.post<{ data: TokenResponse }>("auth/token/refresh/", {
+    refresh,
+  });
+  return res.data.data;
 };
 
-export const logout = async () => {
-  const res = await api.post("auth/logout/");
+export const logout = async (refresh: string) => {
+  const res = await api.post("auth/logout/", { refresh });
   return res.data;
 };
 

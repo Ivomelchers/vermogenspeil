@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "vermogenspeil-api-v1",
     "name": "Vermogenspeil API",
-    "description": "MijnVermogen / Vermogenspeil REST API (v1).\n\n**Werkend nu:** Health, Register, Verify Email, Resend Verification.\n\n**Gepland (fase 2.3+):** Login, JWT, logout, password reset, 2FA — endpoints staan er al in maar geven 404 tot geïmplementeerd.\n\nStel `baseUrl` in:\n- Lokaal: `http://localhost:8000/api/v1`\n- Render: `https://vermogenspeil-api.onrender.com/api/v1`",
+    "description": "MijnVermogen / Vermogenspeil REST API (v1).\n\n**Werkend nu:** Health, Register, Verify Email, Resend Verification, Login, JWT Refresh, Logout.\n\n**Gepland (fase 2.4+):** Password reset, 2FA — endpoints staan er al in maar geven 404 tot geïmplementeerd.\n\nStel `baseUrl` in:\n- Lokaal: `http://localhost:8000/api/v1`\n- Render: `https://vermogenspeil-api.onrender.com/api/v1`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -161,15 +161,29 @@
             "description": "Stuurt nieuwe verificatielink (alleen voor ongeverifieerde accounts). Geeft altijd 200 (geen e-mail enumeration)."
           },
           "response": []
-        }
-      ]
-    },
-    {
-      "name": "Auth (planned — fase 2.3+)",
-      "description": "Endpoints uit roadmap — nog niet geïmplementeerd. Verwacht 404 tot fase 2.3–2.5.",
-      "item": [
+        },
         {
           "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', json.data.access);",
+                  "    pm.collectionVariables.set('refreshToken', json.data.refresh);",
+                  "    pm.test('Login succeeded', () => {",
+                  "        pm.expect(json.error).to.eql(null);",
+                  "        pm.expect(json.data.access).to.be.a('string');",
+                  "        pm.expect(json.data.refresh).to.be.a('string');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "noauth"
@@ -190,12 +204,29 @@
               "host": ["{{baseUrl}}"],
               "path": ["auth", "login", ""]
             },
-            "description": "Fase 2.3 — JWT login. Blokkeert ongeverifieerde users."
+            "description": "JWT login. Blokkeert ongeverifieerde users (`email_not_verified`). Slaat access/refresh tokens op in collection variables."
           },
           "response": []
         },
         {
           "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', json.data.access);",
+                  "    if (json.data.refresh) {",
+                  "        pm.collectionVariables.set('refreshToken', json.data.refresh);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -213,7 +244,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["auth", "token", "refresh", ""]
             },
-            "description": "Fase 2.3 — JWT refresh."
+            "description": "JWT refresh — nieuwe access token (en optioneel nieuwe refresh bij rotate)."
           },
           "response": []
         },
@@ -231,15 +262,25 @@
                 "value": "Bearer {{accessToken}}"
               }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refreshToken}}\"\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/auth/logout/",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "logout", ""]
             },
-            "description": "Fase 2.3 — JWT blacklist logout."
+            "description": "JWT blacklist logout. Vereist access token + refresh token in body."
           },
           "response": []
-        },
+        }
+      ]
+    },
+    {
+      "name": "Auth (planned — fase 2.4+)",
+      "description": "Endpoints uit roadmap — nog niet geïmplementeerd. Verwacht 404 tot fase 2.4–2.5.",
+      "item": [
         {
           "name": "Password Reset Request",
           "request": {

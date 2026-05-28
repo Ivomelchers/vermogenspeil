@@ -5,13 +5,19 @@ const rawBaseURL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
 const baseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
 
+interface ApiEnvelope<T> {
+  data: T;
+  error: string | null;
+  message: string;
+}
+
 interface TokenResponse {
   access: string;
   refresh: string;
 }
 
 async function refreshAccessToken(refresh: string): Promise<TokenResponse> {
-  const res = await axios.post<TokenResponse>(
+  const res = await axios.post<ApiEnvelope<TokenResponse>>(
     `${baseURL}auth/token/refresh/`,
     { refresh },
     {
@@ -19,7 +25,7 @@ async function refreshAccessToken(refresh: string): Promise<TokenResponse> {
       timeout: 120_000,
     },
   );
-  return res.data;
+  return res.data.data;
 }
 
 export const api = axios.create({
