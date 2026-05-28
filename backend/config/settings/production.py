@@ -2,6 +2,8 @@
 
 import os
 
+import dj_database_url
+
 from .base import *  # noqa: F403
 
 DEBUG = False
@@ -11,6 +13,14 @@ if not SECRET_KEY or SECRET_KEY.startswith("django-insecure"):  # noqa: F405
 
 if not DATABASE_URL:  # noqa: F405
     raise ValueError("DATABASE_URL must be set in production")
+
+DATABASES = {  # noqa: F405
+    "default": dj_database_url.parse(
+        DATABASE_URL,  # noqa: F405
+        conn_max_age=600,
+        ssl_require=True,
+    )
+}
 
 _render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if _render_hostname and _render_hostname not in ALLOWED_HOSTS:  # noqa: F405
