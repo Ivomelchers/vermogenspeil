@@ -68,20 +68,19 @@ def _post_token(payload: dict) -> dict:
     error = data.get("error", "auth0_error")
     description = data.get("error_description", "Inloggen mislukt.")
 
-    if error == "mfa_required":
-        raise Auth0LoginError(
-            "mfa_required",
-            "Voer uw tweefactorcode in.",
-            status_code=403,
-            data={"mfa_token": data.get("mfa_token", "")},
+    if error in {"mfa_required", "enrollment_required"}:
+        logger.warning(
+            "Auth0 MFA is ingeschakeld voor %s — schakel uit in Auth0 Dashboard; "
+            "Vermogenspeil gebruikt eigen TOTP.",
+            payload.get("username", "unknown"),
         )
-
-    if error == "enrollment_required":
         raise Auth0LoginError(
-            "enrollment_required",
-            "Stel tweefactorauthenticatie in.",
-            status_code=403,
-            data={"mfa_token": data.get("mfa_token", "")},
+            "auth0_mfa_conflict",
+            (
+                "Auth0 MFA staat nog aan. Schakel MFA uit in Auth0 Dashboard → "
+                "Security → Multi-factor Auth. Vermogenspeil gebruikt eigen 2FA."
+            ),
+            status_code=503,
         )
 
     if error in {"invalid_grant", "access_denied"}:

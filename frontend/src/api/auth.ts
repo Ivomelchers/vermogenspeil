@@ -166,10 +166,17 @@ export const disableTwoFactor = async (password: string, otp: string) => {
   return res.data;
 };
 
+const LOCAL_MFA_TOKEN_MAX_LENGTH = 64;
+
 export function isMfaRequired(error: unknown): boolean {
   if (isAxiosError<ApiEnvelope<{ mfa_token?: string }>>(error)) {
     const body = error.response?.data;
-    return body?.error === "mfa_required" && Boolean(body?.data?.mfa_token);
+    const token = body?.data?.mfa_token ?? "";
+    return (
+      body?.error === "mfa_required" &&
+      token.length > 0 &&
+      token.length <= LOCAL_MFA_TOKEN_MAX_LENGTH
+    );
   }
   return false;
 }

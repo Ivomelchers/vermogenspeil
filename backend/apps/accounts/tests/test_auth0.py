@@ -204,6 +204,22 @@ class Auth0LoginViewTests(APITestCase):
         self.assertEqual(response.data["error"], "mfa_required")
         self.assertEqual(response.data["data"]["mfa_token"], "local-mfa-token")
 
+    @patch("apps.accounts.views.exchange_password")
+    def test_login_rejects_auth0_mfa_conflict(self, mock_exchange):
+        mock_exchange.side_effect = Auth0LoginError(
+            "auth0_mfa_conflict",
+            "Auth0 MFA staat nog aan.",
+            status_code=503,
+        )
+        response = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "login@example.com", "password": "SecurePass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(response.data["error"], "auth0_mfa_conflict")
+
 
 class MfaSettingsTests(APITestCase):
     def setUp(self):
