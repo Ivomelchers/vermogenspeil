@@ -15,21 +15,21 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: "Overzicht",
     items: [
-      { label: "Dashboard", to: "/react/dashboard" },
-      { label: "Portefeuille", to: "/react/dashboard" },
-      { label: "Transacties", to: "/react/dashboard" },
+      { label: "Dashboard", to: "/dashboard" },
+      { label: "Portefeuille", to: "/dashboard" },
+      { label: "Transacties", to: "/dashboard" },
     ],
   },
   {
     label: "Belasting",
     items: [
-      { label: "Belastingpositie", to: "/react/dashboard", premium: true },
-      { label: "Werkelijk rendement", to: "/react/dashboard", premium: true },
+      { label: "Belastingpositie", to: "/dashboard", premium: true },
+      { label: "Werkelijk rendement", to: "/dashboard", premium: true },
     ],
   },
   {
     label: "Account",
-    items: [{ label: "2FA beveiliging", to: "/react/settings/2fa" }],
+    items: [{ label: "2FA beveiliging", to: "/settings/2fa" }],
   },
 ];
 
@@ -117,7 +117,7 @@ export default function Sidebar() {
       py={8}
     >
       <Box px={7} pb={7} borderBottom="1px solid" borderColor="line.soft">
-        <BrandMark to="/react/dashboard" />
+        <BrandMark to="/dashboard" />
         <Kicker mt={2} color="azure.500">
           Box 3 · Forfaitair
         </Kicker>

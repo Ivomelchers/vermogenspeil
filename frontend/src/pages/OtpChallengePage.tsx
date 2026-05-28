@@ -52,7 +52,7 @@ export default function OtpChallengePage() {
     try {
       const tokens = await confirmOtpChallenge({ mfa_token: mfaToken, otp: otp.trim() });
       await completeMfaLoginFlow(tokens, rememberMe);
-      navigate("/react/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (submitError) {
       setError(
         getApiErrorMessage(

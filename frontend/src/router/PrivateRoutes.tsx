@@ -22,8 +22,8 @@ export function PrivateRoutes() {
   return (
     <Route element={<PrivateAuthGuard />}>
       <Route element={<AppLayout />}>
-        <Route path="/react/dashboard" element={<DashboardPage />} />
-        <Route path="/react/settings/2fa" element={<TwoFactorSetupPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/settings/2fa" element={<TwoFactorSetupPage />} />
       </Route>
     </Route>
   );

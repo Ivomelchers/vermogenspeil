@@ -23,7 +23,7 @@ export default function HomePage() {
         </Text>
         <Box pt={2}>
           {isAuthenticated ? (
-            <Button as={RouterLink} to="/react/dashboard" variant="fiscal">
+            <Button as={RouterLink} to="/dashboard" variant="fiscal">
               Naar dashboard
             </Button>
           ) : (

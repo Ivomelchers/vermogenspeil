@@ -64,7 +64,7 @@ export default function OtpEnrollPage() {
         client_secret: enrollData.client_secret,
       });
       await completeMfaLoginFlow(tokens, rememberMe);
-      navigate("/react/dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (submitError) {
       setError(getApiErrorMessage(submitError, "Ongeldige verificatiecode."));
     } finally {

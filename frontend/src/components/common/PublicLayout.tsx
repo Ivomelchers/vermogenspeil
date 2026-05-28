@@ -16,7 +16,7 @@ export default function PublicLayout() {
             {isAuthenticated ? (
               <Link
                 as={RouterLink}
-                to="/react/dashboard"
+                to="/dashboard"
                 color="azure.500"
                 _hover={{ color: "azure.600" }}
               >

@@ -5,8 +5,8 @@ import Kicker from "./Kicker";
 import Sidebar from "./Sidebar";
 
 const pageTitles: Record<string, string> = {
-  "/react/dashboard": "Dashboard",
-  "/react/settings/2fa": "Beveiliging",
+  "/dashboard": "Dashboard",
+  "/settings/2fa": "Beveiliging",
 };
 
 export default function AppLayout() {

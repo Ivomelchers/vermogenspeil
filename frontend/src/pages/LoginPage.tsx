@@ -25,7 +25,7 @@ export default function LoginPage() {
   const location = useLocation();
   const locationState = (location.state as { from?: string; message?: string } | null) ?? {};
   const redirectMessage = locationState.message;
-  const redirectTo = locationState.from ?? "/react/dashboard";
+  const redirectTo = locationState.from ?? "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

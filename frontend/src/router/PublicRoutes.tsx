@@ -27,7 +27,7 @@ function PublicAuthGuard() {
   const location = useLocation();
 
   if (isAuthenticated && !PUBLIC_AUTH_EXCEPTIONS.has(location.pathname)) {
-    return <Navigate to="/react/dashboard" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;
