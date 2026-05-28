@@ -37,6 +37,17 @@ export interface Auth0Authenticator {
   active: boolean;
 }
 
+export interface MfaStatus {
+  enrolled: boolean;
+  status_available?: boolean;
+}
+
+export interface MfaEnrollAssociateResponse {
+  secret: string;
+  barcode_uri: string;
+  client_secret?: string;
+}
+
 export const auth = async (): Promise<AuthUser> => {
   const res = await api.get<ApiEnvelope<AuthUser>>("auth/me/");
   return res.data.data;
@@ -79,44 +90,56 @@ export const getAuthenticators = async (mfaToken: string): Promise<Auth0Authenti
   );
 };
 
-export const confirmOtpChallenge = async (data: {
+function mfaOtpTokenPayload(data: {
   mfa_token: string;
   otp: string;
-}): Promise<Auth0TokenResponse> => {
-  const res = await authApi.post<Auth0TokenResponse>("/oauth/token", {
+  binding_secret?: string;
+}): Record<string, string> {
+  const payload: Record<string, string> = {
     client_id: import.meta.env.VITE_AUTH0_CLIENT_ID,
-    audience: `https://${import.meta.env.VITE_AUTH0_DOMAIN}/api/v2/`,
     grant_type: "http://auth0.com/oauth/grant-type/mfa-otp",
     scope: "openid profile email offline_access",
     mfa_token: data.mfa_token,
     otp: data.otp,
-  });
+  };
+  if (data.binding_secret) {
+    payload.client_secret = data.binding_secret;
+  }
+  return payload;
+}
+
+export const confirmOtpChallenge = async (data: {
+  mfa_token: string;
+  otp: string;
+}): Promise<Auth0TokenResponse> => {
+  const res = await authApi.post<Auth0TokenResponse>(
+    "/oauth/token",
+    mfaOtpTokenPayload(data),
+  );
   return res.data;
 };
 
 export const enrollAuthenticator = async (mfaToken: string) => {
   const res = await authApi.post(
     "mfa/associate/",
-    { authenticator_types: ["otp"] },
+    {
+      authenticator_types: ["otp"],
+      client_id: import.meta.env.VITE_AUTH0_CLIENT_ID,
+    },
     { headers: { Authorization: `Bearer ${mfaToken}` } },
   );
-  return res.data as { secret: string; barcode_uri: string };
+  return res.data as MfaEnrollAssociateResponse;
 };
 
 export const enrollAuthenticatorConfirm = async (data: {
   mfa_token: string;
   otp: string;
-  client_secret: string;
+  binding_secret?: string;
 }): Promise<Auth0TokenResponse> => {
-  const res = await authApi.post<Auth0TokenResponse>("/oauth/token", {
-    client_id: import.meta.env.VITE_AUTH0_CLIENT_ID,
-    audience: `https://${import.meta.env.VITE_AUTH0_DOMAIN}/api/v2/`,
-    grant_type: "http://auth0.com/oauth/grant-type/mfa-otp",
-    scope: "openid profile email offline_access",
-    mfa_token: data.mfa_token,
-    client_secret: data.client_secret,
-    otp: data.otp,
-  });
+  const res = await authApi.post<Auth0TokenResponse>(
+    "/oauth/token",
+    mfaOtpTokenPayload(data),
+  );
   return res.data;
 };
 
@@ -171,6 +194,20 @@ export const confirmPasswordReset = async (token: string, password: string) => {
 export const resetMfa = async () => {
   const res = await api.post<ApiEnvelope<null>>("auth/mfa/reset/");
   return res.data;
+};
+
+export const getMfaStatus = async (): Promise<MfaStatus> => {
+  const res = await api.get<ApiEnvelope<MfaStatus>>("auth/mfa/status/");
+  return res.data.data;
+};
+
+export const startMfaEnroll = async (
+  password: string,
+): Promise<{ enrolled: boolean; mfa_token: string | null }> => {
+  const res = await api.post<
+    ApiEnvelope<{ enrolled: boolean; mfa_token: string | null }>
+  >("auth/mfa/enroll/start/", { password });
+  return res.data.data;
 };
 
 export function isAuth0MfaRequired(error: unknown): boolean {

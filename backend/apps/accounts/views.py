@@ -2,9 +2,15 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
-from apps.accounts.authentication import UnlinkedAuth0User, auth0_sub_from_id_token, reset_mfa
+from apps.accounts.authentication import (
+    UnlinkedAuth0User,
+    auth0_sub_from_id_token,
+    get_user_mfa_status,
+    reset_mfa,
+)
 from apps.accounts.serializers import (
     LoginSerializer,
+    MfaEnrollStartSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RefreshTokenSerializer,
@@ -13,7 +19,12 @@ from apps.accounts.serializers import (
     UserSerializer,
     VerifyEmailSerializer,
 )
-from apps.accounts.services.auth0_login import Auth0LoginError, exchange_password, exchange_refresh_token
+from apps.accounts.services.auth0_login import (
+    Auth0LoginError,
+    exchange_password,
+    exchange_password_for_mfa_setup,
+    exchange_refresh_token,
+)
 from apps.accounts.services.password_reset import (
     request_password_reset,
     reset_password,
@@ -30,6 +41,17 @@ def _handle_value_error(exc, mapping):
         message, status_code = mapping[error_code]
         return api_error(message=message, error=error_code, status=status_code)
     return api_error(message="Er is iets misgegaan.", error="error", status=400)
+
+
+def _linked_user_or_error(request):
+    user = request.user
+    if isinstance(user, UnlinkedAuth0User):
+        return None, api_error(
+            message="Account niet gekoppeld. Neem contact op met support.",
+            error="account_not_linked",
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return user, None
 
 
 class RegisterView(APIView):
@@ -214,6 +236,83 @@ class MeView(APIView):
 
         serializer = UserSerializer(user)
         return api_response(data=serializer.data, message="Profiel opgehaald.")
+
+
+class MfaStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user, error_response = _linked_user_or_error(request)
+        if error_response:
+            return error_response
+
+        return api_response(
+            data=get_user_mfa_status(user),
+            message="MFA-status opgehaald.",
+        )
+
+
+class MfaEnrollStartView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user, error_response = _linked_user_or_error(request)
+        if error_response:
+            return error_response
+
+        serializer = MfaEnrollStartSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password = serializer.validated_data["password"]
+
+        try:
+            exchange_password_for_mfa_setup(user.email, password)
+        except Auth0LoginError as exc:
+            if exc.error == "enrollment_required":
+                return api_response(
+                    data={
+                        "enrolled": False,
+                        "mfa_token": exc.data.get("mfa_token", ""),
+                    },
+                    message="Scan de QR-code en bevestig met een verificatiecode.",
+                )
+            if exc.error == "mfa_required":
+                mfa_token = exc.data.get("mfa_token", "")
+                if mfa_token:
+                    return api_response(
+                        data={"enrolled": False, "mfa_token": mfa_token},
+                        message="2FA is al actief. Voer uw huidige code in om opnieuw te koppelen.",
+                    )
+                return api_error(
+                    message="2FA is al actief op uw account.",
+                    error="already_enrolled",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if exc.error == "invalid_credentials":
+                return api_error(
+                    message="Onjuist wachtwoord.",
+                    error="invalid_credentials",
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+            return api_error(
+                message=exc.message,
+                error=exc.error,
+                status=exc.status_code,
+            )
+
+        return api_response(
+            data={"enrolled": False, "mfa_token": None},
+            message=(
+                "Auth0 start geen 2FA-inschrijving. Zet in Auth0 Dashboard → Security → "
+                "Multi-factor Auth op 'Always' (of adaptive) en probeer opnieuw."
+            ),
+        )
 
 
 class ResetAuthenticatorView(APIView):

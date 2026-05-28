@@ -29,7 +29,10 @@ const navSections: { label: string; items: NavItem[] }[] = [
   },
   {
     label: "Account",
-    items: [{ label: "2FA beveiliging", to: "/settings/2fa" }],
+    items: [
+      { label: "Account", to: "/settings/account" },
+      { label: "2FA beveiliging", to: "/settings/2fa" },
+    ],
   },
 ];
 

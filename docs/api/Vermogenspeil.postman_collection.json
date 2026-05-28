@@ -374,6 +374,52 @@
           "response": []
         },
         {
+          "name": "MFA Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/mfa/status/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "mfa", "status", ""]
+            },
+            "description": "Controleert of OTP-2FA actief is (Auth0 Management API)."
+          },
+          "response": []
+        },
+        {
+          "name": "MFA Enroll Start",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/mfa/enroll/start/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "mfa", "enroll", "start", ""]
+            },
+            "description": "Start 2FA-inschrijving vanuit accountinstellingen. Retourneert `mfa_token` bij `enrollment_required`."
+          },
+          "response": []
+        },
+        {
           "name": "MFA Reset",
           "request": {
             "method": "POST",

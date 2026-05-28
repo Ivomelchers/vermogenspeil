@@ -3,6 +3,8 @@ from django.urls import path
 from apps.accounts.views import (
     LoginView,
     MeView,
+    MfaEnrollStartView,
+    MfaStatusView,
     PasswordResetRequestView,
     PasswordResetTokenView,
     RegisterView,
@@ -23,6 +25,8 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="auth-login"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="auth-token-refresh"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
+    path("auth/mfa/status/", MfaStatusView.as_view(), name="auth-mfa-status"),
+    path("auth/mfa/enroll/start/", MfaEnrollStartView.as_view(), name="auth-mfa-enroll-start"),
     path("auth/mfa/reset/", ResetAuthenticatorView.as_view(), name="auth-mfa-reset"),
     path(
         "auth/password/reset/",

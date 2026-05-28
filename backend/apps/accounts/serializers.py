@@ -81,6 +81,10 @@ class RefreshTokenSerializer(serializers.Serializer):
     refresh = serializers.CharField()
 
 
+class MfaEnrollStartSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+
+
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 

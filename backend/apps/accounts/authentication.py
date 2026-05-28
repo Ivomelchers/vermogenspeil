@@ -1,5 +1,6 @@
 import json
 import logging
+from urllib.parse import quote
 
 import jwt
 import requests
@@ -119,15 +120,56 @@ def update_user_password(auth0_id: str, password: str) -> None:
         raise ValidationError(str(err)) from err
 
 
-def reset_mfa(user: User) -> None:
-    token = GetToken(
+def _management_api_token() -> str:
+    return GetToken(
         settings.AUTH0_DOMAIN,
         settings.AUTH0_CLIENT_ID,
         client_secret=settings.AUTH0_CLIENT_SECRET,
     ).client_credentials(f"https://{settings.AUTH0_DOMAIN}/api/v2/")["access_token"]
+
+
+def get_user_mfa_status(user: User) -> dict:
+    if not user.auth_0_id:
+        return {"enrolled": False, "status_available": True}
+
+    token = _management_api_token()
     url = (
         f"https://{settings.AUTH0_DOMAIN}/api/v2/users/"
-        f"{user.auth_0_id}/authentication-methods"
+        f"{quote(user.auth_0_id, safe='')}/authentication-methods"
+    )
+    response = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=10,
+    )
+    if response.status_code == 403:
+        logger.warning(
+            "Auth0 MFA status forbidden for %s — voeg read:authentication_methods toe aan M2M app.",
+            user.email,
+        )
+        return {"enrolled": False, "status_available": False}
+    if not response.ok:
+        logger.warning(
+            "Auth0 MFA status mislukt (%s) voor %s: %s",
+            response.status_code,
+            user.email,
+            response.text,
+        )
+        return {"enrolled": False, "status_available": False}
+
+    methods = response.json()
+    enrolled = any(
+        method.get("type") in {"totp", "otp"} and method.get("confirmed", True)
+        for method in methods
+    )
+    return {"enrolled": enrolled, "status_available": True}
+
+
+def reset_mfa(user: User) -> None:
+    token = _management_api_token()
+    url = (
+        f"https://{settings.AUTH0_DOMAIN}/api/v2/users/"
+        f"{quote(user.auth_0_id, safe='')}/authentication-methods"
     )
     response = requests.delete(
         url,

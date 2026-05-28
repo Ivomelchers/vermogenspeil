@@ -6,6 +6,7 @@ import Sidebar from "./Sidebar";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
+  "/settings/account": "Account",
   "/settings/2fa": "Beveiliging",
 };
 
