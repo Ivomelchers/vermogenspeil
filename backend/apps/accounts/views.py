@@ -2,7 +2,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
-from apps.accounts.authentication import UnlinkedAuth0User, reset_mfa
+from apps.accounts.authentication import UnlinkedAuth0User, auth0_sub_from_id_token, reset_mfa
 from apps.accounts.serializers import (
     LoginSerializer,
     PasswordResetConfirmSerializer,
@@ -159,6 +159,10 @@ class LoginView(APIView):
                 data=exc.data or None,
                 status=exc.status_code,
             )
+
+        if not user.auth_0_id:
+            user.auth_0_id = auth0_sub_from_id_token(tokens["id_token"])
+            user.save(update_fields=["auth_0_id"])
 
         return api_response(data=tokens, message="Ingelogd.")
 

@@ -52,6 +52,11 @@ def get_token_auth_header(request):
     return parts[1]
 
 
+def auth0_sub_from_id_token(id_token: str) -> str:
+    decoded = jwt.decode(id_token, options={"verify_signature": False})
+    return decoded["sub"]
+
+
 def jwt_decode_token(token):
     header = jwt.get_unverified_header(token)
     public_key = None
@@ -71,6 +76,7 @@ def jwt_decode_token(token):
         issuer=issuer,
         algorithms=ALGORITHMS,
         audience=audience,
+        leeway=60,
     )
 
 
