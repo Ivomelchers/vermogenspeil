@@ -4,6 +4,7 @@ import {
   Button,
   Flex,
   Heading,
+  Link,
   Spinner,
   Text,
   VStack,
@@ -11,8 +12,10 @@ import {
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 
 import { verifyEmail } from "../api/auth";
+import AuthAlert from "../components/auth/AuthAlert";
 import FiscalCard from "../components/common/FiscalCard";
 import Kicker from "../components/common/Kicker";
+import { getApiErrorMessage } from "../utils/apiError";
 
 type VerifyState = "loading" | "success" | "error";
 
@@ -37,8 +40,7 @@ export default function VerifyEmailPage() {
       .catch((error) => {
         setState("error");
         setMessage(
-          error.response?.data?.message ??
-            "Verificatie mislukt. Vraag een nieuwe link aan.",
+          getApiErrorMessage(error, "Verificatie mislukt. Vraag een nieuwe link aan."),
         );
       });
   }, [token]);
@@ -58,24 +60,33 @@ export default function VerifyEmailPage() {
             </Flex>
           )}
 
-          {state !== "loading" && (
-            <Text
-              color={state === "success" ? "green.500" : "red.500"}
-              fontSize="sm"
-              lineHeight={1.7}
+          {state === "success" && <AuthAlert tone="success">{message}</AuthAlert>}
+          {state === "error" && <AuthAlert tone="error">{message}</AuthAlert>}
+
+          {state === "success" && (
+            <Button
+              as={RouterLink}
+              to="/auth/login"
+              state={{ message: "E-mailadres bevestigd. U kunt nu inloggen." }}
+              variant="fiscal"
+              w="full"
             >
-              {message}
-            </Text>
+              Naar inloggen
+            </Button>
           )}
 
-          <Button
-            as={RouterLink}
-            to={state === "success" ? "/login" : "/register"}
-            variant="fiscal"
-            w="full"
-          >
-            {state === "success" ? "Naar inloggen" : "Terug naar registreren"}
-          </Button>
+          {state === "error" && (
+            <>
+              <Button as={RouterLink} to="/auth/resend-verification" variant="fiscal" w="full">
+                Nieuwe link aanvragen
+              </Button>
+              <Text fontSize="sm" color="ink.dim" textAlign="center">
+                <Link as={RouterLink} to="/auth/register" color="azure.500" fontWeight={500}>
+                  Terug naar registreren
+                </Link>
+              </Text>
+            </>
+          )}
         </VStack>
       </FiscalCard>
     </Flex>

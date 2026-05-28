@@ -5,7 +5,8 @@ import Kicker from "./Kicker";
 import Sidebar from "./Sidebar";
 
 const pageTitles: Record<string, string> = {
-  "/dashboard": "Dashboard",
+  "/react/dashboard": "Dashboard",
+  "/react/settings/2fa": "Beveiliging",
 };
 
 export default function AppLayout() {
@@ -38,7 +39,10 @@ export default function AppLayout() {
               borderRadius="sm"
               color="ink.dim"
               letterSpacing="0.06em"
-              sx={{ fontFeatureSettings: '"tnum" 1', fontVariantNumeric: "tabular-nums" }}
+              sx={{
+                fontFeatureSettings: '"tnum" 1',
+                fontVariantNumeric: "tabular-nums",
+              }}
             >
               Peildatum 1 jan 2026
             </Flex>

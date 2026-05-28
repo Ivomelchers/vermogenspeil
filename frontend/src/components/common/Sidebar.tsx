@@ -1,6 +1,7 @@
 import { Box, Button, Flex, Text, VStack } from "@chakra-ui/react";
 import { NavLink, useLocation } from "react-router-dom";
 
+import { useUser } from "../../contexts/UserContext";
 import BrandMark from "./BrandMark";
 import Kicker from "./Kicker";
 
@@ -14,17 +15,21 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: "Overzicht",
     items: [
-      { label: "Dashboard", to: "/dashboard" },
-      { label: "Portefeuille", to: "/dashboard" },
-      { label: "Transacties", to: "/dashboard" },
+      { label: "Dashboard", to: "/react/dashboard" },
+      { label: "Portefeuille", to: "/react/dashboard" },
+      { label: "Transacties", to: "/react/dashboard" },
     ],
   },
   {
     label: "Belasting",
     items: [
-      { label: "Belastingpositie", to: "/dashboard", premium: true },
-      { label: "Werkelijk rendement", to: "/dashboard", premium: true },
+      { label: "Belastingpositie", to: "/react/dashboard", premium: true },
+      { label: "Werkelijk rendement", to: "/react/dashboard", premium: true },
     ],
+  },
+  {
+    label: "Account",
+    items: [{ label: "2FA beveiliging", to: "/react/settings/2fa" }],
   },
 ];
 
@@ -78,7 +83,25 @@ function NavButton({ item }: { item: NavItem }) {
   );
 }
 
+function getInitials(firstName: string, email: string): string {
+  const trimmed = firstName.trim();
+  if (trimmed) {
+    const parts = trimmed.split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return trimmed.slice(0, 2).toUpperCase();
+  }
+
+  return email.slice(0, 2).toUpperCase();
+}
+
 export default function Sidebar() {
+  const { user, permissions, logout } = useUser();
+  const displayName = user?.full_name || user?.first_name || user?.email.split("@")[0] || "Account";
+  const initials = getInitials(user?.first_name ?? "", user?.email ?? "??");
+  const tierLabel = permissions.isPremium ? "Premium" : "Gratis";
+
   return (
     <Box
       as="aside"
@@ -94,7 +117,7 @@ export default function Sidebar() {
       py={8}
     >
       <Box px={7} pb={7} borderBottom="1px solid" borderColor="line.soft">
-        <BrandMark to="/dashboard" />
+        <BrandMark to="/react/dashboard" />
         <Kicker mt={2} color="azure.500">
           Box 3 · Forfaitair
         </Kicker>
@@ -131,15 +154,27 @@ export default function Sidebar() {
             fontWeight={600}
             fontSize="13px"
           >
-            JV
+            {initials}
           </Flex>
-          <Box fontSize="12px" lineHeight={1.3}>
-            <Text fontWeight={500}>Jan Vermeer</Text>
+          <Box flex={1} fontSize="12px" lineHeight={1.3} minW={0}>
+            <Text fontWeight={500} noOfLines={1}>
+              {displayName}
+            </Text>
             <Kicker color="azure.500" letterSpacing="0.1em">
-              Gratis
+              {tierLabel}
             </Kicker>
           </Box>
         </Flex>
+
+        <Button
+          variant="fiscalOutline"
+          w="full"
+          mt={3}
+          size="sm"
+          onClick={() => void logout()}
+        >
+          Uitloggen
+        </Button>
       </Box>
     </Box>
   );

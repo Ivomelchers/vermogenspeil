@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import EmailVerificationToken, User
+from .models import EmailVerificationToken, PasswordResetToken, User
 
 
 @admin.register(User)
@@ -24,7 +24,7 @@ class UserAdmin(DjangoUserAdmin):
         "is_staff",
         "is_active",
     )
-    search_fields = ("email", "first_name", "last_name")
+    search_fields = ("email", "first_name", "last_name", "auth_0_id")
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
@@ -45,6 +45,7 @@ class UserAdmin(DjangoUserAdmin):
             "Verificatie",
             {
                 "fields": (
+                    "auth_0_id",
                     "email_verified",
                     "email_verified_at",
                     "terms_accepted_at",
@@ -93,3 +94,11 @@ class EmailVerificationTokenAdmin(admin.ModelAdmin):
     list_filter = ("used_at",)
     search_fields = ("user__email", "token")
     readonly_fields = ("token", "created_at", "expires_at", "used_at")
+
+
+@admin.register(PasswordResetToken)
+class PasswordResetTokenAdmin(admin.ModelAdmin):
+    list_display = ("user", "token", "used", "created_at")
+    list_filter = ("used",)
+    search_fields = ("user__email", "token")
+    readonly_fields = ("token", "created_at")

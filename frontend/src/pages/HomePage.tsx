@@ -4,8 +4,11 @@ import { Link as RouterLink } from "react-router-dom";
 import FiscalCard from "../components/common/FiscalCard";
 import Kicker from "../components/common/Kicker";
 import MoneyText from "../components/common/MoneyText";
+import { useUser } from "../contexts/UserContext";
 
 export default function HomePage() {
+  const { isAuthenticated } = useUser();
+
   return (
     <Grid templateColumns={{ base: "1fr", lg: "1.3fr 1fr" }} gap={12} alignItems="center">
       <VStack align="start" spacing={6}>
@@ -19,15 +22,20 @@ export default function HomePage() {
           geld.
         </Text>
         <Box pt={2}>
-          <Button as={RouterLink} to="/register" variant="fiscal" mr={3}>
-            Account aanmaken
-          </Button>
-          <Button as={RouterLink} to="/login" variant="fiscalOutline" mr={3}>
-            Inloggen
-          </Button>
-          <Button as={RouterLink} to="/dashboard" variant="fiscalOutline">
-            Naar dashboard
-          </Button>
+          {isAuthenticated ? (
+            <Button as={RouterLink} to="/react/dashboard" variant="fiscal">
+              Naar dashboard
+            </Button>
+          ) : (
+            <>
+              <Button as={RouterLink} to="/auth/register" variant="fiscal" mr={3}>
+                Account aanmaken
+              </Button>
+              <Button as={RouterLink} to="/auth/login" variant="fiscalOutline">
+                Inloggen
+              </Button>
+            </>
+          )}
         </Box>
       </VStack>
 

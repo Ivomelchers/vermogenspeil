@@ -232,6 +232,45 @@ const theme = extendTheme({
         },
       },
     },
+    Input: {
+      variants: {
+        fiscal: {
+          field: {
+            bg: "paper",
+            border: "1px solid",
+            borderColor: "line.DEFAULT",
+            borderRadius: "base",
+            fontSize: "body",
+            h: "42px",
+            _placeholder: { color: "ink.faint" },
+            _hover: { borderColor: "taupe.500" },
+            _focusVisible: {
+              borderColor: "azure.500",
+              boxShadow: "none",
+            },
+          },
+        },
+      },
+      defaultProps: {
+        variant: "fiscal",
+      },
+    },
+    Checkbox: {
+      baseStyle: {
+        control: {
+          borderColor: "line.DEFAULT",
+          borderRadius: "sm",
+          _checked: {
+            bg: "azure.500",
+            borderColor: "azure.500",
+            _hover: {
+              bg: "azure.600",
+              borderColor: "azure.600",
+            },
+          },
+        },
+      },
+    },
   },
 });
 

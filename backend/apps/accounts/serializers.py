@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.accounts.authentication import create_auth0_user
 from apps.accounts.models import EmailVerificationToken
 from apps.accounts.services.verification import send_verification_email
 
@@ -38,13 +39,20 @@ class RegisterSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         validated_data.pop("terms_accepted")
+        email = validated_data["email"]
+        password = validated_data.pop("password")
+
+        auth0_id = create_auth0_user(email, password)
         user = User.objects.create_user(
-            email=validated_data["email"],
-            password=validated_data["password"],
+            email=email,
+            password=None,
+            auth_0_id=auth0_id,
             first_name=validated_data["first_name"],
             terms_accepted_at=timezone.now(),
             email_verified=False,
         )
+        user.set_unusable_password()
+
         token = EmailVerificationToken.create_for_user(user)
         send_verification_email(user, token)
         return user
@@ -61,13 +69,40 @@ class ResendVerificationSerializer(serializers.Serializer):
         return value.lower().strip()
 
 
-class LoginSerializer(serializers.Serializer):
+class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
 
     def validate_email(self, value):
         return value.lower().strip()
 
 
-class LogoutSerializer(serializers.Serializer):
-    refresh = serializers.CharField()
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, min_length=12)
+
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages)) from exc
+        return value
+
+
+class UserSerializer(serializers.ModelSerializer):
+    is_premium = serializers.BooleanField(read_only=True)
+    full_name = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "full_name",
+            "email_verified",
+            "subscription_tier",
+            "is_premium",
+            "active_tax_year",
+            "has_fiscal_partner",
+        ]
+        read_only_fields = fields

@@ -1,32 +1,28 @@
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
+import { refreshToken } from "./auth";
+
 const rawBaseURL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
 const baseURL = rawBaseURL.endsWith("/") ? rawBaseURL : `${rawBaseURL}/`;
 
-interface ApiEnvelope<T> {
-  data: T;
-  error: string | null;
-  message: string;
-}
+type LogoutListener = () => void;
+const logoutListeners = new Set<LogoutListener>();
 
-interface TokenResponse {
-  access: string;
-  refresh: string;
-}
+export const eventEmitter = {
+  on(_event: "logout", listener: LogoutListener) {
+    logoutListeners.add(listener);
+    return () => {
+      logoutListeners.delete(listener);
+    };
+  },
+  emit(_event: "logout") {
+    logoutListeners.forEach((listener) => listener());
+  },
+};
 
-async function refreshAccessToken(refresh: string): Promise<TokenResponse> {
-  const res = await axios.post<ApiEnvelope<TokenResponse>>(
-    `${baseURL}auth/token/refresh/`,
-    { refresh },
-    {
-      headers: { "Content-Type": "application/json" },
-      timeout: 120_000,
-    },
-  );
-  return res.data.data;
-}
+let refreshInFlight: ReturnType<typeof refreshToken> | null = null;
 
 export const api = axios.create({
   baseURL,
@@ -34,68 +30,72 @@ export const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  paramsSerializer: (params) => {
-    const parts: string[] = [];
-
-    Object.entries(params).forEach(([key, value]) => {
-      if (value === null || value === undefined) return;
-
-      if (Array.isArray(value)) {
-        const validValues = value.filter(
-          (v) => v !== null && v !== undefined && v !== "",
-        );
-        if (validValues.length > 0) {
-          const encoded = validValues
-            .map((v) => encodeURIComponent(String(v)))
-            .join(",");
-          parts.push(`${encodeURIComponent(key)}=${encoded}`);
-        }
-      } else {
-        parts.push(
-          `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`,
-        );
-      }
-    });
-
-    return parts.join("&");
-  },
 });
 
-api.interceptors.request.use(
-  async (config) => {
-    const accessToken = localStorage.getItem("access_token");
-    const storedRefreshToken = localStorage.getItem("refresh_token");
+export const authApi = axios.create({
+  baseURL: `https://${import.meta.env.VITE_AUTH0_DOMAIN}`,
+  timeout: 10_000,
+});
 
-    if (accessToken) {
-      try {
-        const decoded = jwtDecode<{ exp?: number }>(accessToken);
+api.interceptors.request.use(async (config) => {
+  const idToken = localStorage.getItem("id_token");
+  const storedRefreshToken = localStorage.getItem("refresh_token");
 
-        if (decoded.exp && decoded.exp < Date.now() / 1000) {
-          if (storedRefreshToken) {
-            const tokens = await refreshAccessToken(storedRefreshToken);
-            localStorage.setItem("access_token", tokens.access);
-            localStorage.setItem("refresh_token", tokens.refresh);
-            config.headers.Authorization = `Bearer ${tokens.access}`;
-          } else {
-            localStorage.removeItem("access_token");
-            localStorage.removeItem("refresh_token");
+  if (idToken) {
+    try {
+      const decoded = jwtDecode<{ exp?: number }>(idToken);
+
+      if (decoded.exp && decoded.exp < Date.now() / 1000) {
+        if (
+          localStorage.getItem("rememberMe") === "true" &&
+          storedRefreshToken
+        ) {
+          if (!refreshInFlight) {
+            refreshInFlight = refreshToken(storedRefreshToken).finally(() => {
+              refreshInFlight = null;
+            });
           }
+
+          const tokens = await refreshInFlight;
+          localStorage.setItem("id_token", tokens.id_token);
+          localStorage.setItem("access_token", tokens.access_token);
+          localStorage.setItem("refresh_token", tokens.refresh_token);
+          config.headers.Authorization = `Bearer ${tokens.id_token}`;
         } else {
-          config.headers.Authorization = `Bearer ${accessToken}`;
+          eventEmitter.emit("logout");
         }
-      } catch {
-        config.headers.Authorization = `Bearer ${accessToken}`;
+      } else {
+        config.headers.Authorization = `Bearer ${idToken}`;
       }
+    } catch {
+      config.headers.Authorization = `Bearer ${idToken}`;
+    }
+  }
+
+  if (config.method?.toLowerCase() === "get") {
+    config.params = {
+      ...config.params,
+      _t: Date.now(),
+    };
+  }
+
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const requestUrl = error.config?.url ?? "";
+    const isPublicAuthRequest =
+      requestUrl.includes("auth/register/") ||
+      requestUrl.includes("auth/verify-email/") ||
+      requestUrl.includes("auth/resend-verification/") ||
+      requestUrl.includes("auth/password/reset/");
+
+    if (error.response?.status === 401 && !isPublicAuthRequest) {
+      eventEmitter.emit("logout");
     }
 
-    if (config.method?.toLowerCase() === "get") {
-      config.params = {
-        ...config.params,
-        _t: Date.now(),
-      };
-    }
-
-    return config;
+    return Promise.reject(error);
   },
-  (error) => Promise.reject(error),
 );

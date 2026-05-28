@@ -21,6 +21,13 @@ class User(AbstractUser):
     """Custom user — e-mail als login, profiel- en belastinginstellingen."""
 
     username = None
+    auth_0_id = models.CharField(
+        "Auth0 user ID",
+        max_length=128,
+        unique=True,
+        null=True,
+        blank=True,
+    )
     email = models.EmailField("e-mailadres", unique=True)
     first_name = models.CharField("voornaam", max_length=150)
     last_name = models.CharField("achternaam", max_length=150, blank=True)
@@ -112,3 +119,24 @@ class EmailVerificationToken(models.Model):
     def mark_used(self):
         self.used_at = timezone.now()
         self.save(update_fields=["used_at"])
+
+
+class PasswordResetToken(models.Model):
+    """Eenmalige gehashte token voor wachtwoord reset (Auth0 wachtwoord update)."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="password_reset_tokens",
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "wachtwoord-reset token"
+        verbose_name_plural = "wachtwoord-reset tokens"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Wachtwoord reset voor {self.user.email}"

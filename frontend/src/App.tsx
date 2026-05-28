@@ -1,15 +1,14 @@
-import { ChakraProvider } from "@chakra-ui/react";
-import { BrowserRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 
-import AppRoutes from "./routes";
-import theme from "./theme";
+import { UserProvider } from "./contexts/UserContext";
+import Router from "./router/Router";
 
 export default function App() {
   return (
-    <ChakraProvider theme={theme}>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </ChakraProvider>
+    <HashRouter>
+      <UserProvider>
+        <Router />
+      </UserProvider>
+    </HashRouter>
   );
 }

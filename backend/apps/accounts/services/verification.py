@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def build_verification_url(token: str) -> str:
     frontend_url = settings.FRONTEND_URL.rstrip("/")
-    return f"{frontend_url}/verify-email?token={token}"
+    return f"{frontend_url}/#/auth/verify-email?token={token}"
 
 
 def send_verification_email(user: User, verification_token: EmailVerificationToken) -> None:
@@ -50,6 +50,12 @@ def verify_email_token(token: str) -> User:
     user.email_verified_at = timezone.now()
     user.save(update_fields=["email_verified", "email_verified_at"])
     verification_token.mark_used()
+
+    if user.auth_0_id:
+        from apps.accounts.authentication import mark_auth0_email_verified
+
+        mark_auth0_email_verified(user.auth_0_id)
+
     return user
 
 

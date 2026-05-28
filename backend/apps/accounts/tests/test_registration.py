@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -24,7 +25,8 @@ class RegistrationTests(TestCase):
             "terms_accepted": True,
         }
 
-    def test_register_creates_user_and_sends_email(self):
+    @patch("apps.accounts.serializers.create_auth0_user", return_value="auth0|jan")
+    def test_register_creates_user_and_sends_email(self, _mock_auth0):
         response = self.client.post(self.url, self.payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -35,6 +37,7 @@ class RegistrationTests(TestCase):
 
         user = User.objects.get(email="jan@example.com")
         self.assertFalse(user.email_verified)
+        self.assertEqual(user.auth_0_id, "auth0|jan")
         self.assertIsNotNone(user.terms_accepted_at)
         self.assertEqual(EmailVerificationToken.objects.filter(user=user).count(), 1)
 
@@ -76,7 +79,10 @@ class VerifyEmailTests(TestCase):
         )
         self.token = EmailVerificationToken.create_for_user(self.user)
 
-    def test_verify_email_with_valid_token(self):
+    @patch("apps.accounts.authentication.mark_auth0_email_verified")
+    def test_verify_email_with_valid_token(self, _mock_mark_verified):
+        self.user.auth_0_id = "auth0|verify"
+        self.user.save(update_fields=["auth_0_id"])
         response = self.client.post(
             self.url,
             {"token": self.token.token},
