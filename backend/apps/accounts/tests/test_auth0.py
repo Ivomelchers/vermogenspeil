@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from apps.accounts.models import PasswordResetToken
+from apps.accounts.services.auth0_login import Auth0LoginError
 
 User = get_user_model()
 
@@ -140,3 +141,60 @@ class Auth0PasswordResetTests(APITestCase):
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.auth_0_id, "auth0|reset")
+
+
+@override_settings(
+    AUTH0_DOMAIN="dev-test.auth0.com",
+    AUTH0_FRONTEND_CLIENT_ID="spa-client-id",
+    AUTH0_CONNECTION="Username-Password-Authentication",
+)
+class Auth0LoginViewTests(APITestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = make_user(email="login@example.com")
+
+    @patch("apps.accounts.views.exchange_password")
+    def test_login_returns_tokens(self, mock_exchange):
+        mock_exchange.return_value = {
+            "id_token": "id-token",
+            "access_token": "access-token",
+            "refresh_token": "refresh-token",
+        }
+        response = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "login@example.com", "password": "SecurePass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"]["id_token"], "id-token")
+
+    def test_login_blocks_unverified_user(self):
+        self.user.email_verified = False
+        self.user.save(update_fields=["email_verified"])
+        response = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "login@example.com", "password": "SecurePass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["error"], "email_not_verified")
+
+    @patch("apps.accounts.views.exchange_password")
+    def test_login_returns_mfa_required(self, mock_exchange):
+        mock_exchange.side_effect = Auth0LoginError(
+            "mfa_required",
+            "Voer uw tweefactorcode in.",
+            status_code=403,
+            data={"mfa_token": "mfa-token-123"},
+        )
+        response = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "login@example.com", "password": "SecurePass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["error"], "mfa_required")
+        self.assertEqual(response.data["data"]["mfa_token"], "mfa-token-123")

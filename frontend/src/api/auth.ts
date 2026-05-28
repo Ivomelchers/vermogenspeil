@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 
 import { api, authApi } from "./api";
 
@@ -49,27 +49,23 @@ export const login = async ({
   email: string;
   password: string;
 }): Promise<Auth0TokenResponse> => {
-  const res = await authApi.post<Auth0TokenResponse>("/oauth/token", {
-    client_id: import.meta.env.VITE_AUTH0_CLIENT_ID,
-    audience: `https://${import.meta.env.VITE_AUTH0_DOMAIN}/api/v2/`,
-    grant_type: "password",
-    realm: "Username-Password-Authentication",
-    scope: "openid profile email offline_access",
-    username: email,
+  const res = await api.post<ApiEnvelope<Auth0TokenResponse>>("auth/login/", {
+    email,
     password,
   });
-  return res.data;
+  return res.data.data;
 };
 
 export const refreshToken = async (refreshTokenValue: string): Promise<Auth0TokenResponse> => {
-  const res = await authApi.post<Auth0TokenResponse>("/oauth/token", {
-    client_id: import.meta.env.VITE_AUTH0_CLIENT_ID,
-    audience: `https://${import.meta.env.VITE_AUTH0_DOMAIN}/api/v2/`,
-    grant_type: "refresh_token",
-    scope: "openid profile email offline_access",
-    refresh_token: refreshTokenValue,
-  });
-  return res.data;
+  const res = await axios.post<ApiEnvelope<Auth0TokenResponse>>(
+    `${baseURL}auth/token/refresh/`,
+    { refresh: refreshTokenValue },
+    {
+      headers: { "Content-Type": "application/json" },
+      timeout: 120_000,
+    },
+  );
+  return res.data.data;
 };
 
 export const getAuthenticators = async (mfaToken: string): Promise<Auth0Authenticator[]> => {
@@ -177,18 +173,31 @@ export const resetMfa = async () => {
   return res.data;
 };
 
-export function isAuth0MfaRequired(error: unknown): error is { response: { data: { error: string; mfa_token: string } } } {
-  if (typeof error !== "object" || error === null || !("response" in error)) {
-    return false;
+export function isAuth0MfaRequired(error: unknown): boolean {
+  if (isAxiosError<ApiEnvelope<{ mfa_token?: string }>>(error)) {
+    const body = error.response?.data;
+    return body?.error === "mfa_required" && Boolean(body?.data?.mfa_token);
   }
-  const response = (error as { response?: { data?: { error?: string; mfa_token?: string } } }).response;
-  return response?.data?.error === "mfa_required" && Boolean(response.data.mfa_token);
+  return false;
+}
+
+export function getAuth0MfaToken(error: unknown): string | undefined {
+  if (isAxiosError<ApiEnvelope<{ mfa_token?: string }>>(error)) {
+    return error.response?.data?.data?.mfa_token;
+  }
+  return undefined;
 }
 
 export function isAuth0EnrollmentRequired(error: unknown): boolean {
-  if (typeof error !== "object" || error === null || !("response" in error)) {
-    return false;
+  if (isAxiosError<ApiEnvelope<{ mfa_token?: string }>>(error)) {
+    return error.response?.data?.error === "enrollment_required";
   }
-  const response = (error as { response?: { data?: { error?: string } } }).response;
-  return response?.data?.error === "enrollment_required";
+  return false;
+}
+
+export function getAuth0EnrollmentMfaToken(error: unknown): string | undefined {
+  if (isAxiosError<ApiEnvelope<{ mfa_token?: string }>>(error)) {
+    return error.response?.data?.data?.mfa_token;
+  }
+  return undefined;
 }

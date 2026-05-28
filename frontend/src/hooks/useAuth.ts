@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { eventEmitter } from "../api/api";
 import {
   auth,
+  getAuth0EnrollmentMfaToken,
+  getAuth0MfaToken,
   isAuth0EnrollmentRequired,
   isAuth0MfaRequired,
   login,
@@ -109,13 +111,14 @@ export function useAuth() {
         return { status: "authenticated" as const };
       } catch (error) {
         if (isAuth0MfaRequired(error)) {
-          const mfaToken = error.response.data.mfa_token;
-          localStorage.setItem("mfa_token", mfaToken);
+          const mfaToken = getAuth0MfaToken(error);
+          if (mfaToken) {
+            localStorage.setItem("mfa_token", mfaToken);
+          }
           return { status: "mfa_required" as const, rememberMe };
         }
         if (isAuth0EnrollmentRequired(error)) {
-          const mfaToken = (error as { response: { data: { mfa_token?: string } } }).response
-            .data.mfa_token;
+          const mfaToken = getAuth0EnrollmentMfaToken(error);
           if (mfaToken) {
             localStorage.setItem("mfa_token", mfaToken);
           }

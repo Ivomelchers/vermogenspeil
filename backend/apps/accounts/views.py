@@ -4,19 +4,23 @@ from rest_framework.views import APIView
 
 from apps.accounts.authentication import UnlinkedAuth0User, reset_mfa
 from apps.accounts.serializers import (
+    LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    RefreshTokenSerializer,
     RegisterSerializer,
     ResendVerificationSerializer,
     UserSerializer,
     VerifyEmailSerializer,
 )
+from apps.accounts.services.auth0_login import Auth0LoginError, exchange_password, exchange_refresh_token
 from apps.accounts.services.password_reset import (
     request_password_reset,
     reset_password,
     validate_password_reset_token,
 )
 from apps.accounts.services.verification import resend_verification_email, verify_email_token
+from apps.accounts.models import User
 from apps.accounts.utils.responses import api_error, api_response, first_validation_message
 
 
@@ -112,6 +116,77 @@ class ResendVerificationView(APIView):
         return api_response(
             message="Als dit e-mailadres bij ons bekend is, ontvang je een nieuwe verificatielink.",
         )
+
+
+class LoginView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        email = serializer.validated_data["email"]
+        password = serializer.validated_data["password"]
+
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if user is None:
+            return api_error(
+                message="Ongeldige inloggegevens.",
+                error="invalid_credentials",
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if not user.email_verified:
+            return api_error(
+                message="Bevestig eerst je e-mailadres voordat je inlogt.",
+                error="email_not_verified",
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            tokens = exchange_password(email, password)
+        except Auth0LoginError as exc:
+            return api_error(
+                message=exc.message,
+                error=exc.error,
+                data=exc.data or None,
+                status=exc.status_code,
+            )
+
+        return api_response(data=tokens, message="Ingelogd.")
+
+
+class TokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = RefreshTokenSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            tokens = exchange_refresh_token(serializer.validated_data["refresh"])
+        except Auth0LoginError as exc:
+            return api_error(
+                message=exc.message,
+                error=exc.error,
+                status=exc.status_code,
+            )
+
+        return api_response(data=tokens, message="Token vernieuwd.")
 
 
 class MeView(APIView):

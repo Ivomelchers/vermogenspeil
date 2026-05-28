@@ -146,6 +146,7 @@ AUTH0_FRONTEND_CLIENT_ID = os.environ.get(
     os.environ.get("VITE_AUTH0_CLIENT_ID", ""),
 )
 PASSWORD_RESET_TOKEN_HOURS = int(os.environ.get("PASSWORD_RESET_TOKEN_HOURS", "1"))
+AUTH0_CONNECTION = os.environ.get("AUTH0_CONNECTION", "Username-Password-Authentication")
 
 CORS_ALLOWED_ORIGINS = [
     origin.strip()

@@ -87,10 +87,12 @@ api.interceptors.response.use(
   (error) => {
     const requestUrl = error.config?.url ?? "";
     const isPublicAuthRequest =
+      requestUrl.includes("auth/login/") ||
       requestUrl.includes("auth/register/") ||
       requestUrl.includes("auth/verify-email/") ||
       requestUrl.includes("auth/resend-verification/") ||
-      requestUrl.includes("auth/password/reset/");
+      requestUrl.includes("auth/password/reset/") ||
+      requestUrl.includes("auth/token/refresh/");
 
     if (error.response?.status === 401 && !isPublicAuthRequest) {
       eventEmitter.emit("logout");
