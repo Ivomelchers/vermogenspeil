@@ -18,6 +18,7 @@ EQUITY_ASSET_TYPES = frozenset(
 # Nederlandse/Euronext-noteringen voor demo- en CSV-symbolen
 YAHOO_TICKER_ALIASES: dict[str, str] = {
     "IWDA": "IWDA.AS",
+    "IWDA.L": "IWDA.AS",
     "ASML": "ASML.AS",
     "SHELL": "SHELL.AS",
     "INGA": "INGA.AS",
@@ -49,8 +50,11 @@ class YahooEquitiesProvider:
         ticker_map = {symbol.upper(): yahoo_ticker_for_symbol(symbol) for symbol in symbols}
         yahoo_symbols = list(dict.fromkeys(ticker_map.values()))
 
+        from apps.pricing.yfinance_utils import suppress_yfinance_noise
+
         try:
-            tickers = yf.Tickers(" ".join(yahoo_symbols))
+            with suppress_yfinance_noise():
+                tickers = yf.Tickers(" ".join(yahoo_symbols))
         except Exception as exc:
             logger.warning("Yahoo Finance tickers laden mislukt: %s", exc)
             raise PriceFetchError("Yahoo Finance niet beschikbaar") from exc

@@ -20,6 +20,7 @@ import {
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import {
+  downloadPortfolioTransactionsCsv,
   getDashboardSummary,
   getPortfolioTransactions,
   type Transaction,
@@ -94,6 +95,7 @@ export default function TransactionsPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [exportBusy, setExportBusy] = useState(false);
 
   const loadTransactions = useCallback(
     async (targetPage: number) => {
@@ -168,6 +170,31 @@ export default function TransactionsPage() {
     void loadTransactions(1);
   }
 
+  function currentFilterParams(): TransactionListParams {
+    return {
+      sort,
+      order,
+      platform: platform || undefined,
+      transaction_type: transactionType || undefined,
+      symbol: symbol || undefined,
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined,
+    };
+  }
+
+  async function handleExportCsv() {
+    if (!portfolioId) return;
+    setExportBusy(true);
+    setError("");
+    try {
+      await downloadPortfolioTransactionsCsv(portfolioId, currentFilterParams());
+    } catch (exportError) {
+      setError(getApiErrorMessage(exportError, "CSV-export mislukt."));
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
   function handleResetFilters() {
     setPlatform("");
     setTransactionType("");
@@ -202,15 +229,25 @@ export default function TransactionsPage() {
             uw historie.
           </Text>
         </Box>
-        <Button
-          as={RouterLink}
-          to="/portfolio/manual/transaction"
-          variant="fiscalOutline"
-          size="sm"
-          alignSelf={{ base: "flex-start", md: "center" }}
-        >
-          Transactie toevoegen
-        </Button>
+        <Flex gap={2} flexWrap="wrap" alignSelf={{ base: "flex-start", md: "center" }}>
+          <Button
+            variant="fiscalOutline"
+            size="sm"
+            isLoading={exportBusy}
+            isDisabled={!portfolioId || total === 0}
+            onClick={() => void handleExportCsv()}
+          >
+            Exporteer CSV
+          </Button>
+          <Button
+            as={RouterLink}
+            to="/portfolio/manual/transaction"
+            variant="fiscalOutline"
+            size="sm"
+          >
+            Transactie toevoegen
+          </Button>
+        </Flex>
       </Flex>
 
       {error && <AuthAlert tone="error">{error}</AuthAlert>}

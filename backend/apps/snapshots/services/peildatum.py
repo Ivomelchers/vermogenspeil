@@ -149,10 +149,11 @@ def build_peildatum_payload(user, year: int) -> dict:
 def create_peildatum_snapshot(user, year: int) -> PeilDatumSnapshot:
     if PeilDatumSnapshot.objects.filter(user=user, year=year).exists():
         raise SnapshotAlreadyExistsError(
-            f"Peildatum-snapshot voor {year} bestaat al en kan niet worden overschreven."
+            f"Peildatum-snapshot voor {year} bestaat al. Gebruik herberekening of verwijder niet."
         )
 
     payload = build_peildatum_payload(user, year)
+    payload["recalculated_at"] = None
     return PeilDatumSnapshot.objects.create(user=user, year=year, data=payload)
 
 

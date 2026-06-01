@@ -94,6 +94,7 @@ def apply_sync_results(connection, balances: list[BalanceHolding], trades: list[
         if created or old_qty != holding.quantity:
             positions_updated += 1
 
+    new_occurred_times = []
     for trade in trades:
         asset_type = trade.asset_type or AssetType.CRYPTO
         asset = _get_or_create_asset(
@@ -134,6 +135,13 @@ def apply_sync_results(connection, balances: list[BalanceHolding], trades: list[
         )
         if created:
             transactions_synced += 1
+            new_occurred_times.append(trade.occurred_at)
+
+    if new_occurred_times:
+        from apps.snapshots.services.recalculate import maybe_recalculate_peildatum_snapshots
+
+        for occurred_at in new_occurred_times:
+            maybe_recalculate_peildatum_snapshots(user, occurred_at)
 
     connection.status = SyncStatus.SUCCESS
     connection.last_synced_at = timezone.now()

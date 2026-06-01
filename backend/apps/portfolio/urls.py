@@ -7,6 +7,7 @@ from apps.portfolio.views import (
     ManualTransactionCreateView,
     PortfolioDetailView,
     PortfolioListView,
+    PortfolioTransactionsExportView,
     PortfolioTransactionsView,
 )
 
@@ -24,6 +25,11 @@ urlpatterns = [
         "portfolios/<int:portfolio_id>/transactions/",
         PortfolioTransactionsView.as_view(),
         name="portfolio-transactions",
+    ),
+    path(
+        "portfolios/<int:portfolio_id>/transactions/export/",
+        PortfolioTransactionsExportView.as_view(),
+        name="portfolio-transactions-export",
     ),
     path(
         "portfolios/<int:portfolio_id>/transactions/manual/",

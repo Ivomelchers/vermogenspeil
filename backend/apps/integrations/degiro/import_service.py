@@ -60,6 +60,7 @@ def import_degiro_csv_for_user(user, file_content: str, *, label: str = "DEGIRO 
     imported = 0
     skipped = 0
     by_type: dict[str, int] = {}
+    new_occurred_times = []
 
     for row in rows:
         asset_type = _asset_type_for_symbol(row.symbol, row.transaction_type)
@@ -91,10 +92,17 @@ def import_degiro_csv_for_user(user, file_content: str, *, label: str = "DEGIRO 
         if created:
             imported += 1
             by_type[row.transaction_type] = by_type.get(row.transaction_type, 0) + 1
+            new_occurred_times.append(row.occurred_at)
         else:
             skipped += 1
 
     _rebuild_positions_from_transactions(portfolio)
+
+    if new_occurred_times:
+        from apps.snapshots.services.recalculate import maybe_recalculate_peildatum_snapshots
+
+        for occurred_at in new_occurred_times:
+            maybe_recalculate_peildatum_snapshots(user, occurred_at)
 
     connection.status = SyncStatus.SUCCESS
     connection.last_synced_at = timezone.now()

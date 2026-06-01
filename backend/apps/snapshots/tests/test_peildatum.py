@@ -87,9 +87,10 @@ class PeildatumSnapshotModelTests(TestCase):
         with self.assertRaises(SnapshotAlreadyExistsError):
             create_peildatum_snapshot(self.user, 2026)
 
-        snapshot.data["tampered"] = True
-        with self.assertRaises(ValueError):
-            snapshot.save()
+        snapshot.data = {**snapshot.data, "total_value_eur": "60000.00"}
+        snapshot.save(update_fields=["data", "updated_at"])
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.data["total_value_eur"], "60000.00")
 
         with self.assertRaises(ValueError):
             snapshot.delete()

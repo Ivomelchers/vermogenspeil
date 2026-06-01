@@ -184,4 +184,9 @@ def create_manual_transaction(
         _rebuild_position(portfolio, asset)
 
     _ensure_manual_connection(user, portfolio)
+
+    from apps.snapshots.services.recalculate import maybe_recalculate_peildatum_snapshots
+
+    maybe_recalculate_peildatum_snapshots(user, transaction_obj.occurred_at)
+
     return transaction_obj

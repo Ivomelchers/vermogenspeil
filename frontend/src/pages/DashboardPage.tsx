@@ -24,6 +24,7 @@ import AllocationChart from "../components/dashboard/AllocationChart";
 import DashboardPositionsTable from "../components/dashboard/DashboardPositionsTable";
 import PortfolioTrendChart from "../components/dashboard/PortfolioTrendChart";
 import RecentActivityFeed from "../components/dashboard/RecentActivityFeed";
+import WinnersLosersPanel from "../components/dashboard/WinnersLosersPanel";
 import AuthAlert from "../components/auth/AuthAlert";
 import DisplayMoney from "../components/portfolio/DisplayMoney";
 import FiscalCard from "../components/common/FiscalCard";
@@ -163,6 +164,24 @@ export default function DashboardPage() {
           ) : (
             <>
               <DisplayMoney amount={totalValue} size="md" />
+              {summary?.hero_delta_30d?.available && (
+                <Text fontSize="sm" color="ink.dim" mt={1}>
+                  <Box
+                    as="span"
+                    color={
+                      parseFloat(summary.hero_delta_30d.change_eur ?? "0") >= 0
+                        ? "moss.500"
+                        : "rust.500"
+                    }
+                    fontWeight={600}
+                  >
+                    {parseFloat(summary.hero_delta_30d.change_eur ?? "0") >= 0 ? "+" : ""}
+                    {formatEur(summary.hero_delta_30d.change_eur ?? "0")} (
+                    {summary.hero_delta_30d.change_percent}%)
+                  </Box>{" "}
+                  in 30 dagen
+                </Text>
+              )}
               <Text fontSize="xs" color="taupe.500" mt={1} mb={3}>
                 {summary?.valuation_note ??
                   "Waarde op basis van kostprijs — geen live koersen beschikbaar."}
@@ -281,12 +300,19 @@ export default function DashboardPage() {
         <>
           <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4}>
             <FiscalCard p={4}>
-              <Kicker mb={2}>Vermogensverloop</Kicker>
+              <Kicker mb={2}>Waarde vs inleg (12 maanden)</Kicker>
               <PortfolioTrendChart
                 points={summary.value_history ?? []}
                 valuationNote={summary.valuation_note}
               />
             </FiscalCard>
+
+            {summary.movers && Object.keys(summary.movers).length > 0 && (
+              <FiscalCard p={4}>
+                <Kicker mb={2}>Winnaars & verliezers</Kicker>
+                <WinnersLosersPanel movers={summary.movers} />
+              </FiscalCard>
+            )}
 
             {summary.by_category.length > 0 && (
               <FiscalCard p={4}>

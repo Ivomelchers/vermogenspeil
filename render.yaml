@@ -1,5 +1,7 @@
-# Render Blueprint — Vermogenspeil API + PostgreSQL
+# Render Blueprint — Vermogenspeil API + PostgreSQL + Redis + Celery
 # Deploy: Render Dashboard → Blueprints → New Blueprint Instance → kies deze repo
+#
+# Na deploy: zet CORS_ALLOWED_ORIGINS, FRONTEND_URL, Auth0 en ENCRYPTION_KEY op de web service.
 
 databases:
   - name: vermogenspeil-db
@@ -9,6 +11,13 @@ databases:
     region: frankfurt
 
 services:
+  - type: redis
+    name: vermogenspeil-redis
+    plan: free
+    region: frankfurt
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
   - type: web
     name: vermogenspeil-api
     runtime: docker
@@ -27,7 +36,21 @@ services:
         fromDatabase:
           name: vermogenspeil-db
           property: connectionString
-      # Vul in na Vercel deploy (bv. https://jouw-app.vercel.app)
+      - key: REDIS_URL
+        fromService:
+          name: vermogenspeil-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: vermogenspeil-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: vermogenspeil-redis
+          type: redis
+          property: connectionString
       - key: CORS_ALLOWED_ORIGINS
         sync: false
       - key: FRONTEND_URL
@@ -42,3 +65,97 @@ services:
         sync: false
       - key: ENCRYPTION_KEY
         sync: false
+
+  - type: worker
+    name: vermogenspeil-celery-worker
+    runtime: docker
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    dockerCommand: ./scripts/celery-worker.sh
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        fromService:
+          name: vermogenspeil-api
+          type: web
+          envVarKey: SECRET_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vermogenspeil-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: vermogenspeil-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: vermogenspeil-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: vermogenspeil-redis
+          type: redis
+          property: connectionString
+      - key: ENCRYPTION_KEY
+        fromService:
+          name: vermogenspeil-api
+          type: web
+          envVarKey: ENCRYPTION_KEY
+      - key: AUTH0_DOMAIN
+        fromService:
+          name: vermogenspeil-api
+          type: web
+          envVarKey: AUTH0_DOMAIN
+      - key: AUTH0_CLIENT_ID
+        fromService:
+          name: vermogenspeil-api
+          type: web
+          envVarKey: AUTH0_CLIENT_ID
+      - key: AUTH0_CLIENT_SECRET
+        fromService:
+          name: vermogenspeil-api
+          type: web
+          envVarKey: AUTH0_CLIENT_SECRET
+
+  - type: worker
+    name: vermogenspeil-celery-beat
+    runtime: docker
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    dockerCommand: ./scripts/celery-beat.sh
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        fromService:
+          name: vermogenspeil-api
+          type: web
+          envVarKey: SECRET_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vermogenspeil-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: vermogenspeil-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: vermogenspeil-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: vermogenspeil-redis
+          type: redis
+          property: connectionString

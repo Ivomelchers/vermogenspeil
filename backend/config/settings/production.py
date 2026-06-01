@@ -8,6 +8,7 @@ from .base import *  # noqa: F403
 
 DEBUG = False
 DEMO_FEATURES_ENABLED = False
+CELERY_TASK_ALWAYS_EAGER = False  # noqa: F405
 
 if not SECRET_KEY or SECRET_KEY.startswith("django-insecure"):  # noqa: F405
     raise ValueError("SECRET_KEY must be set to a secure value in production")

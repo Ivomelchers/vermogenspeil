@@ -11,7 +11,7 @@ from apps.portfolio.services.valuation import (
     fetch_live_prices_for_positions,
     position_value_eur,
 )
-from apps.portfolio.services.value_history import compute_value_history
+from apps.portfolio.services.value_history import compute_hero_delta_30d, compute_value_history
 from apps.portfolio.services.ytd import compute_ytd_summary
 
 
@@ -57,6 +57,8 @@ def build_dashboard_summary(user) -> dict:
             "transactions_count": 0,
             "recent_activity": [],
             "value_history": [],
+            "hero_delta_30d": {"available": False},
+            "movers": {},
         }
 
     positions_qs = list(portfolio.positions.select_related("asset").order_by("-updated_at"))
@@ -145,6 +147,10 @@ def build_dashboard_summary(user) -> dict:
         ytd_start_eur=ytd_start_eur,
         ytd_start_date=ytd_start_date,
     )
+    hero_delta_30d = compute_hero_delta_30d(portfolio, current_value_eur=total)
+    from apps.portfolio.services.movers import compute_all_top_movers
+
+    movers = compute_all_top_movers(portfolio)
 
     recent_activity = []
     for tx in (
@@ -191,4 +197,6 @@ def build_dashboard_summary(user) -> dict:
         "transactions_count": portfolio.transactions.count(),
         "recent_activity": recent_activity,
         "value_history": value_history,
+        "hero_delta_30d": hero_delta_30d,
+        "movers": movers,
     }

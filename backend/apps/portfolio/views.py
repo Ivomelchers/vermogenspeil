@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -16,6 +17,7 @@ from apps.portfolio.serializers import (
 )
 from apps.portfolio.services.dashboard import build_dashboard_summary
 from apps.portfolio.services.manual import create_manual_asset, create_manual_transaction
+from apps.portfolio.services.transactions_export import build_transactions_csv
 from apps.portfolio.services.transactions_list import (
     list_portfolio_transactions,
     parse_page,
@@ -77,6 +79,40 @@ class PortfolioDetailView(APIView):
 
         serializer = PortfolioDetailSerializer(portfolio)
         return api_response(data=serializer.data)
+
+
+class PortfolioTransactionsExportView(APIView):
+    """CSV-export met dezelfde filters als de transactielijst (FSD §7)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, portfolio_id):
+        user, error = _linked_user_or_error(request)
+        if error:
+            return error
+
+        portfolio = Portfolio.objects.for_user(user).filter(pk=portfolio_id).first()
+        if not portfolio:
+            return api_error(
+                message="Portefeuille niet gevonden.",
+                error="not_found",
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        csv_body = build_transactions_csv(
+            portfolio,
+            sort=request.query_params.get("sort"),
+            order=request.query_params.get("order"),
+            platform=request.query_params.get("platform"),
+            transaction_type=request.query_params.get("transaction_type"),
+            symbol=request.query_params.get("symbol"),
+            date_from=request.query_params.get("date_from"),
+            date_to=request.query_params.get("date_to"),
+        )
+        filename = f"transacties-{portfolio.id}.csv"
+        response = HttpResponse(csv_body, content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
 
 class PortfolioTransactionsView(APIView):

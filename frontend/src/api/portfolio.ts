@@ -101,7 +101,38 @@ export interface DashboardReturns {
 export interface DashboardValuePoint {
   date: string;
   value_eur: string;
-  method: "cost_basis" | "current" | "ytd_start";
+  cost_basis_eur?: string;
+  method: "cost_basis" | "current" | "ytd_start" | "historical";
+}
+
+export interface DashboardMover {
+  position_id: number;
+  symbol: string;
+  name: string;
+  start_value_eur: string;
+  current_value_eur: string;
+  change_eur: string;
+  change_percent: string;
+}
+
+export interface DashboardMoversPeriod {
+  period: string;
+  period_start: string;
+  gainers: DashboardMover[];
+  losers: DashboardMover[];
+}
+
+export type DashboardMoversByPeriod = Partial<
+  Record<"day" | "week" | "month" | "ytd", DashboardMoversPeriod>
+>;
+
+export interface DashboardHeroDelta {
+  available: boolean;
+  start_date?: string;
+  start_value_eur?: string;
+  change_eur?: string;
+  change_percent?: string;
+  note?: string;
 }
 
 export interface DashboardActivity {
@@ -133,6 +164,8 @@ export interface DashboardSummary {
   transactions_count: number;
   recent_activity: DashboardActivity[];
   value_history: DashboardValuePoint[];
+  hero_delta_30d?: DashboardHeroDelta;
+  movers?: DashboardMoversByPeriod;
 }
 
 export async function updateAssetCategory(
@@ -202,6 +235,29 @@ export async function getPortfolioTransactions(
     { params },
   );
   return response.data.data;
+}
+
+/** Download CSV met huidige filterset (FSD §7). */
+export async function downloadPortfolioTransactionsCsv(
+  portfolioId: number,
+  params: TransactionListParams = {},
+): Promise<void> {
+  const response = await api.get(
+    `portfolios/${portfolioId}/transactions/export/`,
+    {
+      params,
+      responseType: "blob",
+    },
+  );
+  const blob = new Blob([response.data], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `transacties-${portfolioId}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 export interface ManualAssetPayload {

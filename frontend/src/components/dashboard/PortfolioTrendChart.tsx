@@ -1,8 +1,9 @@
-import { Box, Text } from "@chakra-ui/react";
+import { Box, Flex, Text } from "@chakra-ui/react";
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -25,8 +26,11 @@ function shortMonthLabel(isoDate: string): string {
 }
 
 interface TooltipPayload {
-  value?: number;
-  payload?: DashboardValuePoint & { label: string };
+  payload?: {
+    label: string;
+    portfolio: number;
+    costBasis: number;
+  };
 }
 
 function TrendTooltip({
@@ -51,16 +55,14 @@ function TrendTooltip({
       boxShadow="md"
       fontSize="sm"
     >
-      <Text fontWeight={600} color="ink.primary">
-        {formatEur(String(row.value_eur))}
+      <Text fontSize="xs" color="taupe.500" mb={1}>
+        {row.label}
       </Text>
-      <Text fontSize="xs" color="taupe.500" mt={0.5}>
-        {formatDateNl(row.date)}
-        {row.method === "current"
-          ? " · huidige waardering"
-          : row.method === "ytd_start"
-            ? " · startwaarde dit jaar"
-            : " · kostprijs"}
+      <Text color="ink.primary">
+        Waarde: {formatEur(String(row.portfolio))}
+      </Text>
+      <Text color="taupe.600">
+        Inleg: {formatEur(String(row.costBasis))}
       </Text>
     </Box>
   );
@@ -79,27 +81,21 @@ export default function PortfolioTrendChart({
   }
 
   const data = points.map((p) => ({
-    ...p,
     label: shortMonthLabel(p.date),
-    value: parseFloat(p.value_eur) || 0,
+    portfolio: parseFloat(p.value_eur) || 0,
+    costBasis: parseFloat(p.cost_basis_eur ?? p.value_eur) || 0,
   }));
 
-  const values = data.map((d) => d.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const allValues = data.flatMap((d) => [d.portfolio, d.costBasis]);
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
   const padding = Math.max((max - min) * 0.08, max * 0.02, 1);
 
   return (
     <Box>
-      <Box h="200px" w="100%" mt={1}>
+      <Box h="220px" w="100%" mt={1}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="vermogenFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1E3A5F" stopOpacity={0.22} />
-                <stop offset="100%" stopColor="#1E3A5F" stopOpacity={0} />
-              </linearGradient>
-            </defs>
+          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke={CHART_GRID} strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="label"
@@ -118,22 +114,36 @@ export default function PortfolioTrendChart({
               }
               domain={[min - padding, max + padding]}
             />
-            <Tooltip content={<TrendTooltip />} cursor={{ stroke: "#1E3A5F", strokeWidth: 1 }} />
-            <Area
+            <Tooltip content={<TrendTooltip />} />
+            <Legend
+              wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
+              formatter={(value) => (value === "portfolio" ? "Waarde" : "Inleg (kostprijs)")}
+            />
+            <Line
               type="monotone"
-              dataKey="value"
+              dataKey="portfolio"
+              name="portfolio"
               stroke="#1E3A5F"
               strokeWidth={2}
-              fill="url(#vermogenFill)"
-              dot={{ r: 3, fill: "#1E3A5F", stroke: "#FAFAF7", strokeWidth: 2 }}
-              activeDot={{ r: 5, fill: "#1E3A5F", stroke: "#B8934E", strokeWidth: 2 }}
+              dot={{ r: 2, fill: "#1E3A5F" }}
+              activeDot={{ r: 4 }}
             />
-          </AreaChart>
+            <Line
+              type="monotone"
+              dataKey="costBasis"
+              name="costBasis"
+              stroke="#B8934E"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              dot={false}
+            />
+          </LineChart>
         </ResponsiveContainer>
       </Box>
       {valuationNote && (
         <Text fontSize="xs" color="taupe.500" mt={2} lineHeight={1.5}>
-          Maandpunten op kostprijs; laatste punt: {valuationNote.toLowerCase()}
+          Historische punten op peildatum-koersen/kostprijs; laatste punt:{" "}
+          {valuationNote.toLowerCase()}
         </Text>
       )}
     </Box>
