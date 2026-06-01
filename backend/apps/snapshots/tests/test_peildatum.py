@@ -51,9 +51,8 @@ class PeildatumSnapshotModelTests(TestCase):
     def tearDown(self):
         reset_price_service()
 
-    @patch("apps.snapshots.services.peildatum.fetch_live_prices_for_positions")
-    def test_snapshot_immutable_after_create(self, mock_prices):
-        mock_prices.return_value = {}
+    @patch("apps.snapshots.services.peildatum.portfolio_valuation_at_date")
+    def test_snapshot_immutable_after_create(self, mock_valuation):
         portfolio = Portfolio.objects.create(user=self.user, name="Hoofd", is_default=True)
         asset = Asset.objects.create(
             user=self.user,
@@ -61,11 +60,29 @@ class PeildatumSnapshotModelTests(TestCase):
             asset_type=AssetType.CRYPTO,
             category=VermogensCategorie.BELEGGING,
         )
-        Position.objects.create(portfolio=portfolio, asset=asset, quantity=Decimal("1"))
+        position = Position.objects.create(portfolio=portfolio, asset=asset, quantity=Decimal("1"))
+        mock_valuation.return_value = {
+            "total_value_eur": Decimal("50000"),
+            "valuation_method": "historical_prices",
+            "historical_priced": 1,
+            "total_positions": 1,
+            "positions": [
+                {
+                    "position": position,
+                    "quantity": Decimal("1"),
+                    "value_eur": Decimal("50000"),
+                    "valuation_source": "historical",
+                    "unit_price_eur": Decimal("50000"),
+                }
+            ],
+        }
 
         snapshot = create_peildatum_snapshot(self.user, 2026)
         self.assertEqual(snapshot.year, 2026)
         self.assertIn("peildatum", snapshot.data)
+        self.assertEqual(snapshot.data["valuation_at_peildatum"], "historical_prices")
+        self.assertEqual(snapshot.data["box3_totals"]["overige_bezittingen_eur"], "50000.00")
+        mock_valuation.assert_called_once()
 
         with self.assertRaises(SnapshotAlreadyExistsError):
             create_peildatum_snapshot(self.user, 2026)

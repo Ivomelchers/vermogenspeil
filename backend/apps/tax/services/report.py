@@ -7,8 +7,12 @@ from apps.snapshots.models import PeilDatumSnapshot
 from apps.tax.services.box3 import build_forfaitair_summary
 from apps.tax.services.compare import compare_forfait_werkelijk
 from apps.tax.services.parameters import get_forfaitair_params
-from apps.tax.models import Box3Debt, Box3RealEstate
-from apps.tax.serializers import Box3DebtSerializer, Box3RealEstateSerializer
+from apps.tax.models import Box3BankBalance, Box3Debt, Box3RealEstate
+from apps.tax.serializers import (
+    Box3BankBalanceSerializer,
+    Box3DebtSerializer,
+    Box3RealEstateSerializer,
+)
 from apps.tax.services.tax_year import tax_year_context
 from apps.tax.services.werkelijk import build_werkelijk_summary
 
@@ -82,6 +86,10 @@ def build_box3_report(user, year: int, *, include_werkelijk: bool) -> dict:
         "not_included_yet": [
             "woz_verhogende_investeringen",
         ],
+        "bank_balances": Box3BankBalanceSerializer(
+            Box3BankBalance.objects.filter(user=user, tax_year=year),
+            many=True,
+        ).data,
         "debts": Box3DebtSerializer(
             Box3Debt.objects.filter(user=user, tax_year=year),
             many=True,

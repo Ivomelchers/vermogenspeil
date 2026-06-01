@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from apps.tax.models import Box3Debt, Box3RealEstate
+from apps.tax.models import Box3BankBalance, Box3Debt, Box3RealEstate
 from apps.tax.services.bijtelling import bijtelling_for_property
 from apps.tax.services.manual_assets import manual_box3_totals, manual_werkelijk_extras
 from apps.tax.services.tax_year import relevant_tax_year
@@ -18,6 +18,16 @@ class ManualAssetsTests(TestCase):
             password="SecurePass123!",
         )
         self.year = relevant_tax_year()
+
+    def test_bank_increases_b(self):
+        Box3BankBalance.objects.create(
+            user=self.user,
+            tax_year=self.year,
+            label="ING Spaar",
+            balance_eur=Decimal("15000"),
+        )
+        totals = manual_box3_totals(self.user, self.year)
+        self.assertEqual(totals["banktegoeden"], Decimal("15000"))
 
     def test_debt_increases_s_and_rente_schulden(self):
         Box3Debt.objects.create(

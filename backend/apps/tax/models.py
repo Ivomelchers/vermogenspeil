@@ -176,3 +176,44 @@ class Box3RealEstate(models.Model):
 
     def __str__(self):
         return f"{self.label} ({self.tax_year})"
+
+
+class Box3BankAccountType(models.TextChoices):
+    SAVINGS = "savings", "Spaarrekening"
+    CHECKING = "checking", "Betaalrekening"
+    DEPOSIT = "deposit", "Depositorekening"
+    OTHER = "other", "Overig banktegoed"
+
+
+class Box3BankBalance(models.Model):
+    """Handmatig banktegoed (Box 3 categorie B)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="box3_bank_balances",
+    )
+    tax_year = models.PositiveIntegerField("belastingjaar")
+    label = models.CharField(max_length=120)
+    account_type = models.CharField(
+        max_length=32,
+        choices=Box3BankAccountType.choices,
+        default=Box3BankAccountType.SAVINGS,
+    )
+    balance_eur = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        help_text="Saldo op peildatum (1 januari).",
+    )
+    institution = models.CharField(max_length=120, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "box 3-banktegoed"
+        verbose_name_plural = "box 3-banktegoeden"
+        ordering = ["-tax_year", "label"]
+
+    def __str__(self):
+        return f"{self.label} ({self.tax_year})"

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -7,13 +7,11 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.portfolio.models import Portfolio, VermogensCategorie
-from apps.portfolio.services.valuation import (
-    asset_type_label,
-    fetch_live_prices_for_positions,
-    position_value_eur,
-)
+from apps.portfolio.services.historical_valuation import portfolio_valuation_at_date
+from apps.portfolio.services.valuation import asset_type_label
 from apps.snapshots.exceptions import SnapshotAlreadyExistsError
 from apps.snapshots.models import PeilDatumSnapshot
+from apps.tax.services.snapshot_inputs import box3_totals_from_category
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -25,18 +23,12 @@ def peildatum_instant_cet(year: int) -> datetime:
     return datetime(year, 1, 1, 0, 0, 0, tzinfo=AMSTERDAM)
 
 
+def peildatum_date_for_year(year: int) -> date:
+    return date(year, 1, 1)
+
+
 def _decimal_str(value: Decimal) -> str:
     return format(value.quantize(Decimal("0.01")), "f")
-
-
-def _resolve_valuation_method(market_count: int, total_positions: int) -> str:
-    if total_positions == 0:
-        return "cost_basis"
-    if market_count == total_positions:
-        return "market"
-    if market_count > 0:
-        return "mixed"
-    return "cost_basis"
 
 
 def build_peildatum_payload(user, year: int) -> dict:
@@ -46,6 +38,7 @@ def build_peildatum_payload(user, year: int) -> dict:
     )
 
     peildatum = peildatum_instant_cet(year)
+    on_date = peildatum_date_for_year(year)
     captured_at = timezone.now()
 
     if not portfolio:
@@ -56,17 +49,21 @@ def build_peildatum_payload(user, year: int) -> dict:
             "timezone": "Europe/Amsterdam",
             "has_portfolio": False,
             "valuation_method": "cost_basis",
+            "valuation_at_peildatum": "empty",
             "total_value_eur": "0.00",
             "positions": [],
             "by_category": [],
+            "box3_totals": {
+                "banktegoeden_eur": "0.00",
+                "overige_bezittingen_eur": "0.00",
+                "schulden_eur": "0.00",
+            },
             "note": (
-                "Geen portefeuille bij vastlegging. Handmatige snapshot gebruikt "
-                "huidige waardering als proxy."
+                "Geen portefeuille bij vastlegging. Leg eerst posities vast of koppel een platform."
             ),
         }
 
-    positions_qs = list(portfolio.positions.select_related("asset"))
-    live_prices = fetch_live_prices_for_positions(positions_qs)
+    valuation = portfolio_valuation_at_date(portfolio, on_date)
 
     position_rows = []
     category_totals: dict[str, Decimal] = {}
@@ -75,32 +72,30 @@ def build_peildatum_payload(user, year: int) -> dict:
         "overige_bezittingen": Decimal(0),
         "schulden": Decimal(0),
     }
-    total = Decimal(0)
-    market_count = 0
+    total = valuation["total_value_eur"]
 
-    for position in positions_qs:
-        value, source = position_value_eur(position, live_prices=live_prices)
-        if value <= 0:
-            continue
-        if source == "market":
-            market_count += 1
-        total += value
+    for row in valuation["positions"]:
+        position = row["position"]
+        value = row["value_eur"]
+        fiscale = position.asset.category
+        box3_totals_from_category(fiscale, value, box3_totals)
+
         label = asset_type_label(position.asset.asset_type)
         category_totals[label] = category_totals.get(label, Decimal(0)) + value
 
-        row = {
+        position_row = {
             "symbol": position.asset.symbol,
             "name": position.asset.name or position.asset.symbol,
             "asset_type": position.asset.asset_type,
+            "fiscale_category": fiscale,
             "category_label": label,
-            "quantity": _decimal_str(position.quantity),
+            "quantity": _decimal_str(row["quantity"]),
             "value_eur": _decimal_str(value),
-            "valuation_source": source,
+            "valuation_source": row["valuation_source"],
         }
-        symbol_key = position.asset.symbol.upper()
-        if symbol_key in live_prices:
-            row["unit_price_eur"] = _decimal_str(live_prices[symbol_key].price_eur)
-        position_rows.append(row)
+        if row.get("unit_price_eur"):
+            position_row["unit_price_eur"] = _decimal_str(row["unit_price_eur"])
+        position_rows.append(position_row)
 
     by_category = []
     if total > 0:
@@ -114,7 +109,16 @@ def build_peildatum_payload(user, year: int) -> dict:
                 }
             )
 
-    valuation_method = _resolve_valuation_method(market_count, len(position_rows))
+    method_note = {
+        "historical_prices": "Waarden op 1 januari via historische koersen.",
+        "mixed_historical": (
+            "Waarden op 1 januari: deels historische koersen, deels kostprijs als fallback."
+        ),
+        "cost_basis_fallback": (
+            "Geen historische koers beschikbaar; kostprijs gebruikt als fallback op 1 januari."
+        ),
+        "empty": "Geen posities met waarde op de peildatum.",
+    }
 
     return {
         "year": year,
@@ -123,7 +127,10 @@ def build_peildatum_payload(user, year: int) -> dict:
         "timezone": "Europe/Amsterdam",
         "has_portfolio": True,
         "portfolio_id": portfolio.id,
-        "valuation_method": valuation_method,
+        "valuation_method": valuation["valuation_method"],
+        "valuation_at_peildatum": valuation["valuation_method"],
+        "historical_priced_count": valuation["historical_priced"],
+        "positions_count": valuation["total_positions"],
         "total_value_eur": _decimal_str(total),
         "positions": position_rows,
         "by_category": by_category,
@@ -132,10 +139,9 @@ def build_peildatum_payload(user, year: int) -> dict:
             "overige_bezittingen_eur": _decimal_str(box3_totals["overige_bezittingen"]),
             "schulden_eur": _decimal_str(box3_totals["schulden"]),
         },
-        "positions_count": len(position_rows),
-        "note": (
-            "Snapshot vastgelegd op moment van aanmaken. "
-            "Peildatum-tijdstip is 1 jan 00:00 CET; waarden zijn actuele koersen/kostprijs op capture-moment."
+        "note": method_note.get(
+            valuation["valuation_method"],
+            "Peildatum-waardering op 1 januari.",
         ),
     }
 

@@ -302,6 +302,19 @@ def build_box3_pdf(report: dict) -> bytes:
             )
         )
 
+    banks = report.get("bank_balances") or []
+    if banks:
+        story.append(Paragraph("Banktegoeden (handmatig)", st["heading"]))
+        rows = [["Omschrijving", "Saldo peildatum"]]
+        for b in banks:
+            rows.append(
+                [
+                    b.get("label", ""),
+                    format_eur_display(str(b.get("balance_eur", "0"))),
+                ]
+            )
+        story.append(_table(rows, col_widths=[9 * cm, 7 * cm], numeric_col=1))
+
     debts = report.get("debts") or []
     if debts:
         story.append(Paragraph("Schulden (handmatig)", st["heading"]))

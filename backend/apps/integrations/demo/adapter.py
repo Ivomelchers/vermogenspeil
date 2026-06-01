@@ -83,7 +83,7 @@ class DemoPlatformAdapter(PlatformAdapter):
                     quantity=Decimal("0.27"),
                     price_eur=Decimal("61000"),
                     fee_eur=Decimal("0.30"),
-                    occurred_at=_utc_days_ago(45),
+                    occurred_at=_demo_occurred_at("demo-btc-2"),
                     asset_type=AssetType.CRYPTO,
                 ),
                 TradeRecord(

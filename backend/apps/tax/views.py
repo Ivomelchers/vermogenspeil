@@ -5,8 +5,12 @@ from rest_framework.views import APIView
 
 from apps.accounts.authentication import UnlinkedAuth0User
 from apps.accounts.utils.responses import api_error, api_response, first_validation_message
-from apps.tax.models import Box3Debt, Box3RealEstate
-from apps.tax.serializers import Box3DebtSerializer, Box3RealEstateSerializer
+from apps.tax.models import Box3BankBalance, Box3Debt, Box3RealEstate
+from apps.tax.serializers import (
+    Box3BankBalanceSerializer,
+    Box3DebtSerializer,
+    Box3RealEstateSerializer,
+)
 from apps.tax.services.box3 import build_forfaitair_summary
 from apps.tax.services.box3_summary import build_box3_summary
 from apps.tax.services.pdf_report import build_box3_pdf
@@ -220,3 +224,71 @@ class Box3RealEstateDetailView(APIView):
             return api_error(message="Vastgoed niet gevonden.", error="not_found", status=404)
         prop.delete()
         return api_response(message="Vastgoed verwijderd.")
+
+
+class Box3BankBalanceListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user, error = _linked_user_or_error(request)
+        if error:
+            return error
+        year = request.query_params.get("year")
+        qs = Box3BankBalance.objects.filter(user=user)
+        if year:
+            qs = qs.filter(tax_year=int(year))
+        return api_response(data=Box3BankBalanceSerializer(qs, many=True).data)
+
+    def post(self, request):
+        user, error = _linked_user_or_error(request)
+        if error:
+            return error
+        serializer = Box3BankBalanceSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        account = serializer.save(user=user)
+        return api_response(
+            data=Box3BankBalanceSerializer(account).data,
+            message="Banktegoed toegevoegd.",
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class Box3BankBalanceDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get_account(self, user, pk):
+        return Box3BankBalance.objects.filter(user=user, pk=pk).first()
+
+    def patch(self, request, pk: int):
+        user, error = _linked_user_or_error(request)
+        if error:
+            return error
+        account = self._get_account(user, pk)
+        if not account:
+            return api_error(message="Banktegoed niet gevonden.", error="not_found", status=404)
+        serializer = Box3BankBalanceSerializer(account, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=400,
+            )
+        serializer.save()
+        return api_response(data=serializer.data, message="Banktegoed bijgewerkt.")
+
+    def delete(self, request, pk: int):
+        user, error = _linked_user_or_error(request)
+        if error:
+            return error
+        account = self._get_account(user, pk)
+        if not account:
+            return api_error(message="Banktegoed niet gevonden.", error="not_found", status=404)
+        account.delete()
+        return api_response(message="Banktegoed verwijderd.")

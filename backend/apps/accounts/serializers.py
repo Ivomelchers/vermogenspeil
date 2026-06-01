@@ -145,3 +145,9 @@ class UserSerializer(serializers.ModelSerializer):
             "is_2fa_enabled",
         ]
         read_only_fields = fields
+
+
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["has_fiscal_partner"]

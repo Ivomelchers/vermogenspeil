@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.tax.models import Box3Debt, Box3RealEstate, TaxYearParameter
+from apps.tax.models import Box3BankBalance, Box3Debt, Box3RealEstate, TaxYearParameter
 
 
 @admin.register(TaxYearParameter)
@@ -14,6 +14,12 @@ class TaxYearParameterAdmin(admin.ModelAdmin):
         "banktegoeden_definitief",
     )
     ordering = ("-year",)
+
+
+@admin.register(Box3BankBalance)
+class Box3BankBalanceAdmin(admin.ModelAdmin):
+    list_display = ("user", "tax_year", "label", "balance_eur", "account_type")
+    list_filter = ("tax_year", "account_type")
 
 
 @admin.register(Box3Debt)

@@ -3,15 +3,17 @@ import {
   Badge,
   Box,
   Button,
+  Checkbox,
   Flex,
   Heading,
   Link,
   Text,
   VStack,
 } from "@chakra-ui/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 
-import { requestPasswordReset, resendVerificationEmail } from "../api/auth";
+import { requestPasswordReset, resendVerificationEmail, updateProfile } from "../api/auth";
 import AuthAlert from "../components/auth/AuthAlert";
 import FiscalCard from "../components/common/FiscalCard";
 import Kicker from "../components/common/Kicker";
@@ -20,11 +22,14 @@ import { getApiErrorMessage } from "../utils/apiError";
 
 export default function AccountSettingsPage() {
   const { user, permissions } = useUser();
+  const queryClient = useQueryClient();
   const [passwordResetMessage, setPasswordResetMessage] = useState("");
   const [verificationMessage, setVerificationMessage] = useState("");
+  const [fiscalMessage, setFiscalMessage] = useState("");
   const [error, setError] = useState("");
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [fiscalBusy, setFiscalBusy] = useState(false);
 
   if (!user) {
     return null;
@@ -47,6 +52,21 @@ export default function AccountSettingsPage() {
       setError(getApiErrorMessage(submitError, "Resetlink versturen mislukt."));
     } finally {
       setIsSendingReset(false);
+    }
+  }
+
+  async function handleFiscalPartnerChange(checked: boolean) {
+    setError("");
+    setFiscalMessage("");
+    setFiscalBusy(true);
+    try {
+      await updateProfile({ has_fiscal_partner: checked });
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      setFiscalMessage("Instelling opgeslagen. Herbereken uw belastingpositie indien nodig.");
+    } catch (submitError) {
+      setError(getApiErrorMessage(submitError, "Instelling opslaan mislukt."));
+    } finally {
+      setFiscalBusy(false);
     }
   }
 
@@ -143,6 +163,28 @@ export default function AccountSettingsPage() {
           >
             Wachtwoord resetlink versturen
           </Button>
+        </VStack>
+      </FiscalCard>
+
+      <FiscalCard p={6}>
+        <VStack align="stretch" spacing={4}>
+          <Text fontWeight={600}>Box 3 · Fiscaal partner</Text>
+          <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
+            Bij een fiscaal partner verdubbelt het heffingsvrije vermogen en de schuldendrempel
+            in de forfaitaire berekening.
+          </Text>
+          <Checkbox
+            isChecked={user.has_fiscal_partner}
+            isDisabled={fiscalBusy}
+            onChange={(e) => void handleFiscalPartnerChange(e.target.checked)}
+          >
+            Ik heb een fiscaal partner voor dit belastingjaar
+          </Checkbox>
+          {fiscalMessage && (
+            <Text fontSize="sm" color="taupe.500">
+              {fiscalMessage}
+            </Text>
+          )}
         </VStack>
       </FiscalCard>
 

@@ -18,12 +18,16 @@ import {
 } from "@chakra-ui/react";
 
 import {
+  createBox3BankBalance,
   createBox3Debt,
   createBox3RealEstate,
+  deleteBox3BankBalance,
   deleteBox3Debt,
   deleteBox3RealEstate,
+  listBox3BankBalances,
   listBox3Debts,
   listBox3RealEstate,
+  type Box3BankBalance,
   type Box3Debt,
   type Box3RealEstate,
 } from "../../api/tax";
@@ -31,6 +35,13 @@ import FiscalCard from "../common/FiscalCard";
 import Kicker from "../common/Kicker";
 import { formatEur } from "../../utils/formatMoney";
 import { getApiErrorMessage } from "../../utils/apiError";
+
+const BANK_TYPES: { value: string; label: string }[] = [
+  { value: "savings", label: "Spaarrekening" },
+  { value: "checking", label: "Betaalrekening" },
+  { value: "deposit", label: "Depositorekening" },
+  { value: "other", label: "Overig banktegoed" },
+];
 
 const DEBT_TYPES: { value: string; label: string }[] = [
   { value: "consumer", label: "Consumptief" },
@@ -54,13 +65,19 @@ interface ManualWealthSectionProps {
 }
 
 export default function ManualWealthSection({ taxYear, onChanged }: ManualWealthSectionProps) {
+  const [banks, setBanks] = useState<Box3BankBalance[]>([]);
   const [debts, setDebts] = useState<Box3Debt[]>([]);
   const [properties, setProperties] = useState<Box3RealEstate[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [bankError, setBankError] = useState("");
   const [debtError, setDebtError] = useState("");
   const [propertyError, setPropertyError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const [bankLabel, setBankLabel] = useState("");
+  const [bankType, setBankType] = useState("savings");
+  const [bankBalance, setBankBalance] = useState("");
 
   const [debtLabel, setDebtLabel] = useState("");
   const [debtType, setDebtType] = useState("other");
@@ -79,7 +96,12 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
     setLoading(true);
     setLoadError("");
     try {
-      const [d, p] = await Promise.all([listBox3Debts(taxYear), listBox3RealEstate(taxYear)]);
+      const [b, d, p] = await Promise.all([
+        listBox3BankBalances(taxYear),
+        listBox3Debts(taxYear),
+        listBox3RealEstate(taxYear),
+      ]);
+      setBanks(b);
       setDebts(d);
       setProperties(p);
     } catch (err) {
@@ -92,6 +114,47 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function handleAddBank() {
+    if (!bankLabel.trim() || !bankBalance.trim()) {
+      setBankError("Vul minimaal omschrijving en saldo in.");
+      return;
+    }
+    setBusy(true);
+    setBankError("");
+    try {
+      await createBox3BankBalance({
+        tax_year: taxYear,
+        label: bankLabel.trim(),
+        account_type: bankType,
+        balance_eur: bankBalance.replace(",", "."),
+        institution: "",
+        notes: "",
+      });
+      setBankLabel("");
+      setBankBalance("");
+      await load();
+      onChanged?.();
+    } catch (createError) {
+      setBankError(getApiErrorMessage(createError, "Banktegoed toevoegen mislukt."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDeleteBank(id: number) {
+    setBusy(true);
+    setBankError("");
+    try {
+      await deleteBox3BankBalance(id);
+      await load();
+      onChanged?.();
+    } catch (deleteError) {
+      setBankError(getApiErrorMessage(deleteError, "Verwijderen mislukt."));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleAddDebt() {
     if (!debtLabel.trim() || !debtOutstanding.trim()) {
@@ -193,6 +256,97 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
 
   return (
     <VStack align="stretch" spacing={4}>
+      <FiscalCard p={5}>
+        <Kicker mb={2}>Banktegoeden (Box 3 · B)</Kicker>
+        <Text color="ink.dim" fontSize="sm" mb={4} lineHeight={1.7}>
+          Spaar- en betaalrekeningen op peildatum 1 januari. Telt mee in forfaitair rendement op
+          banktegoeden.
+        </Text>
+        {loading ? (
+          <Text color="ink.dim" fontSize="sm">
+            Laden…
+          </Text>
+        ) : (
+          <>
+            {banks.length > 0 && (
+              <Box overflowX="auto" mb={4}>
+                <Table size="sm">
+                  <Thead>
+                    <Tr>
+                      <Th>Omschrijving</Th>
+                      <Th isNumeric>Saldo</Th>
+                      <Th />
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {banks.map((b) => (
+                      <Tr key={b.id}>
+                        <Td>{b.label}</Td>
+                        <Td isNumeric>{formatEur(b.balance_eur)}</Td>
+                        <Td>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            isDisabled={busy}
+                            onClick={() => void handleDeleteBank(b.id)}
+                          >
+                            Verwijder
+                          </Button>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
+            )}
+            <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={3}>
+              <FormControl>
+                <FormLabel fontSize="sm">Omschrijving</FormLabel>
+                <Input
+                  size="sm"
+                  value={bankLabel}
+                  onChange={(e) => setBankLabel(e.target.value)}
+                  placeholder="bijv. ING Spaar"
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm">Type</FormLabel>
+                <Select size="sm" value={bankType} onChange={(e) => setBankType(e.target.value)}>
+                  {BANK_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm">Saldo peildatum (€)</FormLabel>
+                <Input
+                  size="sm"
+                  inputMode="decimal"
+                  value={bankBalance}
+                  onChange={(e) => setBankBalance(e.target.value)}
+                />
+              </FormControl>
+            </Grid>
+            <Button
+              variant="fiscalOutline"
+              size="sm"
+              mt={3}
+              isLoading={busy}
+              onClick={() => void handleAddBank()}
+            >
+              Banktegoed toevoegen
+            </Button>
+            {bankError && (
+              <Text fontSize="sm" color="red.500" mt={2}>
+                {bankError}
+              </Text>
+            )}
+          </>
+        )}
+      </FiscalCard>
+
       <FiscalCard p={5}>
         <Kicker mb={2}>Schulden (Box 3)</Kicker>
         <Text color="ink.dim" fontSize="sm" mb={4} lineHeight={1.7}>

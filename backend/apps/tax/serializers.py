@@ -1,6 +1,23 @@
 from rest_framework import serializers
 
-from apps.tax.models import Box3Debt, Box3RealEstate
+from apps.tax.models import Box3BankBalance, Box3Debt, Box3RealEstate
+
+
+class Box3BankBalanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Box3BankBalance
+        fields = [
+            "id",
+            "tax_year",
+            "label",
+            "account_type",
+            "balance_eur",
+            "institution",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class Box3DebtSerializer(serializers.ModelSerializer):

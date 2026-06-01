@@ -92,6 +92,16 @@ export interface Box3Report {
   manual_assets?: Record<string, unknown>;
 }
 
+export interface Box3BankBalance {
+  id: number;
+  tax_year: number;
+  label: string;
+  account_type: string;
+  balance_eur: string;
+  institution: string;
+  notes: string;
+}
+
 export interface Box3Debt {
   id: number;
   tax_year: number;
@@ -124,6 +134,7 @@ export interface Box3RealEstate {
   notes: string;
 }
 
+export type Box3BankBalanceInput = Omit<Box3BankBalance, "id">;
 export type Box3DebtInput = Omit<Box3Debt, "id">;
 export type Box3RealEstateInput = Omit<Box3RealEstate, "id">;
 
@@ -141,11 +152,6 @@ export async function getForfaitairBox3(year: number): Promise<ForfaitairBox3Sum
 
 export async function getBox3Summary(year: number): Promise<Box3Summary> {
   const response = await api.get<ApiEnvelope<Box3Summary>>(`tax/box3/${year}/`);
-  return response.data.data;
-}
-
-export async function getBox3Report(year: number): Promise<Box3Report> {
-  const response = await api.get<ApiEnvelope<Box3Report>>(`tax/box3/${year}/report/`);
   return response.data.data;
 }
 
@@ -171,6 +177,27 @@ export async function downloadBox3ReportPdf(year: number): Promise<Blob> {
   }
 
   return blob;
+}
+
+export async function listBox3BankBalances(year: number): Promise<Box3BankBalance[]> {
+  const response = await api.get<ApiEnvelope<Box3BankBalance[]>>("tax/manual/bank-balances/", {
+    params: { year },
+  });
+  return response.data.data;
+}
+
+export async function createBox3BankBalance(
+  payload: Box3BankBalanceInput,
+): Promise<Box3BankBalance> {
+  const response = await api.post<ApiEnvelope<Box3BankBalance>>(
+    "tax/manual/bank-balances/",
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function deleteBox3BankBalance(id: number): Promise<void> {
+  await api.delete(`tax/manual/bank-balances/${id}/`);
 }
 
 export async function listBox3Debts(year: number): Promise<Box3Debt[]> {

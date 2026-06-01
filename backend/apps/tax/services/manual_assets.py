@@ -2,7 +2,7 @@
 
 from decimal import Decimal, ROUND_HALF_UP
 
-from apps.tax.models import Box3Debt, Box3RealEstate, Box3RealEstateType
+from apps.tax.models import Box3BankBalance, Box3Debt, Box3RealEstate, Box3RealEstateType
 from apps.tax.services.bijtelling import total_bijtelling
 
 
@@ -31,9 +31,13 @@ def rental_value_for_property(prop: Box3RealEstate) -> Decimal:
 
 
 def manual_box3_totals(user, year: int) -> dict[str, Decimal]:
+    banktegoeden = Decimal(0)
     schulden = Decimal(0)
     overig = Decimal(0)
     buitenland = Decimal(0)
+
+    for account in Box3BankBalance.objects.filter(user=user, tax_year=year):
+        banktegoeden += account.balance_eur
 
     for debt in Box3Debt.objects.filter(user=user, tax_year=year):
         schulden += debt.outstanding_eur
@@ -45,6 +49,7 @@ def manual_box3_totals(user, year: int) -> dict[str, Decimal]:
             buitenland += value
 
     return {
+        "banktegoeden": banktegoeden,
         "schulden": schulden,
         "overige_bezittingen": overig,
         "buitenlands_vastgoed": buitenland,

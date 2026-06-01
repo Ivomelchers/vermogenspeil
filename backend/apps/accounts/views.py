@@ -237,24 +237,48 @@ class TokenRefreshView(APIView):
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def _linked_user_or_error(self, request):
         user = request.user
         if isinstance(user, UnlinkedAuth0User):
-            return api_error(
+            return None, api_error(
                 message="Account niet gekoppeld. Neem contact op met support.",
                 error="account_not_linked",
                 status=status.HTTP_403_FORBIDDEN,
             )
-
         if not user.email_verified:
-            return api_error(
+            return None, api_error(
                 message="Bevestig eerst je e-mailadres.",
                 error="email_not_verified",
                 status=status.HTTP_403_FORBIDDEN,
             )
+        return user, None
 
+    def get(self, request):
+        user, error = self._linked_user_or_error(request)
+        if error:
+            return error
         serializer = UserSerializer(user)
         return api_response(data=serializer.data, message="Profiel opgehaald.")
+
+    def patch(self, request):
+        user, error = self._linked_user_or_error(request)
+        if error:
+            return error
+        from apps.accounts.serializers import UserProfileUpdateSerializer
+
+        serializer = UserProfileUpdateSerializer(user, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer.save()
+        return api_response(
+            data=UserSerializer(user).data,
+            message="Profiel bijgewerkt.",
+        )
 
 
 class MfaStatusView(APIView):

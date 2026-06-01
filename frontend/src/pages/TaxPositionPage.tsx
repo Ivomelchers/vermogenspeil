@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Grid,
-  HStack,
   Heading,
   Table,
   Tbody,
@@ -19,7 +18,6 @@ import { Link as RouterLink } from "react-router-dom";
 
 import {
   downloadBox3ReportPdf,
-  getBox3Report,
   getBox3Summary,
   getTaxYearContext,
   type Box3Summary,
@@ -129,21 +127,6 @@ export default function TaxPositionPage() {
     anchor.download = filename;
     anchor.click();
     URL.revokeObjectURL(url);
-  }
-
-  async function handleDownloadJson() {
-    setReportBusy(true);
-    setReportMessage("");
-    try {
-      const report = await getBox3Report(taxYear);
-      const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
-      triggerDownload(blob, `box3-rapport-${taxYear}.json`);
-      setReportMessage("Rapport gedownload (JSON).");
-    } catch (reportError) {
-      setReportMessage(getApiErrorMessage(reportError, "Rapport laden mislukt."));
-    } finally {
-      setReportBusy(false);
-    }
   }
 
   async function handleDownloadPdf() {
@@ -369,29 +352,17 @@ export default function TaxPositionPage() {
           <FiscalCard p={5}>
             <Kicker mb={3}>Rapport (6.3)</Kicker>
             <Text color="ink.dim" fontSize="sm" mb={4} lineHeight={1.7}>
-              Download onderbouwing: posities, cashflows, handmatig vermogen en berekeningen
-              als JSON of PDF.
+              Download onderbouwing: posities, handmatig vermogen en berekeningen als PDF.
             </Text>
-            <HStack spacing={3} flexWrap="wrap">
-              <Button
-                variant="fiscalOutline"
-                size="sm"
-                isLoading={reportBusy}
-                onClick={() => void handleDownloadJson()}
-                isDisabled={!hasSnapshot}
-              >
-                Download JSON
-              </Button>
-              <Button
-                variant="fiscal"
-                size="sm"
-                isLoading={reportBusy}
-                onClick={() => void handleDownloadPdf()}
-                isDisabled={!hasSnapshot}
-              >
-                Download PDF
-              </Button>
-            </HStack>
+            <Button
+              variant="fiscal"
+              size="sm"
+              isLoading={reportBusy}
+              onClick={() => void handleDownloadPdf()}
+              isDisabled={!hasSnapshot}
+            >
+              Download PDF
+            </Button>
             {reportMessage && (
               <Text fontSize="xs" color="taupe.500" mt={2}>
                 {reportMessage}

@@ -47,6 +47,13 @@ export const auth = async (): Promise<AuthUser> => {
   return res.data.data;
 };
 
+export const updateProfile = async (data: {
+  has_fiscal_partner?: boolean;
+}): Promise<AuthUser> => {
+  const res = await api.patch<ApiEnvelope<AuthUser>>("auth/me/", data);
+  return res.data.data;
+};
+
 export const login = async ({
   email,
   password,
