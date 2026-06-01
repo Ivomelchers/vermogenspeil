@@ -6,6 +6,7 @@ from apps.accounts.authentication import UnlinkedAuth0User
 from apps.accounts.utils.responses import api_error, api_response, first_validation_message
 from apps.portfolio.models import Asset, Portfolio
 from apps.portfolio.serializers import (
+    AssetCategoryUpdateSerializer,
     AssetSerializer,
     ManualAssetCreateSerializer,
     ManualTransactionCreateSerializer,
@@ -119,6 +120,39 @@ class PortfolioTransactionsView(APIView):
                 "total_pages": result["total_pages"],
                 "filters": filters,
             }
+        )
+
+
+class AssetCategoryUpdateView(APIView):
+    """Fiscale categorie voor Box 3 (bank / belegging / schuld)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, asset_id: int):
+        user, error = _linked_user_or_error(request)
+        if error:
+            return error
+
+        asset = Asset.objects.for_user(user).filter(pk=asset_id).first()
+        if not asset:
+            return api_error(
+                message="Asset niet gevonden.",
+                error="not_found",
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = AssetCategoryUpdateSerializer(asset, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer.save()
+        return api_response(
+            data=AssetSerializer(asset).data,
+            message="Fiscale categorie bijgewerkt. Leg peildatum opnieuw vast voor Box 3.",
         )
 
 

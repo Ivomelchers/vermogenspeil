@@ -6,14 +6,20 @@ import {
   Checkbox,
   Flex,
   Heading,
+  Input,
   Link,
   Text,
   VStack,
 } from "@chakra-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 
-import { requestPasswordReset, resendVerificationEmail, updateProfile } from "../api/auth";
+import {
+  deleteAccount,
+  requestPasswordReset,
+  resendVerificationEmail,
+  updateProfile,
+} from "../api/auth";
 import AuthAlert from "../components/auth/AuthAlert";
 import FiscalCard from "../components/common/FiscalCard";
 import Kicker from "../components/common/Kicker";
@@ -21,7 +27,8 @@ import { useUser } from "../contexts/UserContext";
 import { getApiErrorMessage } from "../utils/apiError";
 
 export default function AccountSettingsPage() {
-  const { user, permissions } = useUser();
+  const { user, permissions, logout } = useUser();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [passwordResetMessage, setPasswordResetMessage] = useState("");
   const [verificationMessage, setVerificationMessage] = useState("");
@@ -30,6 +37,8 @@ export default function AccountSettingsPage() {
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [fiscalBusy, setFiscalBusy] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   if (!user) {
     return null;
@@ -67,6 +76,27 @@ export default function AccountSettingsPage() {
       setError(getApiErrorMessage(submitError, "Instelling opslaan mislukt."));
     } finally {
       setFiscalBusy(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setError("");
+    if (deleteEmail.trim().toLowerCase() !== userEmail.toLowerCase()) {
+      setError("Vul uw e-mailadres exact in om te bevestigen.");
+      return;
+    }
+    setDeleteBusy(true);
+    try {
+      await deleteAccount(userEmail);
+      await logout();
+      navigate("/auth/login", {
+        replace: true,
+        state: { message: "Uw account is verwijderd." },
+      });
+    } catch (deleteError) {
+      setError(getApiErrorMessage(deleteError, "Account verwijderen mislukt."));
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
@@ -168,6 +198,17 @@ export default function AccountSettingsPage() {
 
       <FiscalCard p={6}>
         <VStack align="stretch" spacing={4}>
+          <Text fontWeight={600}>Abonnement</Text>
+          <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
+            {permissions.isPremium
+              ? "Werkelijk rendement, vergelijking met forfaitair en het volledige Box 3-rapport."
+              : "Forfaitaire Box 3, peildatum, handmatige invoer en PDF-rapport. Upgrade voor werkelijk rendement."}
+          </Text>
+        </VStack>
+      </FiscalCard>
+
+      <FiscalCard p={6}>
+        <VStack align="stretch" spacing={4}>
           <Text fontWeight={600}>Box 3 · Fiscaal partner</Text>
           <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
             Bij een fiscaal partner verdubbelt het heffingsvrije vermogen en de schuldendrempel
@@ -185,6 +226,38 @@ export default function AccountSettingsPage() {
               {fiscalMessage}
             </Text>
           )}
+        </VStack>
+      </FiscalCard>
+
+      <FiscalCard p={6} borderColor="red.200">
+        <VStack align="stretch" spacing={4}>
+          <Text fontWeight={600}>Account verwijderen</Text>
+          <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
+            Uw account wordt gedeactiveerd en persoonsgegevens worden geanonimiseerd. U kunt
+            daarna niet meer inloggen. Portefeuille- en belastingdata blijven bewaard volgens ons
+            bewaarbeleid.
+          </Text>
+          <Box>
+            <Text fontSize="xs" color="ink.dim" mb={1}>
+              Typ {userEmail} ter bevestiging
+            </Text>
+            <Input
+              size="sm"
+              value={deleteEmail}
+              onChange={(e) => setDeleteEmail(e.target.value)}
+              placeholder={userEmail}
+            />
+          </Box>
+          <Button
+            variant="outline"
+            colorScheme="red"
+            alignSelf="flex-start"
+            size="sm"
+            isLoading={deleteBusy}
+            onClick={() => void handleDeleteAccount()}
+          >
+            Account definitief verwijderen
+          </Button>
         </VStack>
       </FiscalCard>
 

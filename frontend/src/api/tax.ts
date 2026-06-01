@@ -75,6 +75,7 @@ export interface Box3Summary {
   werkelijk: WerkelijkBox3Summary;
   comparison: Box3Comparison | null;
   applied_tax_eur: string | null;
+  tax_warnings?: string[];
   message: string;
 }
 
@@ -125,12 +126,14 @@ export interface Box3RealEstate {
   vacancy_ratio: string;
   rental_income_ytd_eur: string;
   eigen_gebruik_days: number;
+  eigen_gebruik_days_computed?: number;
   verhuur_days: number;
   verbouw_days: number;
   bijtelling_method: string;
   economic_rent_yearly_eur: string;
   woz_previous_year_eur: string;
   bijtelling_rate: string;
+  bijtelling_eur?: string;
   notes: string;
 }
 

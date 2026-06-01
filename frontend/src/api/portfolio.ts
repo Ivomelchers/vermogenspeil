@@ -56,6 +56,8 @@ export interface DashboardCategory {
 
 export interface DashboardPosition {
   id: number;
+  asset_id?: number;
+  category?: string;
   symbol: string;
   name: string;
   asset_type: string;
@@ -96,6 +98,23 @@ export interface DashboardReturns {
   note: string;
 }
 
+export interface DashboardValuePoint {
+  date: string;
+  value_eur: string;
+  method: "cost_basis" | "current" | "ytd_start";
+}
+
+export interface DashboardActivity {
+  id: number;
+  occurred_at: string;
+  symbol: string;
+  transaction_type: string;
+  transaction_type_label: string;
+  source_platform: string;
+  quantity: string;
+  total_eur: string | null;
+}
+
 export interface DashboardSummary {
   has_portfolio: boolean;
   portfolio_id?: number;
@@ -112,6 +131,19 @@ export interface DashboardSummary {
   platforms: DashboardPlatform[];
   positions_count: number;
   transactions_count: number;
+  recent_activity: DashboardActivity[];
+  value_history: DashboardValuePoint[];
+}
+
+export async function updateAssetCategory(
+  assetId: number,
+  category: string,
+): Promise<Asset> {
+  const response = await api.patch<ApiEnvelope<Asset>>(
+    `portfolios/assets/${assetId}/category/`,
+    { category },
+  );
+  return response.data.data;
 }
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {

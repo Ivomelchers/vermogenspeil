@@ -139,7 +139,7 @@ class Auth0Authentication(authentication.BaseAuthentication):
             logger.debug("Auth0 token validation failed: %s", exc)
             raise InvalidAuthToken() from exc
 
-        if not user.is_active:
+        if not user.is_active or user.deleted_at is not None:
             raise InvalidAuthToken("Account is gedeactiveerd.")
 
         return user, None

@@ -197,15 +197,13 @@ def build_werkelijk_summary(user, year: int, *, params: ForfaitairParams) -> dic
         "method": "werkelijk",
         "is_provisional": is_provisional,
         "provisional_note": (
-            f"Voorlopige berekening t/m vandaag; definitief op 31-12-{year}."
+            "Voorlopige berekening t/m vandaag op basis van huidige portefeuillewaarde. "
+            "Niet automatisch het volledige kalenderjaar tot 31 december."
             if is_provisional
             else f"Gebaseerd op waarden t/m einde {year}."
         ),
         "calculation": result.as_dict(),
         "tax_due_eur": result.as_dict()["tax_due_eur"],
         "cashflows": aggregates["cashflows"],
-        "disclaimer": (
-            "Werkelijk rendement: geen heffingsvrij vermogen, kosten niet aftrekbaar. "
-            "Indicatief — geen vervanging van officiële aangifte."
-        ),
+        "disclaimer": "Indicatief — geen vervanging van officiële aangifte.",
     }

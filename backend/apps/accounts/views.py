@@ -280,6 +280,33 @@ class MeView(APIView):
             message="Profiel bijgewerkt.",
         )
 
+    def delete(self, request):
+        user, error = self._linked_user_or_error(request)
+        if error:
+            return error
+
+        from apps.accounts.serializers import AccountDeleteSerializer
+        from apps.accounts.services.account_deletion import soft_delete_user
+
+        serializer = AccountDeleteSerializer(
+            data=request.data,
+            context={"user": user},
+        )
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        soft_delete_user(user)
+        return api_response(
+            data=None,
+            message="Uw account is verwijderd. U bent uitgelogd.",
+            status=status.HTTP_200_OK,
+        )
+
 
 class MfaStatusView(APIView):
     permission_classes = [IsAuthenticated]

@@ -200,6 +200,13 @@ DEMO_FEATURES_ENABLED = os.environ.get("DEMO_FEATURES_ENABLED", "").lower() in (
     "yes",
 )
 
+# Pre-launch: iedereen Premium-features (werkelijk rendement). Zet PREMIUM_UNLOCKED_FOR_ALL=false bij livegang.
+PREMIUM_UNLOCKED_FOR_ALL = os.environ.get("PREMIUM_UNLOCKED_FOR_ALL", "true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "")
 BITVAVO_API_URL = os.environ.get("BITVAVO_API_URL", "https://api.bitvavo.com/v2")

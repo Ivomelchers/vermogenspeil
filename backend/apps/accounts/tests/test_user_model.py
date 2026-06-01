@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.accounts.models import SubscriptionTier
@@ -48,6 +48,7 @@ class UserModelTests(TestCase):
     def test_username_field_is_email(self):
         self.assertEqual(User.USERNAME_FIELD, "email")
 
+    @override_settings(PREMIUM_UNLOCKED_FOR_ALL=False)
     def test_default_subscription_tier_is_free(self):
         user = User.objects.create_user(
             email="free@example.com",
@@ -57,6 +58,17 @@ class UserModelTests(TestCase):
 
         self.assertEqual(user.subscription_tier, SubscriptionTier.FREE)
         self.assertFalse(user.is_premium)
+
+    @override_settings(PREMIUM_UNLOCKED_FOR_ALL=True)
+    def test_premium_unlocked_for_all_grants_premium_features(self):
+        user = User.objects.create_user(
+            email="preview@example.com",
+            password="securepassword12",
+            first_name="Preview",
+        )
+
+        self.assertEqual(user.subscription_tier, SubscriptionTier.FREE)
+        self.assertTrue(user.is_premium)
 
     def test_default_active_tax_year_is_current_year(self):
         user = User.objects.create_user(

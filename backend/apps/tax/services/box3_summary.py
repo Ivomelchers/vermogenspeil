@@ -4,6 +4,7 @@ from apps.tax.services.box3 import build_forfaitair_summary
 from apps.tax.services.compare import compare_forfait_werkelijk
 from apps.tax.services.parameters import TaxParametersNotFoundError, get_forfaitair_params
 from apps.tax.services.tax_year import tax_year_context
+from apps.tax.services.transparency import build_tax_warnings
 from apps.tax.services.werkelijk import build_werkelijk_summary
 
 
@@ -24,7 +25,7 @@ def build_box3_summary(user, year: int) -> dict:
             "message": str(exc),
         }
 
-    werkelijk = {"available": False, "message": "Premium vereist voor werkelijk rendement."}
+    werkelijk = {"available": False, "message": "Werkelijk rendement is niet beschikbaar."}
     if is_premium:
         werkelijk = build_werkelijk_summary(user, year, params=params)
 
@@ -50,6 +51,7 @@ def build_box3_summary(user, year: int) -> dict:
         "werkelijk": werkelijk,
         "comparison": comparison,
         "applied_tax_eur": applied_tax,
+        "tax_warnings": build_tax_warnings(year=year, forfaitair=forfait),
         "message": (
             "Belastingdienst past automatisch het laagste bedrag toe (forfaitair vs. werkelijk)."
             if comparison

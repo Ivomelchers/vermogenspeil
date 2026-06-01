@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Grid, Link, Text, VStack } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Flex,
+  Grid,
+  HStack,
+  Link,
+  SimpleGrid,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 
 import { getDashboardSummary, type DashboardSummary } from "../api/portfolio";
@@ -10,6 +20,10 @@ import {
 } from "../api/snapshots";
 import { getForfaitairBox3, getTaxYearContext, type ForfaitairBox3Summary } from "../api/tax";
 import { relevantTaxYear } from "../utils/taxYear";
+import AllocationChart from "../components/dashboard/AllocationChart";
+import DashboardPositionsTable from "../components/dashboard/DashboardPositionsTable";
+import PortfolioTrendChart from "../components/dashboard/PortfolioTrendChart";
+import RecentActivityFeed from "../components/dashboard/RecentActivityFeed";
 import AuthAlert from "../components/auth/AuthAlert";
 import DisplayMoney from "../components/portfolio/DisplayMoney";
 import FiscalCard from "../components/common/FiscalCard";
@@ -18,11 +32,39 @@ import MoneyText from "../components/common/MoneyText";
 import { useUser } from "../contexts/UserContext";
 import { formatDateNl, formatEur } from "../utils/formatMoney";
 import { getApiErrorMessage } from "../utils/apiError";
-import {
-  positionPriceHint,
-  returnBasisLabel,
-  valuationBasisLabel,
-} from "../utils/valuationLabels";
+import { returnBasisLabel } from "../utils/valuationLabels";
+
+function StatPill({
+  label,
+  amount,
+  sub,
+  tone,
+}: {
+  label: string;
+  amount: string;
+  sub?: string;
+  tone?: "positive" | "negative" | "default";
+}) {
+  return (
+    <Box
+      px={3}
+      py={2}
+      bg="paper"
+      border="1px solid"
+      borderColor="line.soft"
+      borderRadius="base"
+      minW={{ base: "full", sm: "140px" }}
+    >
+      <Kicker mb={1}>{label}</Kicker>
+      <DisplayMoney amount={amount} size="sm" signed tone={tone} />
+      {sub && (
+        <Text fontSize="xs" color="taupe.500" mt={0.5}>
+          {sub}
+        </Text>
+      )}
+    </Box>
+  );
+}
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -89,31 +131,29 @@ export default function DashboardPage() {
   const todayLabel = formatDateNl(new Date().toISOString());
   const totalValue = summary?.total_value_eur ?? "0";
   const hasPositions = (summary?.positions_count ?? 0) > 0;
-  const basisLabel = valuationBasisLabel(summary?.valuation_method);
-
   return (
-    <VStack align="stretch" spacing={8}>
+    <VStack align="stretch" spacing={5}>
       {error && <AuthAlert tone="error">{error}</AuthAlert>}
 
       <Grid
-        templateColumns={{ base: "1fr", xl: "1.3fr 1fr" }}
-        gap={12}
-        pb={8}
-        borderBottom="1px solid"
-        borderColor="line.DEFAULT"
+        templateColumns={{ base: "1fr", lg: "1fr 320px" }}
+        gap={4}
+        alignItems="stretch"
       >
-        <Box>
-          <Kicker mb={4}>
-            Overzicht · <Box as="span" color="taupe.500">{todayLabel}</Box>
-          </Kicker>
+        <FiscalCard p={{ base: 4, md: 5 }}>
+          <Flex justify="space-between" align="flex-start" gap={3} flexWrap="wrap" mb={2}>
+            <Kicker>
+              Overzicht · <Box as="span" color="taupe.500">{todayLabel}</Box>
+            </Kicker>
+          </Flex>
           <Text
             fontFamily="heading"
             fontStyle="italic"
-            fontSize="15px"
+            fontSize="sm"
             color="ink.dim"
-            mb={1.5}
+            mb={1}
           >
-            Welkom terug, {greetingName} — totaal vermogen ({basisLabel.toLowerCase()})
+            Welkom terug, {greetingName}
           </Text>
 
           {loading ? (
@@ -122,116 +162,99 @@ export default function DashboardPage() {
             </Text>
           ) : (
             <>
-              <DisplayMoney amount={totalValue} />
-              <Kicker mt={3} mb={4}>
+              <DisplayMoney amount={totalValue} size="md" />
+              <Text fontSize="xs" color="taupe.500" mt={1} mb={3}>
                 {summary?.valuation_note ??
                   "Waarde op basis van kostprijs — geen live koersen beschikbaar."}
-              </Kicker>
-              {summary?.returns && parseFloat(summary.returns.invested_eur) > 0 ? (
-                <Box display="flex" gap={6} flexWrap="wrap" alignItems="baseline">
-                  <DisplayMoney
-                    amount={summary.returns.unrealized_return_eur}
-                    size="sm"
-                    signed
-                    tone={
-                      parseFloat(summary.returns.unrealized_return_eur) >= 0
-                        ? "positive"
-                        : "negative"
-                    }
-                  />
-                  <Kicker>
-                    {summary.returns.unrealized_return_percent}% ·{" "}
-                    {returnBasisLabel(summary.returns.method)}
-                  </Kicker>
-                  {summary.returns.note && (
-                    <Text fontSize="xs" color="ink.dim" width="100%">
-                      {summary.returns.note}
-                    </Text>
+              </Text>
+
+              {(summary?.returns && parseFloat(summary.returns.invested_eur) > 0) ||
+              (summary?.ytd?.available && hasPositions) ? (
+                <HStack spacing={2} flexWrap="wrap" align="stretch">
+                  {summary?.returns && parseFloat(summary.returns.invested_eur) > 0 && (
+                    <StatPill
+                      label="Onrealiseerd"
+                      amount={summary.returns.unrealized_return_eur}
+                      sub={`${summary.returns.unrealized_return_percent}% · ${returnBasisLabel(summary.returns.method)}`}
+                      tone={
+                        parseFloat(summary.returns.unrealized_return_eur) >= 0
+                          ? "positive"
+                          : "negative"
+                      }
+                    />
                   )}
-                </Box>
+                  {summary?.ytd?.available && (
+                    <StatPill
+                      label={`YTD ${summary.ytd.year}`}
+                      amount={summary.ytd.ytd_return_eur ?? "0"}
+                      sub={`${summary.ytd.ytd_return_percent}% · t.o.v. ${formatEur(summary.ytd.start_value_eur ?? "0")}`}
+                      tone={
+                        parseFloat(summary.ytd.ytd_return_eur ?? "0") >= 0
+                          ? "positive"
+                          : "negative"
+                      }
+                    />
+                  )}
+                </HStack>
               ) : hasPositions ? (
-                <Kicker>Voeg transacties toe om rendement te berekenen</Kicker>
+                <Text fontSize="xs" color="ink.dim">
+                  Voeg transacties toe om rendement te berekenen
+                </Text>
               ) : null}
-              {summary?.ytd?.available && (
-                <Box mt={4} pt={3} borderTop="1px solid" borderColor="line.soft">
-                  <Kicker mb={1}>YTD {summary.ytd.year}</Kicker>
-                  <DisplayMoney
-                    amount={summary.ytd.ytd_return_eur ?? "0"}
-                    size="sm"
-                    signed
-                    tone={
-                      parseFloat(summary.ytd.ytd_return_eur ?? "0") >= 0
-                        ? "positive"
-                        : "negative"
-                    }
-                  />
-                  <Kicker>
-                    {summary.ytd.ytd_return_percent}% · t.o.v.{" "}
-                    {formatEur(summary.ytd.start_value_eur ?? "0")} begin {summary.ytd.year}
-                  </Kicker>
-                </Box>
-              )}
             </>
           )}
-        </Box>
+        </FiscalCard>
 
-        <FiscalCard p={6}>
-          <Kicker mb={3}>Belastingjaar {taxYear} · Peildatum 1 jan</Kicker>
+        <FiscalCard p={{ base: 4, md: 5 }} display="flex" flexDirection="column">
+          <Kicker mb={2}>Belasting {taxYear}</Kicker>
           {taxYearRule && (
-            <Text fontSize="xs" color="taupe.500" mb={2} lineHeight={1.5}>
+            <Text fontSize="xs" color="taupe.500" mb={2} lineHeight={1.4} noOfLines={2}>
               {taxYearRule}
             </Text>
           )}
-          <Text fontFamily="heading" fontStyle="italic" fontSize="15px" color="ink.dim" mb={2}>
-            Te betalen belasting (forfaitair)
+          <Text fontSize="xs" color="ink.dim" mb={1}>
+            Te betalen (forfaitair)
           </Text>
           {forfaitair?.available && forfaitair.tax_due_eur ? (
-            <DisplayMoney amount={forfaitair.tax_due_eur} size="md" tone="accent" />
+            <DisplayMoney amount={forfaitair.tax_due_eur} size="sm" tone="accent" />
           ) : (
-            <MoneyText variant="display" fontSize={{ base: "48px", md: "56px" }} color="ink.dim">
+            <MoneyText variant="display" fontSize="32px" color="ink.dim">
               —
             </MoneyText>
           )}
-          {peildatum && (
-            <Kicker mt={3} mb={1}>
-              Vastgelegd vermogen {formatEur(peildatum.total_value_eur)} ·{" "}
-              {formatDateNl(peildatum.data.captured_at)} ·{" "}
-              {valuationBasisLabel(peildatum.valuation_method).toLowerCase()}
-            </Kicker>
-          )}
-          <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.6}>
+          <Text color="ink.dim" fontSize="xs" mt={2} lineHeight={1.5} flex={1}>
             {forfaitair?.available
-              ? forfaitair.disclaimer ??
-                "Forfaitaire Box 3 op basis van uw peildatum-snapshot."
+              ? (forfaitair.disclaimer ?? "Box 3 op basis van peildatum.")
               : forfaitair?.message
                 ? forfaitair.message
                 : hasPositions
-                  ? `Leg peildatum ${taxYear} vast om forfaitaire Box 3 te berekenen. Huidig vermogen (${basisLabel.toLowerCase()}): ${formatEur(totalValue)}.`
-                  : "Koppel een platform of voeg handmatig assets toe om uw vermogen te zien."}
+                  ? `Leg peildatum ${taxYear} vast voor Box 3.`
+                  : "Koppel een platform om te starten."}
           </Text>
-          {forfaitair?.parameters_provisional && forfaitair.available && (
-            <Text fontSize="xs" color="taupe.500" mt={2}>
-              Percentages banktegoeden en schulden 2026 zijn nog voorlopig (Belastingdienst).
+          {peildatum && (
+            <Text fontSize="xs" color="taupe.500" mt={1}>
+              Snapshot {formatEur(peildatum.total_value_eur)}
             </Text>
           )}
-          {forfaitair?.available && (
-            <Button as={RouterLink} to="/belasting" variant="fiscalOutline" size="sm" mt={4}>
-              Volledige belastingpositie
-            </Button>
-          )}
-          {hasPositions && !peildatum && (
-            <Button
-              variant="fiscalOutline"
-              size="sm"
-              mt={4}
-              isLoading={snapshotBusy}
-              onClick={() => void handleCreatePeildatum()}
-            >
-              Peildatum {taxYear} vastleggen
-            </Button>
-          )}
+          <HStack mt={3} spacing={2} flexWrap="wrap">
+            {forfaitair?.available && (
+              <Button as={RouterLink} to="/belasting" variant="fiscalOutline" size="sm">
+                Belastingpositie
+              </Button>
+            )}
+            {hasPositions && !peildatum && (
+              <Button
+                variant="fiscal"
+                size="sm"
+                isLoading={snapshotBusy}
+                onClick={() => void handleCreatePeildatum()}
+              >
+                Peildatum vastleggen
+              </Button>
+            )}
+          </HStack>
           {snapshotMessage && (
-            <Text fontSize="xs" color="taupe.500" mt={2}>
+            <Text fontSize="xs" color="taupe.500" mt={1}>
               {snapshotMessage}
             </Text>
           )}
@@ -239,148 +262,94 @@ export default function DashboardPage() {
       </Grid>
 
       {!loading && !hasPositions && (
-        <FiscalCard p={6}>
-          <Text fontFamily="heading" fontStyle="italic" color="ink.dim" lineHeight={1.7} mb={4}>
-            Nog geen posities in uw portefeuille. Koppel een broker of voeg handmatig assets en
-            transacties toe.
+        <FiscalCard p={5}>
+          <Text fontFamily="heading" fontStyle="italic" color="ink.dim" fontSize="sm" mb={3}>
+            Nog geen posities. Koppel een broker of voeg handmatig assets toe.
           </Text>
-          <Box display="flex" gap={2} flexWrap="wrap" mt={2}>
+          <HStack spacing={2} flexWrap="wrap">
             <Button as={RouterLink} to="/platforms" variant="fiscal" size="sm">
               Platform koppelen
             </Button>
             <Button as={RouterLink} to="/portfolio/manual/asset" variant="fiscalOutline" size="sm">
               Asset toevoegen
             </Button>
-          </Box>
+          </HStack>
         </FiscalCard>
       )}
 
       {hasPositions && summary && (
         <>
-          <Grid
-            templateColumns={{
-              base: "1fr",
-              md: `repeat(${Math.min(summary.by_category.length, 4)}, 1fr)`,
-            }}
-            gap={4}
-          >
-            {summary.by_category.map((category) => (
-              <InsightCard
-                key={category.label}
-                label={category.label}
-                value={formatEur(category.value_eur)}
-                delta={`${category.share_percent}% van totaal`}
-                tone="accent"
+          <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4}>
+            <FiscalCard p={4}>
+              <Kicker mb={2}>Vermogensverloop</Kicker>
+              <PortfolioTrendChart
+                points={summary.value_history ?? []}
+                valuationNote={summary.valuation_note}
               />
-            ))}
-          </Grid>
+            </FiscalCard>
 
-          <Grid templateColumns={{ base: "1fr", xl: "1.2fr 1fr" }} gap={6}>
+            {summary.by_category.length > 0 && (
+              <FiscalCard p={4}>
+                <Kicker mb={2}>Verdeling</Kicker>
+                <AllocationChart
+                  categories={summary.by_category}
+                  totalLabel={formatEur(summary.total_value_eur)}
+                />
+              </FiscalCard>
+            )}
+          </SimpleGrid>
+
+          <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4}>
             <Box>
-              <Kicker mb={3}>Posities · {summary.positions_count}</Kicker>
-              <VStack align="stretch" spacing={2}>
-                {summary.positions.slice(0, 6).map((position) => {
-                  const priceHint = positionPriceHint(position);
-                  return (
-                    <FiscalCard key={position.id} p={4}>
-                      <Box display="flex" justifyContent="space-between" gap={4} flexWrap="wrap">
-                        <Box>
-                          <Text fontWeight={600}>{position.symbol}</Text>
-                          <Kicker>{position.category_label}</Kicker>
-                        </Box>
-                        <Box textAlign="right">
-                          <Text fontWeight={500}>{formatEur(position.value_eur)}</Text>
-                          <Text fontSize="sm" color="ink.dim">
-                            {position.quantity} st.
-                          </Text>
-                          {priceHint && (
-                            <Text fontSize="xs" color="taupe.500" mt={0.5}>
-                              {priceHint}
-                            </Text>
-                          )}
-                        </Box>
-                      </Box>
-                    </FiscalCard>
-                  );
-                })}
-              </VStack>
-              {summary.positions.length > 6 && (
-                <Button
-                  as={RouterLink}
-                  to="/portfolio"
-                  variant="fiscalOutline"
-                  size="sm"
-                  mt={3}
-                >
-                  Alle posities bekijken
-                </Button>
-              )}
+              <Flex justify="space-between" align="center" mb={2}>
+                <Kicker>Posities · {summary.positions_count}</Kicker>
+                <Link as={RouterLink} to="/portfolio" fontSize="xs" color="azure.500">
+                  Portefeuille →
+                </Link>
+              </Flex>
+              <DashboardPositionsTable
+                positions={summary.positions}
+                totalCount={summary.positions_count}
+              />
             </Box>
 
             <Box>
-              <Kicker mb={3}>
-                Platformen · {summary.platforms.length} actief
-              </Kicker>
-              {summary.platforms.length === 0 ? (
-                <FiscalCard p={4}>
-                  <Text fontSize="sm" color="ink.dim" lineHeight={1.6}>
-                    Geen gekoppelde platformen.{" "}
-                    <Link as={RouterLink} to="/platforms" color="azure.500">
-                      Platform toevoegen
-                    </Link>
-                  </Text>
-                </FiscalCard>
-              ) : (
-                <VStack align="stretch" spacing={2}>
-                  {summary.platforms.map((platform) => (
-                    <FiscalCard key={platform.id} p={4}>
-                      <Text fontWeight={600}>
-                        {platform.display_name}
-                      </Text>
-                      <Kicker>
-                        {platform.connection_method_display} · {platform.platform_display}
-                      </Kicker>
-                    </FiscalCard>
-                  ))}
-                </VStack>
-              )}
+              <Flex justify="space-between" align="center" mb={2}>
+                <Kicker>Recente activiteit</Kicker>
+                <Link as={RouterLink} to="/transactions" fontSize="xs" color="azure.500">
+                  Alle transacties →
+                </Link>
+              </Flex>
+              <RecentActivityFeed items={summary.recent_activity ?? []} />
             </Box>
-          </Grid>
+          </SimpleGrid>
+
+          {summary.platforms.length > 0 && (
+            <FiscalCard p={3}>
+              <Kicker mb={2}>Platformen · {summary.platforms.length}</Kicker>
+              <Flex gap={2} flexWrap="wrap">
+                {summary.platforms.map((platform) => (
+                  <Box
+                    key={platform.id}
+                    px={3}
+                    py={2}
+                    bg="paper"
+                    border="1px solid"
+                    borderColor="line.soft"
+                    borderRadius="base"
+                    fontSize="sm"
+                  >
+                    <Text fontWeight={600}>{platform.display_name}</Text>
+                    <Text fontSize="xs" color="taupe.500">
+                      {platform.platform_display}
+                    </Text>
+                  </Box>
+                ))}
+              </Flex>
+            </FiscalCard>
+          )}
         </>
       )}
     </VStack>
-  );
-}
-
-function InsightCard({
-  label,
-  value,
-  delta,
-  tone,
-}: {
-  label: string;
-  value: string;
-  delta: string;
-  tone: "positive" | "negative" | "accent";
-}) {
-  const valueTone = tone === "positive" ? "positive" : tone === "negative" ? "negative" : "default";
-  const deltaTone = tone === "accent" ? "default" : valueTone;
-
-  return (
-    <FiscalCard p={5}>
-      <Kicker mb={3}>{label}</Kicker>
-      <MoneyText
-        fontFamily="heading"
-        fontSize="32px"
-        letterSpacing="-0.02em"
-        tone={valueTone === "default" ? "accent" : valueTone}
-        mb={2}
-      >
-        {value}
-      </MoneyText>
-      <MoneyText variant="delta" tone={deltaTone} color={deltaTone === "default" ? "ink.dim" : undefined}>
-        {delta}
-      </MoneyText>
-    </FiscalCard>
   );
 }

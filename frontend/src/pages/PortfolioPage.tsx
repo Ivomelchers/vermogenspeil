@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Heading,
+  Select,
   Table,
   Tbody,
   Td,
@@ -17,6 +18,7 @@ import { Link as RouterLink } from "react-router-dom";
 import {
   getDashboardSummary,
   listPortfolios,
+  updateAssetCategory,
   type DashboardPosition,
   type Portfolio,
 } from "../api/portfolio";
@@ -26,6 +28,14 @@ import Kicker from "../components/common/Kicker";
 import { formatEur } from "../utils/formatMoney";
 import { getApiErrorMessage } from "../utils/apiError";
 import { positionPriceHint, valuationBasisLabel } from "../utils/valuationLabels";
+
+const FISCALE_CATEGORIES: { value: string; label: string }[] = [
+  { value: "belegging", label: "Belegging" },
+  { value: "banktegoed", label: "Banktegoed" },
+  { value: "edelmetaal", label: "Edelmetaal" },
+  { value: "schuld", label: "Schuld" },
+  { value: "overig", label: "Overig" },
+];
 
 export default function PortfolioPage() {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -37,6 +47,8 @@ export default function PortfolioPage() {
   const [valuationNote, setValuationNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [categoryBusyId, setCategoryBusyId] = useState<number | null>(null);
+  const [categoryNote, setCategoryNote] = useState("");
 
   useEffect(() => {
     void loadPortfolio();
@@ -64,6 +76,23 @@ export default function PortfolioPage() {
 
   const basisLabel = valuationBasisLabel(valuationMethod);
 
+  async function handleCategoryChange(assetId: number, category: string) {
+    setCategoryBusyId(assetId);
+    setCategoryNote("");
+    setError("");
+    try {
+      await updateAssetCategory(assetId, category);
+      setCategoryNote(
+        "Fiscale categorie opgeslagen. Leg peildatum opnieuw vast voor een actuele Box 3-berekening.",
+      );
+      await loadPortfolio();
+    } catch (categoryError) {
+      setError(getApiErrorMessage(categoryError, "Categorie bijwerken mislukt."));
+    } finally {
+      setCategoryBusyId(null);
+    }
+  }
+
   return (
     <VStack align="stretch" spacing={8}>
       <Box>
@@ -84,6 +113,7 @@ export default function PortfolioPage() {
       </Box>
 
       {error && <AuthAlert tone="error">{error}</AuthAlert>}
+      {categoryNote && <AuthAlert tone="info">{categoryNote}</AuthAlert>}
 
       {!loading && portfolios.length > 0 && (
         <FiscalCard p={5}>
@@ -168,7 +198,28 @@ export default function PortfolioPage() {
                           {position.name}
                         </Text>
                       </Td>
-                      <Td color="ink.dim">{position.category_label}</Td>
+                      <Td>
+                        {position.asset_id != null ? (
+                          <Select
+                            size="sm"
+                            value={position.category ?? "belegging"}
+                            isDisabled={categoryBusyId === position.asset_id}
+                            onChange={(e) =>
+                              void handleCategoryChange(position.asset_id!, e.target.value)
+                            }
+                          >
+                            {FISCALE_CATEGORIES.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : (
+                          <Text color="ink.dim" fontSize="sm">
+                            {position.category_label}
+                          </Text>
+                        )}
+                      </Td>
                       <Td isNumeric sx={{ fontVariantNumeric: "tabular-nums" }}>
                         {position.quantity}
                       </Td>

@@ -6,13 +6,19 @@ import Sidebar from "./Sidebar";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
+  "/belasting": "Belastingpositie",
+  "/belasting/werkelijk": "Werkelijk rendement",
   "/settings/account": "Account",
   "/settings/2fa": "Beveiliging",
 };
 
 export default function AppLayout() {
   const location = useLocation();
-  const title = pageTitles[location.pathname] ?? "MijnVermogen";
+  const title =
+    pageTitles[location.pathname] ??
+    (location.pathname.startsWith("/belasting/werkelijk")
+      ? "Werkelijk rendement"
+      : "MijnVermogen");
 
   return (
     <Box className="app-shell">
@@ -49,7 +55,10 @@ export default function AppLayout() {
             </Flex>
           </Flex>
 
-          <Box px={{ base: 6, md: 12 }} py={{ base: 8, md: 10 }}>
+          <Box
+            px={{ base: 6, md: 12 }}
+            py={location.pathname === "/dashboard" ? { base: 5, md: 6 } : { base: 8, md: 10 }}
+          >
             <Outlet />
           </Box>
         </Box>

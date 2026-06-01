@@ -52,6 +52,18 @@ class User(AbstractUser):
         default=False,
         help_text="Verdubbelt het heffingsvrije vermogen in box 3-berekeningen.",
     )
+    onboarding_completed_at = models.DateTimeField(
+        "onboarding afgerond",
+        null=True,
+        blank=True,
+        help_text="Eerste gebruikersflow (3 stappen) afgerond.",
+    )
+    deleted_at = models.DateTimeField(
+        "verwijderd op",
+        null=True,
+        blank=True,
+        help_text="Tijdstip van soft-delete (GDPR).",
+    )
 
     totp_secret_encrypted = models.TextField(
         "TOTP-geheim (versleuteld)",
@@ -84,7 +96,15 @@ class User(AbstractUser):
 
     @property
     def is_premium(self):
+        from django.conf import settings
+
+        if getattr(settings, "PREMIUM_UNLOCKED_FOR_ALL", False):
+            return True
         return self.subscription_tier == SubscriptionTier.PREMIUM
+
+    @property
+    def onboarding_completed(self):
+        return self.onboarding_completed_at is not None
 
 
 class EmailVerificationToken(models.Model):

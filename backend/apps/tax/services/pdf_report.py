@@ -332,17 +332,45 @@ def build_box3_pdf(report: dict) -> bytes:
     properties = report.get("real_estate") or []
     if properties:
         story.append(Paragraph("Vastgoed (handmatig)", st["heading"]))
-        rows = [["Omschrijving", "Waarde", "Huur YTD", "Buitenland"]]
+        rows = [["Omschrijving", "Waarde", "Bijtelling", "Huur YTD"]]
         for p in properties:
             rows.append(
                 [
                     p.get("label", ""),
                     format_eur_display(str(p.get("value_eur", "0"))),
+                    format_eur_display(str(p.get("bijtelling_eur", "0"))),
                     format_eur_display(str(p.get("rental_income_ytd_eur", "0"))),
-                    "Ja" if p.get("is_abroad") else "Nee",
                 ]
             )
-        story.append(_table(rows, col_widths=[5 * cm, 4 * cm, 4 * cm, 3 * cm], numeric_col=1))
+        story.append(_table(rows, col_widths=[5 * cm, 4 * cm, 4 * cm, 4 * cm], numeric_col=1))
+
+    positions_start = report.get("positions_start") or []
+    if positions_start:
+        story.append(Paragraph("Posities peildatum (snapshot)", st["heading"]))
+        rows = [["Symbool", "Waarde", "Bron"]]
+        for pos in positions_start[:40]:
+            rows.append(
+                [
+                    pos.get("symbol", ""),
+                    format_eur_display(str(pos.get("value_eur", "0"))),
+                    pos.get("valuation_source", ""),
+                ]
+            )
+        story.append(_table(rows, col_widths=[4 * cm, 6 * cm, 6 * cm], numeric_col=1))
+
+    positions_end = report.get("positions_end") or []
+    if positions_end:
+        story.append(Paragraph("Posities huidig", st["heading"]))
+        rows = [["Symbool", "Waarde", "Bron"]]
+        for pos in positions_end[:40]:
+            rows.append(
+                [
+                    pos.get("symbol", ""),
+                    format_eur_display(str(pos.get("value_eur", "0"))),
+                    pos.get("valuation_source", ""),
+                ]
+            )
+        story.append(_table(rows, col_widths=[4 * cm, 6 * cm, 6 * cm], numeric_col=1))
 
     story.append(Spacer(1, 0.5 * cm))
     story.append(

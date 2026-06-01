@@ -23,6 +23,7 @@ export interface AuthUser {
   is_premium: boolean;
   active_tax_year: number;
   has_fiscal_partner: boolean;
+  onboarding_completed: boolean;
   is_2fa_enabled: boolean;
 }
 
@@ -49,9 +50,20 @@ export const auth = async (): Promise<AuthUser> => {
 
 export const updateProfile = async (data: {
   has_fiscal_partner?: boolean;
+  complete_onboarding?: boolean;
 }): Promise<AuthUser> => {
   const res = await api.patch<ApiEnvelope<AuthUser>>("auth/me/", data);
   return res.data.data;
+};
+
+export const completeOnboarding = async (): Promise<AuthUser> => {
+  return updateProfile({ complete_onboarding: true });
+};
+
+export const deleteAccount = async (confirmEmail: string): Promise<void> => {
+  await api.delete<ApiEnvelope<null>>("auth/me/", {
+    data: { confirm_email: confirmEmail },
+  });
 };
 
 export const login = async ({

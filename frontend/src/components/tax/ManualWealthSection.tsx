@@ -83,14 +83,20 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
   const [debtType, setDebtType] = useState("other");
   const [debtOutstanding, setDebtOutstanding] = useState("");
   const [debtInterest, setDebtInterest] = useState("0");
+  const [debtLinkedProperty, setDebtLinkedProperty] = useState("");
 
   const [propLabel, setPropLabel] = useState("");
   const [propType, setPropType] = useState("second_home_nl");
   const [propValue, setPropValue] = useState("");
   const [propRentYtd, setPropRentYtd] = useState("0");
+  const [propAnnualRent, setPropAnnualRent] = useState("0");
+  const [propVacancy, setPropVacancy] = useState("0");
   const [propWoz, setPropWoz] = useState("");
   const [propEigenDays, setPropEigenDays] = useState("365");
+  const [propVerhuurDays, setPropVerhuurDays] = useState("0");
+  const [propVerbouwDays, setPropVerbouwDays] = useState("0");
   const [propBijtelling, setPropBijtelling] = useState("woz_vast");
+  const [propEconomicRent, setPropEconomicRent] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -171,12 +177,13 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
         outstanding_eur: debtOutstanding.replace(",", "."),
         interest_paid_ytd_eur: debtInterest.replace(",", ".") || "0",
         creditor: "",
-        linked_real_estate: null,
+        linked_real_estate: debtLinkedProperty ? Number(debtLinkedProperty) : null,
         notes: "",
       });
       setDebtLabel("");
       setDebtOutstanding("");
       setDebtInterest("0");
+      setDebtLinkedProperty("");
       await load();
       onChanged?.();
     } catch (createError) {
@@ -201,14 +208,17 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
         property_type: propType,
         value_eur: propValue.replace(",", "."),
         is_abroad: isAbroad,
-        annual_rent_eur: "0",
-        vacancy_ratio: "0",
+        annual_rent_eur: propAnnualRent.replace(",", ".") || "0",
+        vacancy_ratio: propVacancy.replace(",", ".") || "0",
         rental_income_ytd_eur: propRentYtd.replace(",", ".") || "0",
         eigen_gebruik_days: Number(propEigenDays) || 0,
-        verhuur_days: 0,
-        verbouw_days: 0,
+        verhuur_days: Number(propVerhuurDays) || 0,
+        verbouw_days: Number(propVerbouwDays) || 0,
         bijtelling_method: propBijtelling,
-        economic_rent_yearly_eur: "0",
+        economic_rent_yearly_eur:
+          propBijtelling === "huurwaarde"
+            ? propEconomicRent.replace(",", ".") || "0"
+            : "0",
         woz_previous_year_eur: propWoz.replace(",", ".") || propValue.replace(",", "."),
         bijtelling_rate: "0.0275",
         notes: "",
@@ -364,15 +374,21 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
                   <Thead>
                     <Tr>
                       <Th>Omschrijving</Th>
+                      <Th>Gekoppeld vastgoed</Th>
                       <Th isNumeric>Saldo</Th>
                       <Th isNumeric>Rente YTD</Th>
                       <Th />
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {debts.map((d) => (
+                    {debts.map((d) => {
+                      const linked = properties.find((p) => p.id === d.linked_real_estate);
+                      return (
                       <Tr key={d.id}>
                         <Td>{d.label}</Td>
+                        <Td fontSize="sm" color="ink.dim">
+                          {linked?.label ?? "—"}
+                        </Td>
                         <Td isNumeric>{formatEur(d.outstanding_eur)}</Td>
                         <Td isNumeric>{formatEur(d.interest_paid_ytd_eur)}</Td>
                         <Td>
@@ -386,7 +402,8 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
                           </Button>
                         </Td>
                       </Tr>
-                    ))}
+                    );
+                    })}
                   </Tbody>
                 </Table>
               </Box>
@@ -424,6 +441,23 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
                   onChange={(e) => setDebtInterest(e.target.value)}
                 />
               </FormControl>
+              {properties.length > 0 && (
+                <FormControl gridColumn={{ md: "1 / -1" }}>
+                  <FormLabel fontSize="sm">Gekoppeld aan vastgoed (optioneel)</FormLabel>
+                  <Select
+                    size="sm"
+                    value={debtLinkedProperty}
+                    onChange={(e) => setDebtLinkedProperty(e.target.value)}
+                  >
+                    <option value="">Geen koppeling</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
             </Grid>
             <Button
               variant="fiscalOutline"
@@ -456,6 +490,7 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
                 <Tr>
                   <Th>Omschrijving</Th>
                   <Th isNumeric>Waarde</Th>
+                  <Th isNumeric>Bijtelling</Th>
                   <Th isNumeric>Huur YTD</Th>
                   <Th />
                 </Tr>
@@ -463,8 +498,18 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
               <Tbody>
                 {properties.map((p) => (
                   <Tr key={p.id}>
-                    <Td>{p.label}</Td>
+                    <Td>
+                      {p.label}
+                      {p.eigen_gebruik_days_computed != null && (
+                        <Text fontSize="xs" color="ink.dim">
+                          eigen gebruik {p.eigen_gebruik_days_computed} d
+                        </Text>
+                      )}
+                    </Td>
                     <Td isNumeric>{formatEur(p.value_eur)}</Td>
+                    <Td isNumeric>
+                      {p.bijtelling_eur ? formatEur(p.bijtelling_eur) : "—"}
+                    </Td>
                     <Td isNumeric>{formatEur(p.rental_income_ytd_eur)}</Td>
                     <Td>
                       <Button
@@ -525,6 +570,24 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
             />
           </FormControl>
           <FormControl>
+            <FormLabel fontSize="sm">Verhuur (dagen)</FormLabel>
+            <Input
+              size="sm"
+              inputMode="numeric"
+              value={propVerhuurDays}
+              onChange={(e) => setPropVerhuurDays(e.target.value)}
+            />
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="sm">Verbouw (dagen)</FormLabel>
+            <Input
+              size="sm"
+              inputMode="numeric"
+              value={propVerbouwDays}
+              onChange={(e) => setPropVerbouwDays(e.target.value)}
+            />
+          </FormControl>
+          <FormControl>
             <FormLabel fontSize="sm">Bijtelling</FormLabel>
             <Select
               size="sm"
@@ -544,6 +607,35 @@ export default function ManualWealthSection({ taxYear, onChanged }: ManualWealth
               onChange={(e) => setPropRentYtd(e.target.value)}
             />
           </FormControl>
+          <FormControl>
+            <FormLabel fontSize="sm">Jaarhuur contract (€)</FormLabel>
+            <Input
+              size="sm"
+              inputMode="decimal"
+              value={propAnnualRent}
+              onChange={(e) => setPropAnnualRent(e.target.value)}
+            />
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="sm">Leegstand (%)</FormLabel>
+            <Input
+              size="sm"
+              inputMode="decimal"
+              value={propVacancy}
+              onChange={(e) => setPropVacancy(e.target.value)}
+            />
+          </FormControl>
+          {propBijtelling === "huurwaarde" && (
+            <FormControl>
+              <FormLabel fontSize="sm">Economische huur per jaar (€)</FormLabel>
+              <Input
+                size="sm"
+                inputMode="decimal"
+                value={propEconomicRent}
+                onChange={(e) => setPropEconomicRent(e.target.value)}
+              />
+            </FormControl>
+          )}
         </Grid>
         <Button
           variant="fiscalOutline"

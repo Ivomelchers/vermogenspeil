@@ -77,15 +77,6 @@ def build_box3_report(user, year: int, *, include_werkelijk: bool) -> dict:
         "positions_start": positions_start,
         "positions_end": positions_end,
         "income_and_cashflows": income_events,
-        "excluded_from_werkelijk": [
-            "transactiekosten (fee)",
-            "beheerfees",
-            "custody-kosten",
-            "onderhoudskosten vastgoed",
-        ],
-        "not_included_yet": [
-            "woz_verhogende_investeringen",
-        ],
         "bank_balances": Box3BankBalanceSerializer(
             Box3BankBalance.objects.filter(user=user, tax_year=year),
             many=True,
@@ -115,7 +106,7 @@ def build_box3_report(user, year: int, *, include_werkelijk: bool) -> dict:
     else:
         report["werkelijk"] = {
             "available": False,
-            "message": "Premium vereist voor werkelijk rendement en vergelijking.",
+            "message": "Werkelijk rendement niet opgenomen in dit rapport.",
         }
 
     return report

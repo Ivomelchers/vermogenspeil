@@ -128,7 +128,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     is_premium = serializers.BooleanField(read_only=True)
     full_name = serializers.CharField(read_only=True)
-
+    onboarding_completed = serializers.BooleanField(read_only=True)
     class Meta:
         model = User
         fields = [
@@ -142,12 +142,36 @@ class UserSerializer(serializers.ModelSerializer):
             "is_premium",
             "active_tax_year",
             "has_fiscal_partner",
+            "onboarding_completed",
             "is_2fa_enabled",
         ]
         read_only_fields = fields
 
 
+class AccountDeleteSerializer(serializers.Serializer):
+    confirm_email = serializers.EmailField()
+
+    def validate_confirm_email(self, value):
+        email = value.lower().strip()
+        user = self.context["user"]
+        if email != user.email.lower():
+            raise serializers.ValidationError(
+                "E-mailadres komt niet overeen met uw account.",
+            )
+        return email
+
+
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    complete_onboarding = serializers.BooleanField(required=False, write_only=True)
+
     class Meta:
         model = User
-        fields = ["has_fiscal_partner"]
+        fields = ["has_fiscal_partner", "complete_onboarding"]
+
+    def update(self, instance, validated_data):
+        complete = validated_data.pop("complete_onboarding", None)
+        user = super().update(instance, validated_data)
+        if complete and user.onboarding_completed_at is None:
+            user.onboarding_completed_at = timezone.now()
+            user.save(update_fields=["onboarding_completed_at", "updated_at"])
+        return user

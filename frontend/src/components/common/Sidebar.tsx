@@ -8,7 +8,6 @@ import Kicker from "./Kicker";
 interface NavItem {
   label: string;
   to: string;
-  premium?: boolean;
 }
 
 const navSections: { label: string; items: NavItem[] }[] = [
@@ -26,7 +25,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
     label: "Belasting",
     items: [
       { label: "Belastingpositie", to: "/belasting" },
-      { label: "Werkelijk rendement", to: "/belasting", premium: true },
+      { label: "Werkelijk rendement", to: "/belasting/werkelijk" },
     ],
   },
   {
@@ -47,7 +46,12 @@ const navSections: { label: string; items: NavItem[] }[] = [
 
 function NavButton({ item }: { item: NavItem }) {
   const location = useLocation();
-  const isActive = location.pathname === item.to;
+  const isActive =
+    item.to === "/belasting/werkelijk"
+      ? location.pathname.startsWith("/belasting/werkelijk")
+      : item.to === "/belasting"
+        ? location.pathname === "/belasting"
+        : location.pathname === item.to;
 
   return (
     <Button
@@ -74,23 +78,6 @@ function NavButton({ item }: { item: NavItem }) {
     >
       <Box as="span" w="6px" h="6px" borderRadius="full" bg="currentColor" opacity={0.4} />
       {item.label}
-      {item.premium && (
-        <Box
-          as="span"
-          ml={1}
-          w="11px"
-          h="11px"
-          display="inline-block"
-          bg="azure.500"
-          sx={{
-            WebkitMaskImage:
-              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2zM9 7a3 3 0 1 1 6 0v2H9V7z'/></svg>\")",
-            WebkitMaskSize: "contain",
-            WebkitMaskRepeat: "no-repeat",
-            WebkitMaskPosition: "center",
-          }}
-        />
-      )}
     </Button>
   );
 }
@@ -149,7 +136,6 @@ export default function Sidebar() {
           </Box>
         ))}
 
-        <FiscalNote />
       </VStack>
 
       <Box px={7} pt={5} borderTop="1px solid" borderColor="line.soft">
@@ -192,28 +178,3 @@ export default function Sidebar() {
   );
 }
 
-function FiscalNote() {
-  return (
-    <Box
-      mx={4}
-      mt={2}
-      p={3.5}
-      bg="azure.50"
-      border="1px solid"
-      borderColor="azure.300"
-      borderLeft="3px solid"
-      borderLeftColor="azure.500"
-      borderRadius="sm"
-    >
-      <Text
-        fontFamily="heading"
-        fontStyle="italic"
-        fontSize="12px"
-        lineHeight={1.6}
-        color="ink.primary"
-      >
-        Premium ontgrendelt werkelijk rendement en volledige Box 3-berekening.
-      </Text>
-    </Box>
-  );
-}

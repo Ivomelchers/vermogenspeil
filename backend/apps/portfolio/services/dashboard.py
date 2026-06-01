@@ -11,6 +11,7 @@ from apps.portfolio.services.valuation import (
     fetch_live_prices_for_positions,
     position_value_eur,
 )
+from apps.portfolio.services.value_history import compute_value_history
 from apps.portfolio.services.ytd import compute_ytd_summary
 
 
@@ -54,6 +55,8 @@ def build_dashboard_summary(user) -> dict:
             "platforms": [],
             "positions_count": 0,
             "transactions_count": 0,
+            "recent_activity": [],
+            "value_history": [],
         }
 
     positions_qs = list(portfolio.positions.select_related("asset").order_by("-updated_at"))
@@ -76,6 +79,8 @@ def build_dashboard_summary(user) -> dict:
 
         row = {
             "id": position.id,
+            "asset_id": position.asset_id,
+            "category": position.asset.category,
             "symbol": position.asset.symbol,
             "name": position.asset.name or position.asset.symbol,
             "asset_type": position.asset.asset_type,
@@ -128,6 +133,39 @@ def build_dashboard_summary(user) -> dict:
     valuation_method = _resolve_valuation_method(market_count, len(position_rows))
     returns = compute_return_summary(portfolio, live_prices=live_prices)
     ytd = compute_ytd_summary(portfolio, user)
+    ytd_start_eur = None
+    ytd_start_date = None
+    if ytd.get("available"):
+        ytd_start_eur = Decimal(str(ytd.get("start_value_eur", "0")))
+        ytd_start_date = ytd.get("start_as_of")
+
+    value_history = compute_value_history(
+        portfolio,
+        current_value_eur=total,
+        ytd_start_eur=ytd_start_eur,
+        ytd_start_date=ytd_start_date,
+    )
+
+    recent_activity = []
+    for tx in (
+        portfolio.transactions.select_related("asset")
+        .order_by("-occurred_at", "-id")[:8]
+    ):
+        amount = tx.total_eur
+        if amount is None and tx.price_eur is not None:
+            amount = tx.quantity * tx.price_eur
+        recent_activity.append(
+            {
+                "id": tx.id,
+                "occurred_at": tx.occurred_at.isoformat(),
+                "symbol": tx.asset.symbol,
+                "transaction_type": tx.transaction_type,
+                "transaction_type_label": tx.get_transaction_type_display(),
+                "source_platform": tx.source_platform,
+                "quantity": _decimal_str(tx.quantity),
+                "total_eur": _decimal_str(amount) if amount is not None else None,
+            }
+        )
 
     return {
         "has_portfolio": True,
@@ -151,4 +189,6 @@ def build_dashboard_summary(user) -> dict:
         "platforms": platforms,
         "positions_count": len(position_rows),
         "transactions_count": portfolio.transactions.count(),
+        "recent_activity": recent_activity,
+        "value_history": value_history,
     }

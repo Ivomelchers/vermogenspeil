@@ -25,6 +25,12 @@ class AssetSerializer(serializers.ModelSerializer):
         ]
 
 
+class AssetCategoryUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Asset
+        fields = ["category"]
+
+
 class PositionSerializer(serializers.ModelSerializer):
     asset = AssetSerializer(read_only=True)
 
