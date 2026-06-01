@@ -134,11 +134,40 @@ export interface Transaction {
   created_at: string;
 }
 
+export interface TransactionListFilters {
+  platforms: string[];
+  transaction_types: string[];
+  symbols: string[];
+}
+
+export interface TransactionListParams {
+  page?: number;
+  page_size?: number;
+  sort?: string;
+  order?: "asc" | "desc";
+  platform?: string;
+  transaction_type?: string;
+  symbol?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface TransactionListResponse {
+  items: Transaction[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  filters: TransactionListFilters;
+}
+
 export async function getPortfolioTransactions(
   portfolioId: number,
-): Promise<Transaction[]> {
-  const response = await api.get<ApiEnvelope<Transaction[]>>(
+  params: TransactionListParams = {},
+): Promise<TransactionListResponse> {
+  const response = await api.get<ApiEnvelope<TransactionListResponse>>(
     `portfolios/${portfolioId}/transactions/`,
+    { params },
   );
   return response.data.data;
 }

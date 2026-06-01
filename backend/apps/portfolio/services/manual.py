@@ -8,6 +8,7 @@ from apps.integrations.models import ConnectionMethod, PlatformConnection, Platf
 from apps.portfolio.models import (
     Asset,
     AssetType,
+    Portfolio,
     Position,
     Transaction,
     TransactionType,

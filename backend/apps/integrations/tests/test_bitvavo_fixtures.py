@@ -80,5 +80,18 @@ class BitvavoFixtureSyncTests(TestCase):
         self.assertEqual(txs.filter(transaction_type=TransactionType.WITHDRAWAL).count(), 1)
         self.assertEqual(txs.filter(transaction_type=TransactionType.OTHER).count(), 1)
 
+    @patch("apps.integrations.bitvavo.adapter.BitvavoPlatformAdapter._client")
+    def test_repeat_sync_does_not_duplicate_transactions(self, mock_client):
+        mock_client.return_value = BitvavoFixtureClient()
+        for _ in range(2):
+            sync_job = SyncJob.objects.create(connection=self.connection)
+            run_connection_sync(sync_job.id)
+
+        txs = Transaction.objects.filter(
+            portfolio=self.portfolio,
+            source_platform=PlatformType.BITVAVO,
+        )
+        self.assertEqual(txs.count(), 6)
+
         cash = txs.filter(asset__asset_type=AssetType.CASH)
         self.assertGreaterEqual(cash.count(), 2)

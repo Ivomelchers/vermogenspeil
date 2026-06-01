@@ -1,13 +1,25 @@
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import datetime, timezone as dt_timezone
 from decimal import Decimal
 
 from apps.integrations.base import BalanceHolding, PlatformAdapter, TradeRecord
 from apps.integrations.models import PlatformType
 from apps.portfolio.models import AssetType
 
+_UTC = dt_timezone.utc
 
-def _utc_days_ago(days: int) -> datetime:
-    return datetime.now(tz=dt_timezone.utc) - timedelta(days=days)
+# Vaste datums zodat herhaalde demo-sync geen dubbele transacties aanmaakt.
+_DEMO_DATES = {
+    "demo-btc-1": datetime(2026, 2, 1, 12, 0, tzinfo=_UTC),
+    "demo-btc-2": datetime(2026, 4, 17, 12, 0, tzinfo=_UTC),
+    "demo-eth-1": datetime(2026, 5, 2, 12, 0, tzinfo=_UTC),
+    "demo-iwda-1": datetime(2025, 11, 13, 12, 0, tzinfo=_UTC),
+    "demo-iwda-2": datetime(2026, 4, 2, 12, 0, tzinfo=_UTC),
+    "demo-asml-1": datetime(2026, 3, 3, 12, 0, tzinfo=_UTC),
+}
+
+
+def _demo_occurred_at(external_id: str) -> datetime:
+    return _DEMO_DATES.get(external_id, datetime(2026, 1, 1, 12, 0, tzinfo=_UTC))
 
 
 class DemoPlatformAdapter(PlatformAdapter):
@@ -61,7 +73,7 @@ class DemoPlatformAdapter(PlatformAdapter):
                     quantity=Decimal("0.15"),
                     price_eur=Decimal("52000"),
                     fee_eur=Decimal("0.25"),
-                    occurred_at=_utc_days_ago(120),
+                    occurred_at=_demo_occurred_at("demo-btc-1"),
                     asset_type=AssetType.CRYPTO,
                 ),
                 TradeRecord(
@@ -81,7 +93,7 @@ class DemoPlatformAdapter(PlatformAdapter):
                     quantity=Decimal("1.15"),
                     price_eur=Decimal("2800"),
                     fee_eur=Decimal("0.18"),
-                    occurred_at=_utc_days_ago(30),
+                    occurred_at=_demo_occurred_at("demo-eth-1"),
                     asset_type=AssetType.CRYPTO,
                 ),
             ]
@@ -94,7 +106,7 @@ class DemoPlatformAdapter(PlatformAdapter):
                     quantity=Decimal("8"),
                     price_eur=Decimal("88.50"),
                     fee_eur=Decimal("0"),
-                    occurred_at=_utc_days_ago(200),
+                    occurred_at=_demo_occurred_at("demo-iwda-1"),
                     asset_type=AssetType.ETF,
                 ),
                 TradeRecord(
@@ -104,7 +116,7 @@ class DemoPlatformAdapter(PlatformAdapter):
                     quantity=Decimal("4"),
                     price_eur=Decimal("92.10"),
                     fee_eur=Decimal("0"),
-                    occurred_at=_utc_days_ago(60),
+                    occurred_at=_demo_occurred_at("demo-iwda-2"),
                     asset_type=AssetType.ETF,
                 ),
                 TradeRecord(
@@ -114,7 +126,7 @@ class DemoPlatformAdapter(PlatformAdapter):
                     quantity=Decimal("5"),
                     price_eur=Decimal("680"),
                     fee_eur=Decimal("2.50"),
-                    occurred_at=_utc_days_ago(90),
+                    occurred_at=_demo_occurred_at("demo-asml-1"),
                     asset_type=AssetType.STOCK,
                 ),
             ]

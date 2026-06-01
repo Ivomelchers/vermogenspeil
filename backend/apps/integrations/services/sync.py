@@ -29,7 +29,14 @@ def _transaction_hash(
     price: Decimal,
     occurred_at,
 ) -> str:
-    raw = f"{platform}|{external_id}|{symbol}|{side}|{quantity}|{price}|{occurred_at.isoformat()}"
+    ext = (external_id or "").strip()
+    if ext:
+        raw = f"{platform}|{ext}"
+    else:
+        raw = (
+            f"{platform}|{symbol}|{side}|{quantity}|{price}|"
+            f"{occurred_at.isoformat()}"
+        )
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

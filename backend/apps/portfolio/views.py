@@ -15,6 +15,12 @@ from apps.portfolio.serializers import (
 )
 from apps.portfolio.services.dashboard import build_dashboard_summary
 from apps.portfolio.services.manual import create_manual_asset, create_manual_transaction
+from apps.portfolio.services.transactions_list import (
+    list_portfolio_transactions,
+    parse_page,
+    parse_page_size,
+    transaction_filter_options,
+)
 
 
 def _linked_user_or_error(request):
@@ -88,9 +94,32 @@ class PortfolioTransactionsView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        transactions = portfolio.transactions.select_related("asset")[:200]
-        serializer = TransactionSerializer(transactions, many=True)
-        return api_response(data=serializer.data)
+        page = parse_page(request.query_params.get("page"))
+        page_size = parse_page_size(request.query_params.get("page_size"))
+        result = list_portfolio_transactions(
+            portfolio,
+            page=page,
+            page_size=page_size,
+            sort=request.query_params.get("sort"),
+            order=request.query_params.get("order"),
+            platform=request.query_params.get("platform"),
+            transaction_type=request.query_params.get("transaction_type"),
+            symbol=request.query_params.get("symbol"),
+            date_from=request.query_params.get("date_from"),
+            date_to=request.query_params.get("date_to"),
+        )
+        serializer = TransactionSerializer(result["items"], many=True)
+        filters = transaction_filter_options(portfolio)
+        return api_response(
+            data={
+                "items": serializer.data,
+                "total": result["total"],
+                "page": result["page"],
+                "page_size": result["page_size"],
+                "total_pages": result["total_pages"],
+                "filters": filters,
+            }
+        )
 
 
 class ManualAssetView(APIView):
