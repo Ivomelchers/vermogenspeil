@@ -8,6 +8,7 @@ import {
   getPeildatumSnapshot,
   type PeildatumSnapshot,
 } from "../api/snapshots";
+import { getForfaitairBox3, type ForfaitairBox3Summary } from "../api/tax";
 import AuthAlert from "../components/auth/AuthAlert";
 import DisplayMoney from "../components/portfolio/DisplayMoney";
 import FiscalCard from "../components/common/FiscalCard";
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const { user } = useUser();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [peildatum, setPeildatum] = useState<PeildatumSnapshot | null>(null);
+  const [forfaitair, setForfaitair] = useState<ForfaitairBox3Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [error, setError] = useState("");
@@ -46,6 +48,12 @@ export default function DashboardPage() {
       setSummary(data);
       const snap = await getPeildatumSnapshot(taxYear);
       setPeildatum(snap);
+      if (snap) {
+        const tax = await getForfaitairBox3(taxYear);
+        setForfaitair(tax);
+      } else {
+        setForfaitair(null);
+      }
     } catch (loadError) {
       setError(getApiErrorMessage(loadError, "Dashboard laden mislukt."));
     } finally {
@@ -59,6 +67,8 @@ export default function DashboardPage() {
     try {
       const snap = await createPeildatumSnapshot(taxYear);
       setPeildatum(snap);
+      const tax = await getForfaitairBox3(taxYear);
+      setForfaitair(tax);
       setSnapshotMessage(`Peildatum ${taxYear} vastgelegd.`);
     } catch (createError) {
       setSnapshotMessage(
@@ -162,28 +172,37 @@ export default function DashboardPage() {
         <FiscalCard p={6}>
           <Kicker mb={3}>Belastingjaar {taxYear} · Peildatum 1 jan</Kicker>
           <Text fontFamily="heading" fontStyle="italic" fontSize="15px" color="ink.dim" mb={2}>
-            {peildatum ? "Vastgelegd vermogen peildatum" : "Te betalen belasting"}
+            Te betalen belasting (forfaitair)
           </Text>
-          {peildatum ? (
-            <>
-              <DisplayMoney amount={peildatum.total_value_eur} size="md" />
-              <Kicker mt={2} mb={2}>
-                Vastgelegd op {formatDateNl(peildatum.data.captured_at)} ·{" "}
-                {valuationBasisLabel(peildatum.valuation_method).toLowerCase()}
-              </Kicker>
-            </>
+          {forfaitair?.available && forfaitair.tax_due_eur ? (
+            <DisplayMoney amount={forfaitair.tax_due_eur} size="md" tone="accent" />
           ) : (
             <MoneyText variant="display" fontSize={{ base: "48px", md: "56px" }} color="ink.dim">
               —
             </MoneyText>
           )}
+          {peildatum && (
+            <Kicker mt={3} mb={1}>
+              Vastgelegd vermogen {formatEur(peildatum.total_value_eur)} ·{" "}
+              {formatDateNl(peildatum.data.captured_at)} ·{" "}
+              {valuationBasisLabel(peildatum.valuation_method).toLowerCase()}
+            </Kicker>
+          )}
           <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.6}>
-            {peildatum
-              ? `Peildatum ${formatDateNl(peildatum.peildatum)} (CET). Box 3-berekening volgt in fase 6.`
-              : hasPositions
-                ? `Nog geen snapshot voor ${taxYear}. Huidig vermogen (${basisLabel.toLowerCase()}): ${formatEur(totalValue)}.`
-                : "Koppel een platform of voeg handmatig assets toe om uw vermogen te zien."}
+            {forfaitair?.available
+              ? forfaitair.disclaimer ??
+                "Forfaitaire Box 3 op basis van uw peildatum-snapshot."
+              : forfaitair?.message
+                ? forfaitair.message
+                : hasPositions
+                  ? `Leg peildatum ${taxYear} vast om forfaitaire Box 3 te berekenen. Huidig vermogen (${basisLabel.toLowerCase()}): ${formatEur(totalValue)}.`
+                  : "Koppel een platform of voeg handmatig assets toe om uw vermogen te zien."}
           </Text>
+          {forfaitair?.parameters_provisional && forfaitair.available && (
+            <Text fontSize="xs" color="taupe.500" mt={2}>
+              Percentages banktegoeden en schulden 2026 zijn nog voorlopig (Belastingdienst).
+            </Text>
+          )}
           {hasPositions && !peildatum && (
             <Button
               variant="fiscalOutline"

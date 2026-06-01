@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from apps.portfolio.models import Portfolio
+from apps.portfolio.models import Portfolio, VermogensCategorie
 from apps.portfolio.services.valuation import (
     asset_type_label,
     fetch_live_prices_for_positions,
@@ -70,6 +70,11 @@ def build_peildatum_payload(user, year: int) -> dict:
 
     position_rows = []
     category_totals: dict[str, Decimal] = {}
+    box3_totals = {
+        "banktegoeden": Decimal(0),
+        "overige_bezittingen": Decimal(0),
+        "schulden": Decimal(0),
+    }
     total = Decimal(0)
     market_count = 0
 
@@ -122,6 +127,11 @@ def build_peildatum_payload(user, year: int) -> dict:
         "total_value_eur": _decimal_str(total),
         "positions": position_rows,
         "by_category": by_category,
+        "box3_totals": {
+            "banktegoeden_eur": _decimal_str(box3_totals["banktegoeden"]),
+            "overige_bezittingen_eur": _decimal_str(box3_totals["overige_bezittingen"]),
+            "schulden_eur": _decimal_str(box3_totals["schulden"]),
+        },
         "positions_count": len(position_rows),
         "note": (
             "Snapshot vastgelegd op moment van aanmaken. "
