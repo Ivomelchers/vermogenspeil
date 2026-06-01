@@ -1,7 +1,7 @@
 import { Text, type TextProps } from "@chakra-ui/react";
 
 type MoneyVariant = "display" | "tabular" | "delta";
-type MoneyTone = "default" | "positive" | "negative" | "accent";
+export type MoneyTone = "default" | "positive" | "negative" | "accent";
 
 const toneColor: Record<MoneyTone, string> = {
   default: "ink.primary",

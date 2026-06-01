@@ -112,18 +112,17 @@ export default function DashboardPage() {
                   "Waarde op basis van kostprijs — geen live koersen beschikbaar."}
               </Kicker>
               {summary?.returns && parseFloat(summary.returns.invested_eur) > 0 ? (
-                <Box display="flex" gap={6} flexWrap="wrap" alignItems="center">
-                  <MoneyText
-                    variant="delta"
+                <Box display="flex" gap={6} flexWrap="wrap" alignItems="baseline">
+                  <DisplayMoney
+                    amount={summary.returns.unrealized_return_eur}
+                    size="sm"
+                    signed
                     tone={
                       parseFloat(summary.returns.unrealized_return_eur) >= 0
                         ? "positive"
                         : "negative"
                     }
-                  >
-                    {parseFloat(summary.returns.unrealized_return_eur) >= 0 ? "+ " : "− "}
-                    {formatEur(Math.abs(parseFloat(summary.returns.unrealized_return_eur)))}
-                  </MoneyText>
+                  />
                   <Kicker>
                     {summary.returns.unrealized_return_percent}% ·{" "}
                     {returnBasisLabel(summary.returns.method)}
@@ -140,17 +139,16 @@ export default function DashboardPage() {
               {summary?.ytd?.available && (
                 <Box mt={4} pt={3} borderTop="1px solid" borderColor="line.soft">
                   <Kicker mb={1}>YTD {summary.ytd.year}</Kicker>
-                  <MoneyText
-                    variant="delta"
+                  <DisplayMoney
+                    amount={summary.ytd.ytd_return_eur ?? "0"}
+                    size="sm"
+                    signed
                     tone={
                       parseFloat(summary.ytd.ytd_return_eur ?? "0") >= 0
                         ? "positive"
                         : "negative"
                     }
-                  >
-                    {parseFloat(summary.ytd.ytd_return_eur ?? "0") >= 0 ? "+ " : "− "}
-                    {formatEur(Math.abs(parseFloat(summary.ytd.ytd_return_eur ?? "0")))}
-                  </MoneyText>
+                  />
                   <Kicker>
                     {summary.ytd.ytd_return_percent}% · t.o.v.{" "}
                     {formatEur(summary.ytd.start_value_eur ?? "0")} begin {summary.ytd.year}
@@ -168,9 +166,7 @@ export default function DashboardPage() {
           </Text>
           {peildatum ? (
             <>
-              <MoneyText variant="display" fontSize={{ base: "48px", md: "56px" }}>
-                {formatEur(peildatum.total_value_eur)}
-              </MoneyText>
+              <DisplayMoney amount={peildatum.total_value_eur} size="md" />
               <Kicker mt={2} mb={2}>
                 Vastgelegd op {formatDateNl(peildatum.data.captured_at)} ·{" "}
                 {valuationBasisLabel(peildatum.valuation_method).toLowerCase()}
