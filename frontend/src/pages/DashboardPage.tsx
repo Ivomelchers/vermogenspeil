@@ -8,7 +8,8 @@ import {
   getPeildatumSnapshot,
   type PeildatumSnapshot,
 } from "../api/snapshots";
-import { getForfaitairBox3, type ForfaitairBox3Summary } from "../api/tax";
+import { getForfaitairBox3, getTaxYearContext, type ForfaitairBox3Summary } from "../api/tax";
+import { relevantTaxYear } from "../utils/taxYear";
 import AuthAlert from "../components/auth/AuthAlert";
 import DisplayMoney from "../components/portfolio/DisplayMoney";
 import FiscalCard from "../components/common/FiscalCard";
@@ -33,23 +34,28 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [snapshotMessage, setSnapshotMessage] = useState("");
 
-  const taxYear = user?.active_tax_year ?? new Date().getFullYear();
+  const [taxYear, setTaxYear] = useState(relevantTaxYear());
+  const [taxYearRule, setTaxYearRule] = useState("");
 
   useEffect(() => {
     void loadSummary();
-  }, [taxYear]);
+  }, []);
 
   async function loadSummary() {
     setLoading(true);
     setError("");
     setSnapshotMessage("");
     try {
+      const ctx = await getTaxYearContext();
+      const year = ctx.relevant_tax_year;
+      setTaxYear(year);
+      setTaxYearRule(ctx.rule);
       const data = await getDashboardSummary();
       setSummary(data);
-      const snap = await getPeildatumSnapshot(taxYear);
+      const snap = await getPeildatumSnapshot(year);
       setPeildatum(snap);
       if (snap) {
-        const tax = await getForfaitairBox3(taxYear);
+        const tax = await getForfaitairBox3(year);
         setForfaitair(tax);
       } else {
         setForfaitair(null);
@@ -171,6 +177,11 @@ export default function DashboardPage() {
 
         <FiscalCard p={6}>
           <Kicker mb={3}>Belastingjaar {taxYear} · Peildatum 1 jan</Kicker>
+          {taxYearRule && (
+            <Text fontSize="xs" color="taupe.500" mb={2} lineHeight={1.5}>
+              {taxYearRule}
+            </Text>
+          )}
           <Text fontFamily="heading" fontStyle="italic" fontSize="15px" color="ink.dim" mb={2}>
             Te betalen belasting (forfaitair)
           </Text>
@@ -202,6 +213,11 @@ export default function DashboardPage() {
             <Text fontSize="xs" color="taupe.500" mt={2}>
               Percentages banktegoeden en schulden 2026 zijn nog voorlopig (Belastingdienst).
             </Text>
+          )}
+          {forfaitair?.available && (
+            <Button as={RouterLink} to="/belasting" variant="fiscalOutline" size="sm" mt={4}>
+              Volledige belastingpositie
+            </Button>
           )}
           {hasPositions && !peildatum && (
             <Button

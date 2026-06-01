@@ -4,7 +4,7 @@ from apps.snapshots.models import PeilDatumSnapshot
 from apps.tax.models import TaxYearParameter
 from apps.tax.services.forfaitair import calculate_forfaitair
 from apps.tax.services.parameters import TaxParametersNotFoundError, get_forfaitair_params
-from apps.tax.services.snapshot_inputs import extract_box3_totals_from_snapshot_data
+from apps.tax.services.box3_inputs import box3_inputs_for_user
 
 
 def build_forfaitair_summary(user, year: int) -> dict:
@@ -25,10 +25,11 @@ def build_forfaitair_summary(user, year: int) -> dict:
             "message": str(exc),
         }
 
-    totals = extract_box3_totals_from_snapshot_data(snapshot.data)
+    totals = box3_inputs_for_user(user, year, snapshot.data)
     b = Decimal(totals["banktegoeden_eur"])
     o = Decimal(totals["overige_bezittingen_eur"])
     s = Decimal(totals["schulden_eur"])
+    buitenland = Decimal(totals.get("buitenlands_vastgoed_eur", "0"))
 
     result = calculate_forfaitair(
         banktegoeden=b,
@@ -36,6 +37,7 @@ def build_forfaitair_summary(user, year: int) -> dict:
         schulden=s,
         params=params,
         has_fiscal_partner=getattr(user, "has_fiscal_partner", False),
+        buitenlands_vastgoed_overig=buitenland,
     )
 
     param_row = TaxYearParameter.objects.get(year=year)

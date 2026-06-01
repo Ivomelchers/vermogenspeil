@@ -25,8 +25,8 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: "Belasting",
     items: [
-      { label: "Belastingpositie", to: "/dashboard", premium: true },
-      { label: "Werkelijk rendement", to: "/dashboard", premium: true },
+      { label: "Belastingpositie", to: "/belasting" },
+      { label: "Werkelijk rendement", to: "/belasting", premium: true },
     ],
   },
   {

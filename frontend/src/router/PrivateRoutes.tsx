@@ -8,6 +8,7 @@ import PlatformsPage from "../pages/PlatformsPage";
 import AddManualAssetPage from "../pages/AddManualAssetPage";
 import AddManualTransactionPage from "../pages/AddManualTransactionPage";
 import PortfolioPage from "../pages/PortfolioPage";
+import TaxPositionPage from "../pages/TaxPositionPage";
 import TransactionsPage from "../pages/TransactionsPage";
 import TwoFactorSetupPage from "../pages/TwoFactorSetupPage";
 import { useUser } from "../contexts/UserContext";
@@ -34,6 +35,7 @@ export function PrivateRoutes() {
         <Route path="/portfolio/manual/asset" element={<AddManualAssetPage />} />
         <Route path="/portfolio/manual/transaction" element={<AddManualTransactionPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/belasting" element={<TaxPositionPage />} />
         <Route path="/platforms" element={<PlatformsPage />} />
         <Route path="/platforms/add" element={<AddPlatformPage />} />
         <Route path="/settings/account" element={<AccountSettingsPage />} />
