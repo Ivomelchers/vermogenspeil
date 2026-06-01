@@ -4,7 +4,6 @@ import {
   Button,
   FormControl,
   FormLabel,
-  Heading,
   Input,
   Select,
   Text,
@@ -20,7 +19,9 @@ import {
 } from "../api/portfolio";
 import AuthAlert from "../components/auth/AuthAlert";
 import FiscalCard from "../components/common/FiscalCard";
-import Kicker from "../components/common/Kicker";
+import MotionSection from "../components/layout/MotionSection";
+import PageHeader from "../components/layout/PageHeader";
+import PageShell from "../components/layout/PageShell";
 import { getApiErrorMessage } from "../utils/apiError";
 
 const TX_TYPES = [
@@ -96,16 +97,32 @@ export default function AddManualTransactionPage() {
   }
 
   return (
-    <VStack align="stretch" spacing={8} maxW="lg">
-      <Box>
-        <Kicker mb={2}>Portefeuille</Kicker>
-        <Heading size="lg">Transactie handmatig toevoegen</Heading>
-      </Box>
+    <PageShell maxW="640px">
+      <MotionSection>
+        <PageHeader
+          kicker="Portefeuille"
+          title={
+            <>
+              Transactie <Text as="em">handmatig</Text>
+            </>
+          }
+          subtitle="Registreer aankopen, verkopen en overige mutaties voor uw Box 3-overzicht."
+        />
+      </MotionSection>
 
-      {message && <AuthAlert tone="success">{message}</AuthAlert>}
-      {error && <AuthAlert tone="error">{error}</AuthAlert>}
+      {message && (
+        <MotionSection>
+          <AuthAlert tone="success">{message}</AuthAlert>
+        </MotionSection>
+      )}
+      {error && (
+        <MotionSection>
+          <AuthAlert tone="error">{error}</AuthAlert>
+        </MotionSection>
+      )}
 
       {assets.length === 0 && (
+        <MotionSection>
         <AuthAlert tone="info">
           Voeg eerst een asset toe via{" "}
           <Box as={RouterLink} to="/portfolio/manual/asset" color="azure.500">
@@ -113,9 +130,11 @@ export default function AddManualTransactionPage() {
           </Box>
           .
         </AuthAlert>
+        </MotionSection>
       )}
 
-      <FiscalCard p={6} as="form" onSubmit={(event) => void handleSubmit(event)}>
+      <MotionSection>
+      <FiscalCard elevated p={6} as="form" onSubmit={(event) => void handleSubmit(event)}>
         <VStack align="stretch" spacing={4}>
           <FormControl isRequired>
             <FormLabel>Asset</FormLabel>
@@ -185,6 +204,7 @@ export default function AddManualTransactionPage() {
           </Button>
         </VStack>
       </FiscalCard>
-    </VStack>
+      </MotionSection>
+    </PageShell>
   );
 }

@@ -4,7 +4,10 @@ import AppLayout from "../components/common/AppLayout";
 import AccountSettingsPage from "../pages/AccountSettingsPage";
 import AddPlatformPage from "../pages/AddPlatformPage";
 import DashboardPage from "../pages/DashboardPage";
+import OverigVermogenPage from "../pages/OverigVermogenPage";
+import PlatformComparatorPage from "../pages/PlatformComparatorPage";
 import PlatformsPage from "../pages/PlatformsPage";
+import WerkelijkRendementPage from "../pages/WerkelijkRendementPage";
 import AddManualAssetPage from "../pages/AddManualAssetPage";
 import AddManualTransactionPage from "../pages/AddManualTransactionPage";
 import PortfolioPage from "../pages/PortfolioPage";
@@ -54,9 +57,11 @@ export function PrivateRoutes() {
         <Route path="/portfolio/manual/transaction" element={<AddManualTransactionPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/belasting" element={<TaxPositionPage />} />
-        <Route path="/belasting/werkelijk" element={<TaxPositionPage />} />
+        <Route path="/belasting/werkelijk" element={<WerkelijkRendementPage />} />
+        <Route path="/belasting/overig-vermogen" element={<OverigVermogenPage />} />
         <Route path="/platforms" element={<PlatformsPage />} />
         <Route path="/platforms/add" element={<AddPlatformPage />} />
+        <Route path="/platforms/vergelijker" element={<PlatformComparatorPage />} />
         <Route path="/settings/account" element={<AccountSettingsPage />} />
         <Route path="/settings/2fa" element={<TwoFactorSetupPage />} />
       </Route>

@@ -5,9 +5,9 @@ import {
   Button,
   Checkbox,
   Flex,
-  Heading,
   Input,
   Link,
+  SimpleGrid,
   Text,
   VStack,
 } from "@chakra-ui/react";
@@ -22,7 +22,9 @@ import {
 } from "../api/auth";
 import AuthAlert from "../components/auth/AuthAlert";
 import FiscalCard from "../components/common/FiscalCard";
-import Kicker from "../components/common/Kicker";
+import MotionSection from "../components/layout/MotionSection";
+import PageHeader from "../components/layout/PageHeader";
+import PageShell from "../components/layout/PageShell";
 import { useUser } from "../contexts/UserContext";
 import { getApiErrorMessage } from "../utils/apiError";
 
@@ -121,18 +123,28 @@ export default function AccountSettingsPage() {
   }
 
   return (
-    <VStack align="stretch" spacing={8} maxW="2xl">
-      <Box>
-        <Kicker mb={2}>Account</Kicker>
-        <Heading size="lg">Instellingen</Heading>
-        <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.7}>
-          Beheer uw profiel, wachtwoord en beveiliging.
-        </Text>
-      </Box>
+    <PageShell maxW="720px">
+      <MotionSection>
+        <PageHeader
+          kicker="Account"
+          title={
+            <>
+              Instellingen & <Text as="em">beveiliging</Text>
+            </>
+          }
+          subtitle="Beheer uw profiel, wachtwoord, fiscale voorkeuren en account."
+        />
+      </MotionSection>
 
-      {error && <AuthAlert tone="error">{error}</AuthAlert>}
+      {error && (
+        <MotionSection>
+          <AuthAlert tone="error">{error}</AuthAlert>
+        </MotionSection>
+      )}
 
-      <FiscalCard p={6}>
+      <MotionSection>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+      <FiscalCard elevated p={6}>
         <VStack align="stretch" spacing={4}>
           <Text fontWeight={600}>Profiel</Text>
           <Flex justify="space-between" gap={4} flexWrap="wrap">
@@ -175,9 +187,11 @@ export default function AccountSettingsPage() {
         </VStack>
       </FiscalCard>
 
-      <FiscalCard p={6}>
+      <FiscalCard elevated p={6}>
         <VStack align="stretch" spacing={4}>
-          <Text fontWeight={600}>Wachtwoord</Text>
+          <Text fontWeight={600} fontFamily="heading">
+            Wachtwoord
+          </Text>
           <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
             U ontvangt per e-mail een link om een nieuw wachtwoord in te stellen. Uw
             tweefactorauthenticatie blijft actief.
@@ -195,10 +209,15 @@ export default function AccountSettingsPage() {
           </Button>
         </VStack>
       </FiscalCard>
+      </SimpleGrid>
+      </MotionSection>
 
-      <FiscalCard p={6}>
+      <MotionSection>
+      <FiscalCard elevated p={6}>
         <VStack align="stretch" spacing={4}>
-          <Text fontWeight={600}>Abonnement</Text>
+          <Text fontWeight={600} fontFamily="heading">
+            Abonnement
+          </Text>
           <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
             {permissions.isPremium
               ? "Werkelijk rendement, vergelijking met forfaitair en het volledige Box 3-rapport."
@@ -206,10 +225,14 @@ export default function AccountSettingsPage() {
           </Text>
         </VStack>
       </FiscalCard>
+      </MotionSection>
 
-      <FiscalCard p={6}>
+      <MotionSection>
+      <FiscalCard elevated p={6}>
         <VStack align="stretch" spacing={4}>
-          <Text fontWeight={600}>Box 3 · Fiscaal partner</Text>
+          <Text fontWeight={600} fontFamily="heading">
+            Box 3 · Fiscaal partner
+          </Text>
           <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
             Bij een fiscaal partner verdubbelt het heffingsvrije vermogen en de schuldendrempel
             in de forfaitaire berekening.
@@ -228,8 +251,10 @@ export default function AccountSettingsPage() {
           )}
         </VStack>
       </FiscalCard>
+      </MotionSection>
 
-      <FiscalCard p={6} borderColor="red.200">
+      <MotionSection>
+      <FiscalCard elevated p={6} borderColor="red.200">
         <VStack align="stretch" spacing={4}>
           <Text fontWeight={600}>Account verwijderen</Text>
           <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
@@ -260,10 +285,14 @@ export default function AccountSettingsPage() {
           </Button>
         </VStack>
       </FiscalCard>
+      </MotionSection>
 
-      <FiscalCard p={6}>
+      <MotionSection>
+      <FiscalCard elevated p={6}>
         <VStack align="stretch" spacing={4}>
-          <Text fontWeight={600}>Beveiliging</Text>
+          <Text fontWeight={600} fontFamily="heading">
+            Beveiliging
+          </Text>
           <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
             Stel tweefactorauthenticatie in of reset uw authenticator-app.
           </Text>
@@ -278,6 +307,7 @@ export default function AccountSettingsPage() {
           </Link>
         </VStack>
       </FiscalCard>
-    </VStack>
+      </MotionSection>
+    </PageShell>
   );
 }

@@ -4,17 +4,15 @@ import {
   Box,
   Button,
   Grid,
-  Heading,
-  Table,
+  SimpleGrid,
   Tbody,
   Td,
   Text,
   Th,
   Thead,
   Tr,
-  VStack,
 } from "@chakra-ui/react";
-import { Link as RouterLink, useLocation } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 
 import {
   downloadBox3ReportPdf,
@@ -27,29 +25,17 @@ import { createPeildatumSnapshot, getPeildatumSnapshot } from "../api/snapshots"
 import AuthAlert from "../components/auth/AuthAlert";
 import DisplayMoney from "../components/portfolio/DisplayMoney";
 import FiscalCard from "../components/common/FiscalCard";
+import FiscalNote from "../components/common/FiscalNote";
+import FiscalTable from "../components/common/FiscalTable";
 import Kicker from "../components/common/Kicker";
-import ManualWealthSection from "../components/tax/ManualWealthSection";
-import PremiumGate from "../components/common/PremiumGate";
+import SectionHeader from "../components/common/SectionHeader";
+import MotionSection from "../components/layout/MotionSection";
+import PageHeader from "../components/layout/PageHeader";
+import PageShell from "../components/layout/PageShell";
 import { useUser } from "../contexts/UserContext";
 import { formatEur } from "../utils/formatMoney";
 import { getApiErrorMessage, getApiErrorMessageAsync } from "../utils/apiError";
-import { werkelijkReferenceLabel } from "../utils/referenceDate";
 import { relevantTaxYear } from "../utils/taxYear";
-
-const WERKELIJK_COMPONENT_LABELS: Record<string, string> = {
-  dividend_eur: "Dividend",
-  rente_bank_eur: "Rente banktegoeden",
-  huur_eur: "Huurinkomsten",
-  staking_eur: "Staking",
-  overige_inkomsten_eur: "Overige inkomsten",
-  reguliere_voordelen_eur: "Reguliere voordelen",
-  waardemutatie_eur: "Waardemutatie",
-  bijtelling_eur: "Bijtelling vastgoed",
-  rente_schulden_eur: "Rente op schulden",
-  woz_investering_eur: "WOZ-investeringen",
-};
-
-const WERKELIJK_SECTION_ID = "werkelijk-rendement";
 
 const FORFAIT_STEP_LABELS: Record<string, string> = {
   schulden_aftrekbaar_eur: "Aftrekbare schulden",
@@ -68,32 +54,29 @@ const FORFAIT_STEP_LABELS: Record<string, string> = {
 
 function StepTable({ steps }: { steps: Record<string, string> }) {
   return (
-    <Box overflowX="auto">
-      <Table size="sm" variant="simple">
-        <Thead bg="backgroundCard">
-          <Tr>
-            <Th>Stap</Th>
-            <Th isNumeric>Bedrag</Th>
+    <FiscalTable>
+      <Thead>
+        <Tr>
+          <Th>Stap</Th>
+          <Th isNumeric>Bedrag</Th>
+        </Tr>
+      </Thead>
+      <Tbody>
+        {Object.entries(steps).map(([key, value]) => (
+          <Tr key={key}>
+            <Td color="ink.dim">{FORFAIT_STEP_LABELS[key] ?? key}</Td>
+            <Td isNumeric fontWeight={key.includes("belasting") ? 600 : 400}>
+              {key.includes("percent") ? `${value}%` : formatEur(value)}
+            </Td>
           </Tr>
-        </Thead>
-        <Tbody>
-          {Object.entries(steps).map(([key, value]) => (
-            <Tr key={key}>
-              <Td color="ink.dim">{FORFAIT_STEP_LABELS[key] ?? key}</Td>
-              <Td isNumeric fontWeight={key.includes("belasting") ? 600 : 400}>
-                {key.includes("percent") ? `${value}%` : formatEur(value)}
-              </Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
-    </Box>
+        ))}
+      </Tbody>
+    </FiscalTable>
   );
 }
 
 export default function TaxPositionPage() {
-  const location = useLocation();
-  const { user, permissions } = useUser();
+  const { user } = useUser();
   const [taxContext, setTaxContext] = useState<TaxYearContext | null>(null);
   const taxYear = taxContext?.relevant_tax_year ?? relevantTaxYear();
   const [summary, setSummary] = useState<Box3Summary | null>(null);
@@ -107,19 +90,6 @@ export default function TaxPositionPage() {
   useEffect(() => {
     void loadData();
   }, []);
-
-  useEffect(() => {
-    if (!location.pathname.includes("/werkelijk") || loading) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      const target =
-        document.getElementById(WERKELIJK_SECTION_ID) ??
-        document.getElementById(`${WERKELIJK_SECTION_ID}-samenvatting`);
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 150);
-    return () => window.clearTimeout(timer);
-  }, [location.pathname, loading, summary]);
 
   async function loadData() {
     setLoading(true);
@@ -179,97 +149,120 @@ export default function TaxPositionPage() {
   }
 
   const forfait = summary?.forfaitair;
-  const werkelijk = summary?.werkelijk;
   const comparison = summary?.comparison;
 
   return (
-    <VStack align="stretch" spacing={8}>
-      <Box>
-        <Kicker mb={2}>Belasting · Box 3</Kicker>
-        <Heading size="lg">Belastingpositie {taxYear}</Heading>
-        <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.7} maxW="2xl">
-          Forfaitaire berekening en werkelijk rendement. De Belastingdienst past automatisch het
-          laagste bedrag toe.
-        </Text>
-        {taxContext && (
-          <Text color="taupe.500" fontSize="xs" mt={2} lineHeight={1.6}>
-            {taxContext.rule}
-            {user?.active_tax_year != null &&
-              user.active_tax_year !== taxContext.relevant_tax_year && (
-                <> · Profiel: belastingjaar {user.active_tax_year}</>
-              )}
-          </Text>
-        )}
-      </Box>
+    <PageShell>
+      <MotionSection>
+        <PageHeader
+          kicker="Belasting · Box 3"
+          title={
+            <>
+              Belastingpositie <Text as="em">{taxYear}</Text>
+            </>
+          }
+          subtitle="Forfaitaire Box 3-berekening op basis van uw peildatum. Werkelijk rendement en overig vermogen staan op aparte pagina's."
+          meta={
+            taxContext
+              ? `${taxContext.rule}${
+                  user?.active_tax_year != null &&
+                  user.active_tax_year !== taxContext.relevant_tax_year
+                    ? ` · Profiel: belastingjaar ${user.active_tax_year}`
+                    : ""
+                }`
+              : undefined
+          }
+        />
+      </MotionSection>
 
-      {error && <AuthAlert tone="error">{error}</AuthAlert>}
+      {error && (
+        <MotionSection>
+          <AuthAlert tone="error">{error}</AuthAlert>
+        </MotionSection>
+      )}
 
       {loading ? (
-        <Text color="ink.dim" fontSize="sm">
-          Berekeningen laden…
-        </Text>
+        <MotionSection>
+          <Text color="ink.dim" fontSize="sm" fontStyle="italic">
+            Berekeningen laden…
+          </Text>
+        </MotionSection>
       ) : (
         <>
-          <Grid templateColumns={{ base: "1fr", lg: "repeat(3, 1fr)" }} gap={4}>
-            <FiscalCard p={5}>
-              <Kicker mb={2}>Te betalen (toegepast)</Kicker>
-              {summary?.applied_tax_eur ? (
-                <DisplayMoney amount={summary.applied_tax_eur} size="md" tone="accent" />
-              ) : (
-                <Text fontSize="2xl" color="ink.dim">
-                  —
-                </Text>
-              )}
-              {comparison && (
-                <Text fontSize="sm" color="ink.dim" mt={3} lineHeight={1.6}>
-                  {comparison.message}
-                </Text>
-              )}
-            </FiscalCard>
-
-            <FiscalCard p={5}>
-              <Kicker mb={2}>Forfaitair</Kicker>
-              {forfait?.available ? (
-                <DisplayMoney amount={forfait.tax_due_eur ?? "0"} size="sm" />
-              ) : (
-                <Text color="ink.dim">—</Text>
-              )}
-              {forfait?.parameters_provisional && (
-                <Badge variant="premium" mt={2}>
-                  Voorlopige percentages
-                </Badge>
-              )}
-            </FiscalCard>
-
-            {permissions.isPremium ? (
-              <FiscalCard p={5} id={`${WERKELIJK_SECTION_ID}-samenvatting`}>
-                <Kicker mb={2}>Werkelijk rendement</Kicker>
-                {werkelijk?.available ? (
-                  <>
-                    <DisplayMoney amount={werkelijk.tax_due_eur ?? "0"} size="sm" />
-                    <Text fontSize="xs" color="taupe.500" mt={2} lineHeight={1.6}>
-                      {werkelijk.is_provisional
-                        ? werkelijkReferenceLabel()
-                        : `Berekend over het volledige kalenderjaar ${taxYear}.`}
-                    </Text>
-                  </>
+          <MotionSection>
+            <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
+              <FiscalCard elevated p={5}>
+                <Kicker mb={2}>Te betalen (toegepast)</Kicker>
+                {summary?.applied_tax_eur ? (
+                  <DisplayMoney amount={summary.applied_tax_eur} size="md" tone="accent" />
                 ) : (
-                  <Text color="ink.dim" fontSize="sm" lineHeight={1.6}>
-                    {werkelijk?.message ?? "Geen berekening beschikbaar."}
+                  <Text fontSize="2xl" color="ink.dim">
+                    —
+                  </Text>
+                )}
+                {comparison && (
+                  <Text fontSize="sm" color="ink.dim" mt={3} lineHeight={1.6}>
+                    {comparison.message}
                   </Text>
                 )}
               </FiscalCard>
-            ) : (
-              <PremiumGate
-                compact
-                title="Werkelijk rendement"
-                description="Vergelijk forfaitair met uw werkelijke rendement en zie welke methode voordeliger is."
-              />
-            )}
-          </Grid>
+
+              <FiscalCard elevated p={5}>
+                <Kicker mb={2}>Forfaitair</Kicker>
+                {forfait?.available ? (
+                  <DisplayMoney amount={forfait.tax_due_eur ?? "0"} size="sm" />
+                ) : (
+                  <Text color="ink.dim">—</Text>
+                )}
+                {forfait?.parameters_provisional && (
+                  <Badge variant="premium" mt={2}>
+                    Voorlopige percentages
+                  </Badge>
+                )}
+              </FiscalCard>
+            </SimpleGrid>
+          </MotionSection>
+
+          <MotionSection>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <Box
+                as={RouterLink}
+                to="/belasting/werkelijk"
+                display="block"
+                _hover={{ textDecoration: "none" }}
+              >
+                <FiscalCard elevated p={5} _hover={{ borderColor: "azure.400" }}>
+                  <Kicker mb={2}>Werkelijk rendement</Kicker>
+                  <Text fontSize="sm" color="ink.dim" lineHeight={1.65} mb={3}>
+                    Vergelijk forfaitair met uw werkelijke rendement en zie of opgeven voordelig kan zijn.
+                  </Text>
+                  <Text fontSize="sm" color="azure.500" fontWeight={500}>
+                    Naar werkelijk rendement →
+                  </Text>
+                </FiscalCard>
+              </Box>
+              <Box
+                as={RouterLink}
+                to="/belasting/overig-vermogen"
+                display="block"
+                _hover={{ textDecoration: "none" }}
+              >
+                <FiscalCard elevated p={5} _hover={{ borderColor: "azure.400" }}>
+                  <Kicker mb={2}>Overig vermogen</Kicker>
+                  <Text fontSize="sm" color="ink.dim" lineHeight={1.65} mb={3}>
+                    Banktegoeden, schulden en onroerend goed die niet via brokers binnenkomen.
+                  </Text>
+                  <Text fontSize="sm" color="azure.500" fontWeight={500}>
+                    Naar overig vermogen →
+                  </Text>
+                </FiscalCard>
+              </Box>
+            </SimpleGrid>
+          </MotionSection>
 
           {!hasSnapshot && (
-            <FiscalCard p={6}>
+            <MotionSection>
+            <FiscalCard elevated p={6}>
               <Text color="ink.dim" mb={4} lineHeight={1.7}>
                 Leg eerst uw peildatum vast om Box 3 te berekenen.
               </Text>
@@ -277,11 +270,20 @@ export default function TaxPositionPage() {
                 Peildatum {taxYear} vastleggen
               </Button>
             </FiscalCard>
+            </MotionSection>
           )}
 
           {forfait?.available && forfait.calculation?.steps && (
-            <FiscalCard p={5}>
-              <Kicker mb={4}>Forfaitair · tussenstappen</Kicker>
+            <MotionSection>
+            <SectionHeader
+              title={
+                <>
+                  Forfaitair · <Text as="em">tussenstappen</Text>
+                </>
+              }
+              kicker="box 3 berekening"
+            />
+            <FiscalCard elevated p={5}>
               {forfait.box3_inputs && (
                 <Grid
                   templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }}
@@ -311,94 +313,16 @@ export default function TaxPositionPage() {
                 </Grid>
               )}
               <StepTable steps={forfait.calculation.steps} />
-              <Text fontSize="xs" color="taupe.500" mt={3}>
+              <FiscalNote mt={4} fontSize="xs">
                 {forfait.disclaimer}
-              </Text>
+              </FiscalNote>
             </FiscalCard>
+            </MotionSection>
           )}
 
-          {permissions.isPremium && werkelijk?.available && werkelijk.calculation ? (
-            <FiscalCard p={5} id={WERKELIJK_SECTION_ID} scrollMarginTop="24px">
-              <Kicker mb={4}>Werkelijk rendement · onderdelen</Kicker>
-              <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={3} mb={4}>
-                <Box>
-                  <Text fontSize="xs" color="ink.dim">
-                    Startwaarde (1 jan)
-                  </Text>
-                  <Text fontWeight={600}>{formatEur(werkelijk.calculation.w_start_eur)}</Text>
-                </Box>
-                <Box>
-                  <Text fontSize="xs" color="ink.dim">
-                    Huidige waarde
-                  </Text>
-                  <Text fontWeight={600}>{formatEur(werkelijk.calculation.w_end_eur)}</Text>
-                </Box>
-                <Box>
-                  <Text fontSize="xs" color="ink.dim">
-                    Netto inleg
-                  </Text>
-                  <Text fontWeight={600}>{formatEur(werkelijk.calculation.netto_inleg_eur)}</Text>
-                </Box>
-                <Box>
-                  <Text fontSize="xs" color="ink.dim">
-                    Werkelijk rendement
-                  </Text>
-                  <Text fontWeight={600}>
-                    {formatEur(werkelijk.calculation.werkelijk_rendement_eur)} (
-                    {werkelijk.calculation.werkelijk_percent}%)
-                  </Text>
-                </Box>
-              </Grid>
-              <Box overflowX="auto">
-                <Table size="sm">
-                  <Tbody>
-                    {Object.entries(werkelijk.calculation.components).map(([key, val]) => (
-                      <Tr key={key}>
-                        <Td color="ink.dim">{WERKELIJK_COMPONENT_LABELS[key] ?? key}</Td>
-                        <Td isNumeric>{formatEur(val)}</Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </Box>
-              <Text fontSize="xs" color="taupe.500" mt={3}>
-                {werkelijk.disclaimer}
-              </Text>
-            </FiscalCard>
-          ) : !permissions.isPremium ? (
-            <Box id={WERKELIJK_SECTION_ID} scrollMarginTop="24px">
-            <PremiumGate title="Werkelijk rendement · detail">
-              <FiscalCard p={5}>
-                <Kicker mb={2}>Werkelijk rendement · onderdelen</Kicker>
-                <Text color="ink.dim" fontSize="sm">
-                  Rendementscomponenten en vergelijking met forfaitair.
-                </Text>
-              </FiscalCard>
-            </PremiumGate>
-            </Box>
-          ) : null}
-
-          <ManualWealthSection taxYear={taxYear} onChanged={() => void loadData()} />
-
-          {comparison && (
-            <FiscalCard p={5}>
-              <Kicker mb={3}>Vergelijking</Kicker>
-              <Text
-                color={comparison.werkelijk_is_beneficial ? "moss.500" : "ink.dim"}
-                fontWeight={500}
-              >
-                {comparison.message}
-              </Text>
-              <Text fontSize="sm" color="ink.dim" mt={2}>
-                Forfaitair: {formatEur(comparison.forfait_tax_eur)} · Werkelijk:{" "}
-                {formatEur(comparison.werkelijk_tax_eur)} · Besparing:{" "}
-                {formatEur(comparison.savings_eur)}
-              </Text>
-            </FiscalCard>
-          )}
-
-          <FiscalCard p={5}>
-            <Kicker mb={3}>Box 3-rapport</Kicker>
+          <MotionSection>
+          <SectionHeader title="Box 3-rapport" kicker="pdf export" />
+          <FiscalCard elevated p={5}>
             <Text color="ink.dim" fontSize="sm" mb={4} lineHeight={1.7}>
               Download onderbouwing: posities, handmatig vermogen en berekeningen als PDF.
             </Text>
@@ -417,12 +341,15 @@ export default function TaxPositionPage() {
               </Text>
             )}
           </FiscalCard>
+          </MotionSection>
 
+          <MotionSection>
           <Button as={RouterLink} to="/dashboard" variant="ghostNav" size="sm" maxW="fit-content">
             ← Terug naar dashboard
           </Button>
+          </MotionSection>
         </>
       )}
-    </VStack>
+    </PageShell>
   );
 }

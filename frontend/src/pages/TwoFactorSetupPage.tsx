@@ -1,10 +1,8 @@
 import { FormEvent, useState } from "react";
 import {
   Badge,
-  Box,
   Button,
   Code,
-  Heading,
   Text,
   VStack,
 } from "@chakra-ui/react";
@@ -21,7 +19,9 @@ import AuthAlert from "../components/auth/AuthAlert";
 import AuthFormField from "../components/auth/AuthFormField";
 import MfaEnrollPanel from "../components/auth/MfaEnrollPanel";
 import FiscalCard from "../components/common/FiscalCard";
-import Kicker from "../components/common/Kicker";
+import MotionSection from "../components/layout/MotionSection";
+import PageHeader from "../components/layout/PageHeader";
+import PageShell from "../components/layout/PageShell";
 import { getApiErrorMessage } from "../utils/apiError";
 
 export default function TwoFactorSetupPage() {
@@ -105,36 +105,56 @@ export default function TwoFactorSetupPage() {
 
   if (setupData) {
     return (
-      <VStack align="stretch" spacing={8} maxW="2xl">
-        <Box>
-          <Kicker mb={2}>Accountbeveiliging</Kicker>
-          <Heading size="lg">2FA instellen</Heading>
-        </Box>
-        <MfaEnrollPanel
-          setupData={setupData}
-          onSuccess={handleEnrollSuccess}
-          onCancel={() => setSetupData(null)}
-        />
-      </VStack>
+      <PageShell maxW="720px">
+        <MotionSection>
+          <PageHeader
+            kicker="Accountbeveiliging"
+            title={
+              <>
+                2FA <Text as="em">instellen</Text>
+              </>
+            }
+          />
+        </MotionSection>
+        <MotionSection>
+          <MfaEnrollPanel
+            setupData={setupData}
+            onSuccess={handleEnrollSuccess}
+            onCancel={() => setSetupData(null)}
+          />
+        </MotionSection>
+      </PageShell>
     );
   }
 
   return (
-    <VStack align="stretch" spacing={8} maxW="2xl">
-      <Box>
-        <Kicker mb={2}>Accountbeveiliging</Kicker>
-        <Heading size="lg">Tweefactorauthenticatie</Heading>
-        <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.7}>
-          Beveilig uw account met een authenticator-app. Bij login wordt een eenmalige
-          verificatiecode gevraagd.
-        </Text>
-      </Box>
+    <PageShell maxW="720px">
+      <MotionSection>
+        <PageHeader
+          kicker="Accountbeveiliging"
+          title={
+            <>
+              Tweefactor<Text as="em">authenticatie</Text>
+            </>
+          }
+          subtitle="Beveilig uw account met een authenticator-app. Bij login wordt een eenmalige verificatiecode gevraagd."
+        />
+      </MotionSection>
 
-      {error && <AuthAlert tone="error">{error}</AuthAlert>}
-      {infoMessage && <AuthAlert tone="success">{infoMessage}</AuthAlert>}
+      {error && (
+        <MotionSection>
+          <AuthAlert tone="error">{error}</AuthAlert>
+        </MotionSection>
+      )}
+      {infoMessage && (
+        <MotionSection>
+          <AuthAlert tone="success">{infoMessage}</AuthAlert>
+        </MotionSection>
+      )}
 
       {backupCodes.length > 0 && (
-        <FiscalCard p={6}>
+        <MotionSection>
+        <FiscalCard elevated p={6}>
           <VStack align="stretch" spacing={3}>
             <Text fontWeight={600}>Backupcodes</Text>
             <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
@@ -148,9 +168,11 @@ export default function TwoFactorSetupPage() {
             ))}
           </VStack>
         </FiscalCard>
+        </MotionSection>
       )}
 
-      <FiscalCard p={6}>
+      <MotionSection>
+      <FiscalCard elevated p={6}>
         <VStack align="stretch" spacing={4}>
           <Text fontWeight={600}>Status</Text>
           {mfaStatusQuery.isLoading ? (
@@ -164,9 +186,11 @@ export default function TwoFactorSetupPage() {
           )}
         </VStack>
       </FiscalCard>
+      </MotionSection>
 
       {!enrolled && !mfaStatusQuery.isLoading && (
-        <FiscalCard p={6}>
+        <MotionSection>
+        <FiscalCard elevated p={6}>
           <VStack align="stretch" spacing={4}>
             <Text fontWeight={600}>2FA inschakelen</Text>
             <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
@@ -182,11 +206,13 @@ export default function TwoFactorSetupPage() {
             </Button>
           </VStack>
         </FiscalCard>
+        </MotionSection>
       )}
 
       {enrolled && (
         <>
-          <FiscalCard p={6}>
+          <MotionSection>
+          <FiscalCard elevated p={6}>
             <VStack
               as="form"
               align="stretch"
@@ -226,8 +252,10 @@ export default function TwoFactorSetupPage() {
               </Button>
             </VStack>
           </FiscalCard>
+          </MotionSection>
 
-          <FiscalCard p={6}>
+          <MotionSection>
+          <FiscalCard elevated p={6}>
             <VStack align="stretch" spacing={4}>
               <Text fontWeight={600}>Authenticator resetten</Text>
               <Text color="ink.dim" fontSize="sm" lineHeight={1.7}>
@@ -243,8 +271,9 @@ export default function TwoFactorSetupPage() {
               </Button>
             </VStack>
           </FiscalCard>
+          </MotionSection>
         </>
       )}
-    </VStack>
+    </PageShell>
   );
 }

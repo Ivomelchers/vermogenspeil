@@ -1,33 +1,39 @@
 import { useEffect, useState } from "react";
 import {
-  Box,
   Button,
-  Heading,
   Select,
-  Table,
   Tbody,
   Td,
   Text,
   Th,
   Thead,
   Tr,
-  VStack,
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 
 import {
   getDashboardSummary,
+  getPortfolio,
   listPortfolios,
   updateAssetCategory,
-  type DashboardPosition,
+  type DashboardSummary,
   type Portfolio,
 } from "../api/portfolio";
 import AuthAlert from "../components/auth/AuthAlert";
+import AllocationChart from "../components/dashboard/AllocationChart";
+import InsightGrid from "../components/dashboard/InsightGrid";
+import PortfolioTrendChart from "../components/dashboard/PortfolioTrendChart";
 import FiscalCard from "../components/common/FiscalCard";
-import Kicker from "../components/common/Kicker";
+import FiscalNote from "../components/common/FiscalNote";
+import FiscalTable from "../components/common/FiscalTable";
+import SectionHeader from "../components/common/SectionHeader";
+import PositionPnLTable from "../components/portfolio/PositionPnLTable";
+import MotionSection from "../components/layout/MotionSection";
+import PageHeader from "../components/layout/PageHeader";
+import PageShell from "../components/layout/PageShell";
 import { formatEur } from "../utils/formatMoney";
 import { getApiErrorMessage } from "../utils/apiError";
-import { positionPriceHint, valuationBasisLabel } from "../utils/valuationLabels";
+import { positionPriceHint } from "../utils/valuationLabels";
 
 const FISCALE_CATEGORIES: { value: string; label: string }[] = [
   { value: "belegging", label: "Belegging" },
@@ -38,13 +44,8 @@ const FISCALE_CATEGORIES: { value: string; label: string }[] = [
 ];
 
 export default function PortfolioPage() {
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [positions, setPositions] = useState<DashboardPosition[]>([]);
-  const [total, setTotal] = useState("0");
-  const [valuationMethod, setValuationMethod] = useState<
-    "market" | "mixed" | "cost_basis"
-  >("cost_basis");
-  const [valuationNote, setValuationNote] = useState("");
+  const [, setPortfolios] = useState<Portfolio[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [categoryBusyId, setCategoryBusyId] = useState<number | null>(null);
@@ -58,15 +59,17 @@ export default function PortfolioPage() {
     setLoading(true);
     setError("");
     try {
-      const [portfolioRows, summary] = await Promise.all([
+      const [portfolioRows, summaryData] = await Promise.all([
         listPortfolios(),
         getDashboardSummary(),
       ]);
       setPortfolios(portfolioRows);
-      setPositions(summary.positions);
-      setTotal(summary.total_value_eur);
-      setValuationMethod(summary.valuation_method);
-      setValuationNote(summary.valuation_note ?? "");
+      setSummary(summaryData);
+      const defaultP = portfolioRows.find((p) => p.is_default) ?? portfolioRows[0];
+      if (defaultP) {
+        const detail = await getPortfolio(defaultP.id);
+        setDetailPositions(detail.positions);
+      }
     } catch (loadError) {
       setError(getApiErrorMessage(loadError, "Portefeuille laden mislukt."));
     } finally {
@@ -74,7 +77,9 @@ export default function PortfolioPage() {
     }
   }
 
-  const basisLabel = valuationBasisLabel(valuationMethod);
+  const [detailPositions, setDetailPositions] = useState<
+    Awaited<ReturnType<typeof getPortfolio>>["positions"]
+  >([]);
 
   async function handleCategoryChange(assetId: number, category: string) {
     setCategoryBusyId(assetId);
@@ -82,9 +87,7 @@ export default function PortfolioPage() {
     setError("");
     try {
       await updateAssetCategory(assetId, category);
-      setCategoryNote(
-        "Fiscale categorie opgeslagen. Leg peildatum opnieuw vast voor een actuele Box 3-berekening.",
-      );
+      setCategoryNote("Categorie opgeslagen. Herbereken peildatum indien nodig.");
       await loadPortfolio();
     } catch (categoryError) {
       setError(getApiErrorMessage(categoryError, "Categorie bijwerken mislukt."));
@@ -93,92 +96,143 @@ export default function PortfolioPage() {
     }
   }
 
+  const platformCount = summary?.platforms.length ?? 0;
+  const hasPositions = (summary?.positions_count ?? 0) > 0;
+
   return (
-    <VStack align="stretch" spacing={8}>
-      <Box>
-        <Kicker mb={2}>Portefeuille</Kicker>
-        <Heading size="lg">Alle posities</Heading>
-        <Box display="flex" gap={2} flexWrap="wrap" mt={4}>
-          <Button as={RouterLink} to="/portfolio/manual/asset" variant="fiscalOutline" size="sm">
-            Asset toevoegen
-          </Button>
-          <Button as={RouterLink} to="/portfolio/manual/transaction" variant="fiscalOutline" size="sm">
-            Transactie toevoegen
-          </Button>
-        </Box>
-        <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.7}>
-          {valuationNote ||
-            "Waarden op basis van kostprijs. Live koersen worden opgehaald zodra beschikbaar."}
-        </Text>
-      </Box>
+    <PageShell>
+      <MotionSection>
+        <PageHeader
+          kicker={`Alle posities · ${platformCount} platformen`}
+          title={
+            <>
+              Portefeuille — <Text as="em">alle posities</Text>
+            </>
+          }
+          subtitle="Al uw beleggingen gecombineerd uit gekoppelde platformen, met inzichten per positie: aankoopprijs, rendement en verdeling."
+          actions={
+            <>
+              <Button as={RouterLink} to="/portfolio/manual/asset" variant="fiscalOutline" size="sm">
+                Asset toevoegen
+              </Button>
+              <Button as={RouterLink} to="/portfolio/manual/transaction" variant="fiscal" size="sm">
+                Transactie toevoegen
+              </Button>
+            </>
+          }
+        />
+      </MotionSection>
 
-      {error && <AuthAlert tone="error">{error}</AuthAlert>}
-      {categoryNote && <AuthAlert tone="info">{categoryNote}</AuthAlert>}
-
-      {!loading && portfolios.length > 0 && (
-        <FiscalCard p={5}>
-          <Kicker mb={3}>Uw portefeuilles</Kicker>
-          <VStack align="stretch" spacing={2}>
-            {portfolios.map((row) => (
-              <Box
-                key={row.id}
-                display="flex"
-                justifyContent="space-between"
-                alignItems="center"
-                flexWrap="wrap"
-                gap={2}
-                py={2}
-                borderBottom="1px solid"
-                borderColor="line.soft"
-                _last={{ borderBottom: "none" }}
-              >
-                <Text fontWeight={row.is_default ? 600 : 400}>
-                  {row.name}
-                  {row.is_default && (
-                    <Text as="span" fontSize="xs" color="ink.dim" ml={2}>
-                      standaard
-                    </Text>
-                  )}
-                </Text>
-                <Text fontSize="sm" color="ink.dim">
-                  {row.positions_count} posities · {row.transactions_count} transacties
-                </Text>
-              </Box>
-            ))}
-          </VStack>
-        </FiscalCard>
+      {error && (
+        <MotionSection>
+          <AuthAlert tone="error">{error}</AuthAlert>
+        </MotionSection>
+      )}
+      {categoryNote && (
+        <MotionSection>
+          <AuthAlert tone="info">{categoryNote}</AuthAlert>
+        </MotionSection>
       )}
 
-      <FiscalCard p={5}>
-        <Kicker mb={1}>Totaal ({basisLabel.toLowerCase()})</Kicker>
-        <Text fontFamily="heading" fontSize="32px" letterSpacing="-0.02em">
-          {formatEur(total)}
-        </Text>
-      </FiscalCard>
-
       {loading ? (
-        <Text color="ink.dim" fontSize="sm">
-          Posities laden…
+        <Text color="ink.dim" fontStyle="italic">
+          Portefeuille laden…
         </Text>
-      ) : positions.length === 0 ? (
-        <FiscalCard p={6}>
-          <Text color="ink.dim" lineHeight={1.7} mb={4}>
-            Geen posities gevonden. Koppel een platform of voeg handmatig transacties toe.
-          </Text>
-          <Box display="flex" gap={2} flexWrap="wrap">
-            <Button as={RouterLink} to="/platforms" variant="fiscal" size="sm">
+      ) : !hasPositions || !summary ? (
+        <MotionSection>
+          <FiscalCard elevated p={8} textAlign="center">
+            <Text fontFamily="heading" fontStyle="italic" color="ink.dim" mb={5}>
+              Nog geen posities — koppel een platform of voeg handmatig assets toe.
+            </Text>
+            <Button as={RouterLink} to="/platforms" variant="fiscal">
               Platform koppelen
             </Button>
-            <Button as={RouterLink} to="/portfolio/manual/transaction" variant="fiscalOutline" size="sm">
-              Transactie toevoegen
-            </Button>
-          </Box>
-        </FiscalCard>
+          </FiscalCard>
+        </MotionSection>
       ) : (
-        <FiscalCard p={0} overflow="hidden">
-          <Box overflowX="auto">
-            <Table size="sm" variant="simple">
-              <Thead bg="backgroundCard">
+        <>
+          <MotionSection>
+            <SectionHeader
+              title={
+                <>
+                  Portefeuille <Text as="em">inzichten</Text>
+                </>
+              }
+              kicker="all-time · alle platformen"
+            />
+            <InsightGrid summary={summary} />
+          </MotionSection>
+
+          {summary.by_category.length > 0 && (
+            <MotionSection>
+              <SectionHeader
+                title={
+                  <>
+                    Portefeuille-<Text as="em">samenstelling</Text>
+                  </>
+                }
+                kicker="alle posities · per assetklasse"
+              />
+              <FiscalCard elevated p={{ base: 4, md: 6 }}>
+                <AllocationChart
+                  categories={summary.by_category}
+                  totalLabel={formatEur(summary.total_value_eur)}
+                />
+              </FiscalCard>
+            </MotionSection>
+          )}
+
+          {(summary.value_history?.length ?? 0) > 0 && (
+            <MotionSection>
+              <SectionHeader
+                title={
+                  <>
+                    Waarde <Text as="em">vs. inleg</Text>
+                  </>
+                }
+                kicker="afgelopen 12 maanden · portefeuille tegenover cost basis"
+              />
+              <FiscalCard elevated p={{ base: 4, md: 6 }}>
+                <PortfolioTrendChart
+                  points={summary.value_history ?? []}
+                  valuationNote={summary.valuation_note}
+                />
+              </FiscalCard>
+            </MotionSection>
+          )}
+
+          <MotionSection>
+            <SectionHeader
+              title={
+                <>
+                  Winst & verlies <Text as="em">per positie</Text>
+                </>
+              }
+              kicker="gesorteerd op absolute P&L"
+            />
+            <FiscalCard elevated p={5}>
+              <PositionPnLTable
+                dashboardPositions={summary.positions}
+                detailPositions={detailPositions}
+              />
+            </FiscalCard>
+          </MotionSection>
+
+          <MotionSection>
+            <SectionHeader
+              title={
+                <>
+                  Alle <Text as="em">posities</Text>
+                </>
+              }
+              kicker={`${summary.positions_count} posities · fiscale categorie`}
+            />
+            <FiscalNote mb={4}>
+              Wijzig de Box 3-categorie per asset. Leg daarna uw peildatum opnieuw vast op de
+              belastingpagina.
+            </FiscalNote>
+            <FiscalTable>
+              <Thead>
                 <Tr>
                   <Th>Asset</Th>
                   <Th>Categorie</Th>
@@ -188,55 +242,67 @@ export default function PortfolioPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {positions.map((position) => {
-                  const priceHint = positionPriceHint(position);
-                  return (
-                    <Tr key={position.id}>
-                      <Td>
-                        <Text fontWeight={600}>{position.symbol}</Text>
-                        <Text fontSize="xs" color="ink.dim">
-                          {position.name}
+                {summary.positions.map((position) => (
+                  <Tr key={position.id}>
+                    <Td>
+                      <Text fontWeight={600}>{position.symbol}</Text>
+                      <Text fontSize="xs" color="ink.dim">
+                        {position.name}
+                      </Text>
+                    </Td>
+                    <Td>
+                      {position.asset_id != null ? (
+                        <Select
+                          size="sm"
+                          value={position.category ?? "belegging"}
+                          isDisabled={categoryBusyId === position.asset_id}
+                          onChange={(e) =>
+                            void handleCategoryChange(position.asset_id!, e.target.value)
+                          }
+                        >
+                          {FISCALE_CATEGORIES.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <Text fontSize="sm" color="ink.dim">
+                          {position.category_label}
                         </Text>
-                      </Td>
-                      <Td>
-                        {position.asset_id != null ? (
-                          <Select
-                            size="sm"
-                            value={position.category ?? "belegging"}
-                            isDisabled={categoryBusyId === position.asset_id}
-                            onChange={(e) =>
-                              void handleCategoryChange(position.asset_id!, e.target.value)
-                            }
-                          >
-                            {FISCALE_CATEGORIES.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </Select>
-                        ) : (
-                          <Text color="ink.dim" fontSize="sm">
-                            {position.category_label}
-                          </Text>
-                        )}
-                      </Td>
-                      <Td isNumeric sx={{ fontVariantNumeric: "tabular-nums" }}>
-                        {position.quantity}
-                      </Td>
-                      <Td fontSize="sm" color="ink.dim">
-                        {priceHint ?? "—"}
-                      </Td>
-                      <Td isNumeric fontWeight={500}>
-                        {formatEur(position.value_eur)}
-                      </Td>
-                    </Tr>
-                  );
-                })}
+                      )}
+                    </Td>
+                    <Td isNumeric>{position.quantity}</Td>
+                    <Td fontSize="sm" color="ink.dim">
+                      {positionPriceHint(position) ?? "—"}
+                    </Td>
+                    <Td isNumeric fontWeight={500}>
+                      {formatEur(position.value_eur)}
+                    </Td>
+                  </Tr>
+                ))}
               </Tbody>
-            </Table>
-          </Box>
-        </FiscalCard>
+            </FiscalTable>
+          </MotionSection>
+
+          <MotionSection>
+            <SectionHeader
+              title={
+                <>
+                  Betaalde fees <Text as="em">per platform</Text>
+                </>
+              }
+              kicker="premium · YTD (binnenkort)"
+            />
+            <FiscalCard elevated p={5}>
+              <Text fontSize="sm" color="ink.dim" lineHeight={1.7}>
+                Fee-tracking per platform wordt binnenkort toegevoegd. U ziet dan transactie- en
+                beheerkosten uitgesplitst zoals in het premium prototype.
+              </Text>
+            </FiscalCard>
+          </MotionSection>
+        </>
       )}
-    </VStack>
+    </PageShell>
   );
 }

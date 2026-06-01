@@ -111,8 +111,15 @@ def compute_top_movers(
             }
         )
 
-    gainers = sorted(movers, key=lambda m: Decimal(m["change_eur"]), reverse=True)[:limit]
-    losers = sorted(movers, key=lambda m: Decimal(m["change_eur"]))[:limit]
+    gainers = sorted(
+        (m for m in movers if Decimal(m["change_eur"]) > 0),
+        key=lambda m: Decimal(m["change_eur"]),
+        reverse=True,
+    )[:limit]
+    losers = sorted(
+        (m for m in movers if Decimal(m["change_eur"]) < 0),
+        key=lambda m: Decimal(m["change_eur"]),
+    )[:limit]
 
     return {
         "period": period,

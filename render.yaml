@@ -1,7 +1,9 @@
-# Render Blueprint — Vermogenspeil API + PostgreSQL + Redis + Celery
-# Deploy: Render Dashboard → Blueprints → New Blueprint Instance → kies deze repo
+# Render Blueprint — Vermogenspeil API + PostgreSQL + Valkey (Redis)
 #
-# Na deploy: zet CORS_ALLOWED_ORIGINS, FRONTEND_URL, Auth0 en ENCRYPTION_KEY op de web service.
+# Free tier: GEEN aparte background workers (Render: "service type is not available for this plan").
+# Celery worker + beat draaien IN de web-container via RUN_CELERY_IN_WEB=true (zie scripts/start.sh).
+#
+# Bij upgrade naar Starter: voeg aparte worker-services toe (zie docs/deployment/RENDER-CELERY.md).
 
 databases:
   - name: vermogenspeil-db
@@ -11,7 +13,7 @@ databases:
     region: frankfurt
 
 services:
-  - type: redis
+  - type: keyvalue
     name: vermogenspeil-redis
     plan: free
     region: frankfurt
@@ -39,18 +41,25 @@ services:
       - key: REDIS_URL
         fromService:
           name: vermogenspeil-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CELERY_BROKER_URL
         fromService:
           name: vermogenspeil-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: CELERY_RESULT_BACKEND
         fromService:
           name: vermogenspeil-redis
-          type: redis
+          type: keyvalue
           property: connectionString
+      # Free tier: Celery in web-process (geen aparte worker-service)
+      - key: RUN_CELERY_IN_WEB
+        value: "true"
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: CELERY_CONCURRENCY
+        value: "1"
       - key: CORS_ALLOWED_ORIGINS
         sync: false
       - key: FRONTEND_URL
@@ -65,97 +74,3 @@ services:
         sync: false
       - key: ENCRYPTION_KEY
         sync: false
-
-  - type: worker
-    name: vermogenspeil-celery-worker
-    runtime: docker
-    plan: free
-    region: frankfurt
-    rootDir: backend
-    dockerCommand: ./scripts/celery-worker.sh
-    envVars:
-      - key: DJANGO_SETTINGS_MODULE
-        value: config.settings.production
-      - key: DEBUG
-        value: "False"
-      - key: SECRET_KEY
-        fromService:
-          name: vermogenspeil-api
-          type: web
-          envVarKey: SECRET_KEY
-      - key: DATABASE_URL
-        fromDatabase:
-          name: vermogenspeil-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: vermogenspeil-redis
-          type: redis
-          property: connectionString
-      - key: CELERY_BROKER_URL
-        fromService:
-          name: vermogenspeil-redis
-          type: redis
-          property: connectionString
-      - key: CELERY_RESULT_BACKEND
-        fromService:
-          name: vermogenspeil-redis
-          type: redis
-          property: connectionString
-      - key: ENCRYPTION_KEY
-        fromService:
-          name: vermogenspeil-api
-          type: web
-          envVarKey: ENCRYPTION_KEY
-      - key: AUTH0_DOMAIN
-        fromService:
-          name: vermogenspeil-api
-          type: web
-          envVarKey: AUTH0_DOMAIN
-      - key: AUTH0_CLIENT_ID
-        fromService:
-          name: vermogenspeil-api
-          type: web
-          envVarKey: AUTH0_CLIENT_ID
-      - key: AUTH0_CLIENT_SECRET
-        fromService:
-          name: vermogenspeil-api
-          type: web
-          envVarKey: AUTH0_CLIENT_SECRET
-
-  - type: worker
-    name: vermogenspeil-celery-beat
-    runtime: docker
-    plan: free
-    region: frankfurt
-    rootDir: backend
-    dockerCommand: ./scripts/celery-beat.sh
-    envVars:
-      - key: DJANGO_SETTINGS_MODULE
-        value: config.settings.production
-      - key: DEBUG
-        value: "False"
-      - key: SECRET_KEY
-        fromService:
-          name: vermogenspeil-api
-          type: web
-          envVarKey: SECRET_KEY
-      - key: DATABASE_URL
-        fromDatabase:
-          name: vermogenspeil-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: vermogenspeil-redis
-          type: redis
-          property: connectionString
-      - key: CELERY_BROKER_URL
-        fromService:
-          name: vermogenspeil-redis
-          type: redis
-          property: connectionString
-      - key: CELERY_RESULT_BACKEND
-        fromService:
-          name: vermogenspeil-redis
-          type: redis
-          property: connectionString

@@ -1,4 +1,4 @@
-import { Box, Flex, Text } from "@chakra-ui/react";
+import { Box, Text } from "@chakra-ui/react";
 import {
   CartesianGrid,
   Legend,
@@ -11,7 +11,7 @@ import {
 } from "recharts";
 
 import type { DashboardValuePoint } from "../../api/portfolio";
-import { formatDateNl, formatEur } from "../../utils/formatMoney";
+import { formatEur } from "../../utils/formatMoney";
 import { CHART_AXIS, CHART_GRID } from "./chartTheme";
 
 interface PortfolioTrendChartProps {

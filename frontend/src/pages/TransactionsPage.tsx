@@ -1,22 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Box,
   Button,
   Flex,
   FormControl,
   FormLabel,
   Grid,
-  Heading,
   Input,
   Select,
-  Table,
   Tbody,
   Td,
   Text,
   Th,
   Thead,
   Tr,
-  VStack,
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import {
@@ -28,7 +24,12 @@ import {
 } from "../api/portfolio";
 import AuthAlert from "../components/auth/AuthAlert";
 import FiscalCard from "../components/common/FiscalCard";
-import Kicker from "../components/common/Kicker";
+import FiscalTable from "../components/common/FiscalTable";
+import InsightCard from "../components/common/InsightCard";
+import SectionHeader from "../components/common/SectionHeader";
+import MotionSection from "../components/layout/MotionSection";
+import PageHeader from "../components/layout/PageHeader";
+import PageShell from "../components/layout/PageShell";
 import { formatDateNl, formatEur } from "../utils/formatMoney";
 import { formatQuantity } from "../utils/formatQuantity";
 import { platformLabel } from "../utils/platformLabels";
@@ -214,225 +215,241 @@ export default function TransactionsPage() {
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <VStack align="stretch" spacing={8}>
-      <Flex
-        direction={{ base: "column", md: "row" }}
-        justify="space-between"
-        align={{ base: "stretch", md: "flex-end" }}
-        gap={4}
-      >
-        <Box>
-          <Kicker mb={2}>Transacties</Kicker>
-          <Heading size="lg">Transactiehistorie</Heading>
-          <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.7} maxW="xl">
-            Alle transacties uit uw standaardportefeuille. Filter, sorteer en blader door
-            uw historie.
-          </Text>
-        </Box>
-        <Flex gap={2} flexWrap="wrap" alignSelf={{ base: "flex-start", md: "center" }}>
-          <Button
-            variant="fiscalOutline"
-            size="sm"
-            isLoading={exportBusy}
-            isDisabled={!portfolioId || total === 0}
-            onClick={() => void handleExportCsv()}
-          >
-            Exporteer CSV
-          </Button>
-          <Button
-            as={RouterLink}
-            to="/portfolio/manual/transaction"
-            variant="fiscalOutline"
-            size="sm"
-          >
-            Transactie toevoegen
-          </Button>
-        </Flex>
-      </Flex>
-
-      {error && <AuthAlert tone="error">{error}</AuthAlert>}
-
-      <FiscalCard p={5}>
-        <Kicker mb={4}>Filters</Kicker>
-        <Grid
-          templateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }}
-          gap={4}
-        >
-          <FormControl>
-            <FormLabel fontSize="sm" color="ink.dim">
-              Platform
-            </FormLabel>
-            <Select
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-              sx={selectSx}
-            >
-              <option value="">Alle platformen</option>
-              {filterOptions.platforms.map((p) => (
-                <option key={p} value={p}>
-                  {platformLabel(p)}
-                </option>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl>
-            <FormLabel fontSize="sm" color="ink.dim">
-              Type
-            </FormLabel>
-            <Select
-              value={transactionType}
-              onChange={(e) => setTransactionType(e.target.value)}
-              sx={selectSx}
-            >
-              <option value="">Alle types</option>
-              {filterOptions.transaction_types.map((t) => (
-                <option key={t} value={t}>
-                  {TX_LABELS[t] ?? t}
-                </option>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl>
-            <FormLabel fontSize="sm" color="ink.dim">
-              Asset (symbool)
-            </FormLabel>
-            <Input
-              variant="fiscal"
-              placeholder="bijv. BTC"
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleApplyFilters();
-              }}
-            />
-          </FormControl>
-          <FormControl>
-            <FormLabel fontSize="sm" color="ink.dim">
-              Vanaf datum
-            </FormLabel>
-            <Input
-              type="date"
-              variant="fiscal"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </FormControl>
-          <FormControl>
-            <FormLabel fontSize="sm" color="ink.dim">
-              Tot datum
-            </FormLabel>
-            <Input
-              type="date"
-              variant="fiscal"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </FormControl>
-        </Grid>
-        <Flex gap={2} mt={4} flexWrap="wrap">
-          <Button variant="fiscal" size="sm" onClick={handleApplyFilters}>
-            Toepassen
-          </Button>
-          <Button variant="fiscalOutline" size="sm" onClick={handleResetFilters}>
-            Wis filters
-          </Button>
-        </Flex>
-      </FiscalCard>
-
-      {loading ? (
-        <Text color="ink.dim" fontSize="sm">
-          Transacties laden…
-        </Text>
-      ) : total === 0 ? (
-        <FiscalCard p={6}>
-          <Text color="ink.dim" lineHeight={1.7} mb={4}>
-            Geen transacties gevonden voor deze selectie.
-          </Text>
-          <Button as={RouterLink} to="/platforms" variant="fiscal" size="sm">
-            Naar Mijn platformen
-          </Button>
-        </FiscalCard>
-      ) : (
-        <FiscalCard p={0} overflow="hidden">
-          <Flex
-            px={5}
-            py={3}
-            borderBottom="1px solid"
-            borderColor="line.soft"
-            justify="space-between"
-            align="center"
-            flexWrap="wrap"
-            gap={2}
-          >
-            <Text fontSize="sm" color="ink.dim">
-              {rangeStart}–{rangeEnd} van {total} transacties
-            </Text>
-            <Flex gap={2}>
+    <PageShell>
+      <MotionSection>
+        <PageHeader
+          kicker="Transacties"
+          title={
+            <>
+              Transactie<Text as="em">historie</Text>
+            </>
+          }
+          subtitle="Alle transacties uit uw standaardportefeuille. Filter, sorteer en exporteer naar CSV."
+          actions={
+            <>
               <Button
                 variant="fiscalOutline"
                 size="sm"
-                isDisabled={page <= 1}
-                onClick={() => void loadTransactions(page - 1)}
+                isLoading={exportBusy}
+                isDisabled={!portfolioId || total === 0}
+                onClick={() => void handleExportCsv()}
               >
-                Vorige
+                Exporteer CSV
               </Button>
-              <Text fontSize="sm" color="ink.dim" alignSelf="center" px={1}>
-                Pagina {page} / {totalPages}
-              </Text>
               <Button
-                variant="fiscalOutline"
+                as={RouterLink}
+                to="/portfolio/manual/transaction"
+                variant="fiscal"
                 size="sm"
-                isDisabled={page >= totalPages}
-                onClick={() => void loadTransactions(page + 1)}
               >
-                Volgende
+                Transactie toevoegen
               </Button>
-            </Flex>
-          </Flex>
-          <Box overflowX="auto">
-            <Table size="sm" variant="simple">
-              <Thead bg="backgroundCard">
-                <Tr>
-                  {SORT_COLUMNS.map((col) => (
-                    <Th
-                      key={col.key}
-                      isNumeric={col.align === "right"}
-                      cursor="pointer"
-                      userSelect="none"
-                      onClick={() => handleSort(col.key)}
-                      _hover={{ color: "azure.500" }}
-                      whiteSpace="nowrap"
-                    >
-                      {col.label}
-                      {sortIndicator(col.key)}
-                    </Th>
-                  ))}
-                </Tr>
-              </Thead>
-              <Tbody>
-                {transactions.map((tx) => (
-                  <Tr
-                    key={tx.id}
-                    _hover={{ bg: "backgroundHover" }}
-                    transition="background 0.15s ease"
-                  >
-                    <Td whiteSpace="nowrap">{formatDateNl(tx.occurred_at)}</Td>
-                    <Td fontWeight={600}>{tx.asset.symbol}</Td>
-                    <Td>{TX_LABELS[tx.transaction_type] ?? tx.transaction_type}</Td>
-                    <Td color="ink.dim">{platformLabel(tx.source_platform)}</Td>
-                    <Td isNumeric sx={{ fontVariantNumeric: "tabular-nums" }}>
-                      {formatQuantity(tx.quantity)}
-                    </Td>
-                    <Td isNumeric sx={{ fontVariantNumeric: "tabular-nums" }}>
-                      {tx.price_eur ? formatEur(tx.price_eur) : "—"}
-                    </Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </Box>
-        </FiscalCard>
+            </>
+          }
+        />
+      </MotionSection>
+
+      {error && (
+        <MotionSection>
+          <AuthAlert tone="error">{error}</AuthAlert>
+        </MotionSection>
       )}
-    </VStack>
+
+      {!loading && total > 0 && (
+        <MotionSection>
+          <Grid templateColumns={{ base: "1fr", sm: "repeat(2, 1fr)" }} gap={4}>
+            <InsightCard
+              label="Totaal transacties"
+              value={String(total)}
+              delta={`pagina ${page} van ${totalPages}`}
+            />
+            <InsightCard
+              label="Weergave"
+              value={`${rangeStart}–${rangeEnd}`}
+              delta="huidige selectie"
+              accent="ochre"
+            />
+          </Grid>
+        </MotionSection>
+      )}
+
+      <MotionSection>
+        <SectionHeader title="Filters" kicker="verfijn uw overzicht" />
+        <FiscalCard elevated p={5}>
+          <Grid
+            templateColumns={{ base: "1fr", md: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }}
+            gap={4}
+          >
+            <FormControl>
+              <FormLabel fontSize="sm" color="ink.dim">
+                Platform
+              </FormLabel>
+              <Select
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                sx={selectSx}
+              >
+                <option value="">Alle platformen</option>
+                {filterOptions.platforms.map((p) => (
+                  <option key={p} value={p}>
+                    {platformLabel(p)}
+                  </option>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel fontSize="sm" color="ink.dim">
+                Type
+              </FormLabel>
+              <Select
+                value={transactionType}
+                onChange={(e) => setTransactionType(e.target.value)}
+                sx={selectSx}
+              >
+                <option value="">Alle types</option>
+                {filterOptions.transaction_types.map((t) => (
+                  <option key={t} value={t}>
+                    {TX_LABELS[t] ?? t}
+                  </option>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel fontSize="sm" color="ink.dim">
+                Asset (symbool)
+              </FormLabel>
+              <Input
+                variant="fiscal"
+                placeholder="bijv. BTC"
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleApplyFilters();
+                }}
+              />
+            </FormControl>
+            <FormControl>
+              <FormLabel fontSize="sm" color="ink.dim">
+                Vanaf datum
+              </FormLabel>
+              <Input
+                type="date"
+                variant="fiscal"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+            </FormControl>
+            <FormControl>
+              <FormLabel fontSize="sm" color="ink.dim">
+                Tot datum
+              </FormLabel>
+              <Input
+                type="date"
+                variant="fiscal"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
+            </FormControl>
+          </Grid>
+          <Flex gap={2} mt={5} flexWrap="wrap">
+            <Button variant="fiscal" size="sm" onClick={handleApplyFilters}>
+              Toepassen
+            </Button>
+            <Button variant="fiscalOutline" size="sm" onClick={handleResetFilters}>
+              Wis filters
+            </Button>
+          </Flex>
+        </FiscalCard>
+      </MotionSection>
+
+      <MotionSection>
+        <SectionHeader
+          title={
+            <>
+              Resultaten <Text as="em">tabel</Text>
+            </>
+          }
+          kicker="klik op kolomkop om te sorteren"
+        />
+        {loading ? (
+          <Text color="ink.dim" fontSize="sm" fontStyle="italic">
+            Transacties laden…
+          </Text>
+        ) : total === 0 ? (
+          <FiscalCard elevated p={8} textAlign="center">
+            <Text fontFamily="heading" fontStyle="italic" color="ink.dim" lineHeight={1.7} mb={5}>
+              Geen transacties gevonden voor deze selectie.
+            </Text>
+            <Button as={RouterLink} to="/platforms" variant="fiscal" size="sm">
+              Naar Mijn platformen
+            </Button>
+          </FiscalCard>
+        ) : (
+          <FiscalTable
+            toolbar={
+              <Flex justify="space-between" align="center" flexWrap="wrap" gap={2}>
+                <Text fontSize="sm" color="ink.dim">
+                  {rangeStart}–{rangeEnd} van {total} transacties
+                </Text>
+                <Flex gap={2}>
+                  <Button
+                    variant="fiscalOutline"
+                    size="sm"
+                    isDisabled={page <= 1}
+                    onClick={() => void loadTransactions(page - 1)}
+                  >
+                    Vorige
+                  </Button>
+                  <Text fontSize="sm" color="ink.dim" alignSelf="center" px={1}>
+                    Pagina {page} / {totalPages}
+                  </Text>
+                  <Button
+                    variant="fiscalOutline"
+                    size="sm"
+                    isDisabled={page >= totalPages}
+                    onClick={() => void loadTransactions(page + 1)}
+                  >
+                    Volgende
+                  </Button>
+                </Flex>
+              </Flex>
+            }
+          >
+            <Thead>
+              <Tr>
+                {SORT_COLUMNS.map((col) => (
+                  <Th
+                    key={col.key}
+                    isNumeric={col.align === "right"}
+                    cursor="pointer"
+                    userSelect="none"
+                    onClick={() => handleSort(col.key)}
+                    _hover={{ color: "azure.500" }}
+                    whiteSpace="nowrap"
+                  >
+                    {col.label}
+                    {sortIndicator(col.key)}
+                  </Th>
+                ))}
+              </Tr>
+            </Thead>
+            <Tbody>
+              {transactions.map((tx) => (
+                <Tr key={tx.id}>
+                  <Td whiteSpace="nowrap">{formatDateNl(tx.occurred_at)}</Td>
+                  <Td fontWeight={600}>{tx.asset.symbol}</Td>
+                  <Td>{TX_LABELS[tx.transaction_type] ?? tx.transaction_type}</Td>
+                  <Td color="ink.dim">{platformLabel(tx.source_platform)}</Td>
+                  <Td isNumeric>{formatQuantity(tx.quantity)}</Td>
+                  <Td isNumeric>
+                    {tx.price_eur ? formatEur(tx.price_eur) : "—"}
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </FiscalTable>
+        )}
+      </MotionSection>
+    </PageShell>
   );
 }

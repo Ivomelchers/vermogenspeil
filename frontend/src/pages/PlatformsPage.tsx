@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Badge,
   Box,
   Button,
   Flex,
-  Heading,
+  SimpleGrid,
   Text,
   VStack,
 } from "@chakra-ui/react";
@@ -18,43 +17,43 @@ import {
   pollSyncJob,
   triggerSync,
   type PlatformConnection,
-  type SyncStatus,
 } from "../api/integrations";
+import { getDashboardSummary } from "../api/portfolio";
 import AuthAlert from "../components/auth/AuthAlert";
-import FiscalCard from "../components/common/FiscalCard";
-import Kicker from "../components/common/Kicker";
+import SectionHeader from "../components/common/SectionHeader";
+import StatStrip from "../components/common/StatStrip";
+import ConnectionRowCard from "../components/platforms/ConnectionRowCard";
+import PlatformBrowseCard from "../components/platforms/PlatformBrowseCard";
+import MotionSection from "../components/layout/MotionSection";
+import PageHeader from "../components/layout/PageHeader";
+import PageShell from "../components/layout/PageShell";
+import {
+  METHOD_META,
+  PLATFORM_CATALOG,
+  type IntegrationMethod,
+} from "../data/platformCatalog";
 import { useUser } from "../contexts/UserContext";
+import { formatEur } from "../utils/formatMoney";
 import { getApiErrorMessage } from "../utils/apiError";
 
-function statusBadgeProps(status: SyncStatus): {
-  label: string;
-  colorScheme: string;
-} {
-  switch (status) {
-    case "success":
-      return { label: "Gesynchroniseerd", colorScheme: "green" };
-    case "running":
-    case "pending":
-      return { label: "Synchroniseren…", colorScheme: "yellow" };
-    case "error":
-      return { label: "Fout", colorScheme: "red" };
-    default:
-      return { label: status, colorScheme: "gray" };
-  }
-}
+const BROWSE_PLATFORMS = PLATFORM_CATALOG.filter((p) =>
+  ["coinbase", "ibkr", "trading212", "abn"].includes(p.id),
+);
 
-function formatSyncedAt(value: string | null): string {
-  if (!value) return "Nog niet gesynchroniseerd";
-  return new Date(value).toLocaleString("nl-NL", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+function mapConnectionMethod(method: string): IntegrationMethod {
+  if (method === "api") return "api";
+  if (method === "csv") return "csv";
+  return "manual";
 }
 
 export default function PlatformsPage() {
+  const navigate = useNavigate();
   const { user } = useUser();
   const location = useLocation();
   const [connections, setConnections] = useState<PlatformConnection[]>([]);
+  const [platformStats, setPlatformStats] = useState<
+    Record<number, { value: string; holdings: number }>
+  >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState(
@@ -68,8 +67,21 @@ export default function PlatformsPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await listConnections();
+      const [data, summary] = await Promise.all([
+        listConnections(),
+        getDashboardSummary().catch(() => null),
+      ]);
       setConnections(data);
+      if (summary?.platforms) {
+        const stats: Record<number, { value: string; holdings: number }> = {};
+        for (const p of summary.platforms) {
+          stats[p.id] = {
+            value: formatEur(summary.total_value_eur),
+            holdings: summary.positions_count,
+          };
+        }
+        setPlatformStats(stats);
+      }
     } catch (loadError) {
       setError(getApiErrorMessage(loadError, "Platformen laden mislukt."));
     } finally {
@@ -80,6 +92,29 @@ export default function PlatformsPage() {
   useEffect(() => {
     void loadConnections();
   }, [loadConnections]);
+
+  const grouped = useMemo(() => {
+    const groups: Record<IntegrationMethod, PlatformConnection[]> = {
+      api: [],
+      csv: [],
+      year: [],
+      manual: [],
+    };
+    for (const c of connections) {
+      groups[mapConnectionMethod(c.connection_method)].push(c);
+    }
+    return groups;
+  }, [connections]);
+
+  const statCounts = useMemo(
+    () => ({
+      api: grouped.api.length,
+      csv: grouped.csv.length,
+      year: grouped.year.length,
+      manual: grouped.manual.length,
+    }),
+    [grouped],
+  );
 
   async function handleSync(connection: PlatformConnection) {
     setError("");
@@ -112,16 +147,14 @@ export default function PlatformsPage() {
       const result = await importDegiroCsv(file);
       setMessage(
         `DEGIRO CSV geïmporteerd: ${result.transactions_imported} nieuw, ` +
-          `${result.transactions_skipped} overgeslagen (${result.rows_parsed} regels).`,
+          `${result.transactions_skipped} overgeslagen.`,
       );
       await loadConnections();
     } catch (importError) {
       setError(getApiErrorMessage(importError, "DEGIRO CSV-import mislukt."));
     } finally {
       setIsImportingCsv(false);
-      if (csvInputRef.current) {
-        csvInputRef.current.value = "";
-      }
+      if (csvInputRef.current) csvInputRef.current.value = "";
     }
   }
 
@@ -130,7 +163,6 @@ export default function PlatformsPage() {
       return;
     }
     setError("");
-    setMessage("");
     try {
       await deleteConnection(connection.id);
       setMessage(`${connection.display_name} is verwijderd.`);
@@ -140,146 +172,224 @@ export default function PlatformsPage() {
     }
   }
 
-  return (
-    <VStack align="stretch" spacing={8} maxW="3xl">
-      <Box>
-        <Kicker mb={2}>Platformen</Kicker>
-        <Heading size="lg">Mijn platformen</Heading>
-        <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.7}>
-          Koppel brokers en exchanges om uw vermogen automatisch bij te werken.
-          Alleen-lezen API-keys worden versleuteld opgeslagen.
-        </Text>
-      </Box>
+  function secondaryForConnection(c: PlatformConnection): string | undefined {
+    const stats = platformStats[c.id];
+    if (stats) {
+      return `${stats.value} · ${stats.holdings} posities`;
+    }
+    return undefined;
+  }
 
-      {user && !user.email_verified && (
-        <AuthAlert tone="info">
-          Bevestig eerst uw e-mailadres voordat u een platform kunt koppelen.
-        </AuthAlert>
-      )}
+  function renderGroup(method: IntegrationMethod) {
+    const meta = METHOD_META[method];
+    const items = grouped[method];
+    const addHref =
+      method === "api"
+        ? "/platforms/add?method=api"
+        : method === "csv"
+          ? "/platforms/add?method=csv"
+          : method === "year"
+            ? "/platforms/add?method=year"
+            : "/portfolio/manual/asset";
 
-      {error && <AuthAlert tone="error">{error}</AuthAlert>}
-      {message && <AuthAlert tone="success">{message}</AuthAlert>}
-
-      <FiscalCard p={5}>
-        <Kicker mb={2}>DEGIRO · CSV-import</Kicker>
-        <Text fontSize="sm" color="ink.dim" lineHeight={1.7} mb={4}>
-          Exporteer transacties uit DEGIRO (Transactions) en upload het CSV-bestand.
-          Duplicaten worden automatisch overgeslagen.
-        </Text>
-        <input
-          ref={csvInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          hidden
-          onChange={(event) => void handleDegiroCsvSelected(event.target.files?.[0])}
+    return (
+      <MotionSection key={method}>
+        <SectionHeader
+          title={
+            <>
+              {meta.title.split(" · ")[0]}{" "}
+              <Text as="em">· {meta.title.split(" · ").slice(1).join(" · ") || meta.subtitle}</Text>
+            </>
+          }
+          kicker={meta.subtitle}
         />
-        <Button
-          variant="fiscalOutline"
-          size="sm"
-          isLoading={isImportingCsv}
-          loadingText="Importeren…"
-          isDisabled={!user?.email_verified}
-          onClick={() => csvInputRef.current?.click()}
-        >
-          DEGIRO CSV uploaden
-        </Button>
-      </FiscalCard>
-
-      <Flex gap={3} flexWrap="wrap">
+        {items.length === 0 ? (
+          <Text fontSize="sm" color="ink.dim" fontStyle="italic" mb={3}>
+            Nog geen {meta.label.toLowerCase()} gekoppeld.
+          </Text>
+        ) : (
+          <VStack align="stretch" spacing={3} mb={3}>
+            {items.map((connection) => (
+              <ConnectionRowCard
+                key={connection.id}
+                connection={connection}
+                secondaryLine={secondaryForConnection(connection)}
+                syncing={syncingId === connection.id}
+                onSync={
+                  connection.connection_method === "api"
+                    ? () => void handleSync(connection)
+                    : undefined
+                }
+                onManage={
+                  connection.connection_method === "csv"
+                    ? () => csvInputRef.current?.click()
+                    : () => navigate("/platforms/add")
+                }
+                onDelete={() => void handleDelete(connection)}
+                primaryActionLabel={
+                  connection.connection_method === "csv" ? "↺ Recentere upload" : undefined
+                }
+              />
+            ))}
+          </VStack>
+        )}
         <Button
           as={RouterLink}
-          to="/platforms/add"
-          variant="fiscal"
-          isDisabled={!user?.email_verified}
+          to={addHref}
+          variant="ghostNav"
+          size="sm"
+          fontWeight={500}
+          color="azure.500"
+          _hover={{ bg: "azure.50" }}
         >
-          Bitvavo koppelen (API)
+          {meta.addLabel}
         </Button>
-      </Flex>
+      </MotionSection>
+    );
+  }
+
+  return (
+    <PageShell>
+      <MotionSection>
+        <PageHeader
+          kicker="Platform-integraties"
+          title={
+            <>
+              Gekoppelde <Text as="em">platformen</Text>
+            </>
+          }
+          subtitle="Beheer de verbindingen met uw brokers, exchanges en banken. Bekijk per platform welk type koppeling actief is en wanneer de laatste data binnenkwam."
+          actions={
+            <Flex gap={2} flexWrap="wrap">
+              <Button as={RouterLink} to="/platforms/vergelijker" variant="fiscalOutline" size="sm">
+                Platformen vergelijken
+              </Button>
+              <Button as={RouterLink} to="/platforms/add" variant="fiscal" size="sm">
+                + Platform toevoegen
+              </Button>
+            </Flex>
+          }
+        />
+      </MotionSection>
+
+      {user && !user.email_verified && (
+        <MotionSection>
+          <AuthAlert tone="info">
+            Bevestig eerst uw e-mailadres voordat u een platform kunt koppelen.
+          </AuthAlert>
+        </MotionSection>
+      )}
+      {error && (
+        <MotionSection>
+          <AuthAlert tone="error">{error}</AuthAlert>
+        </MotionSection>
+      )}
+      {message && (
+        <MotionSection>
+          <AuthAlert tone="success">{message}</AuthAlert>
+        </MotionSection>
+      )}
+
+      <input
+        ref={csvInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        onChange={(e) => void handleDegiroCsvSelected(e.target.files?.[0])}
+      />
+
+      {!loading && (
+        <MotionSection>
+          <StatStrip
+            items={[
+              {
+                label: "API-koppelingen",
+                value: statCounts.api,
+                sub: "realtime sync",
+                tone: statCounts.api > 0 ? "moss" : "default",
+              },
+              {
+                label: "CSV-uploads",
+                value: statCounts.csv,
+                sub: "periodieke upload",
+                tone: statCounts.csv > 0 ? "ochre" : "default",
+              },
+              {
+                label: "Jaaroverzicht",
+                value: statCounts.year,
+                sub: "jaarlijks PDF",
+              },
+              {
+                label: "Handmatig",
+                value: statCounts.manual,
+                sub: "zelf bijgehouden",
+              },
+            ]}
+          />
+        </MotionSection>
+      )}
 
       {loading ? (
-        <Text color="ink.dim" fontSize="sm">
+        <Text color="ink.dim" fontStyle="italic">
           Platformen laden…
         </Text>
-      ) : connections.length === 0 ? (
-        <FiscalCard p={6}>
-          <Text fontFamily="heading" fontStyle="italic" color="ink.dim" lineHeight={1.7}>
-            U heeft nog geen platformen gekoppeld. Koppel Bitvavo via API of importeer
-            een DEGIRO CSV-export.
-          </Text>
-        </FiscalCard>
       ) : (
-        <VStack align="stretch" spacing={3}>
-          {connections.map((connection) => {
-            const badge = statusBadgeProps(connection.status);
-            return (
-              <FiscalCard key={connection.id} p={5}>
-                <Flex
-                  justify="space-between"
-                  align={{ base: "stretch", md: "center" }}
-                  gap={4}
-                  direction={{ base: "column", md: "row" }}
-                >
-                  <Box>
-                    <Flex align="center" gap={2} mb={1} flexWrap="wrap">
-                      <Text fontWeight={600}>{connection.display_name}</Text>
-                      <Badge
-                        colorScheme={badge.colorScheme}
-                        variant="subtle"
-                        fontSize="10px"
-                        textTransform="uppercase"
-                        letterSpacing="0.08em"
-                      >
-                        {badge.label}
-                      </Badge>
-                    </Flex>
-                    <Kicker>
-                      {connection.connection_method_display} ·{" "}
-                      {connection.platform_display}
-                    </Kicker>
-                    <Text fontSize="sm" color="ink.dim" mt={2}>
-                      {formatSyncedAt(connection.last_synced_at)}
-                    </Text>
-                    {connection.connection_method === "csv" && (
-                      <Text fontSize="sm" color="ink.dim" mt={1}>
-                        Bijwerken via een nieuwe CSV-upload hierboven.
-                      </Text>
-                    )}
-                    {connection.last_error && (
-                      <Text fontSize="sm" color="rust.500" mt={1}>
-                        {connection.last_error}
-                      </Text>
-                    )}
-                  </Box>
+        <>
+          {(["api", "csv", "year", "manual"] as IntegrationMethod[]).map(renderGroup)}
 
-                  <Flex gap={2} flexWrap="wrap">
-                    {connection.connection_method !== "csv" && (
-                      <Button
-                        variant="fiscalOutline"
-                        size="sm"
-                        isLoading={syncingId === connection.id}
-                        onClick={() => void handleSync(connection)}
-                        isDisabled={!user?.email_verified}
-                      >
-                        Synchroniseren
-                      </Button>
-                    )}
-                    <Button
-                      variant="fiscalOutline"
-                      size="sm"
-                      color="rust.500"
-                      borderColor="line.DEFAULT"
-                      _hover={{ borderColor: "rust.500", bg: "rust.50" }}
-                      onClick={() => void handleDelete(connection)}
-                    >
-                      Verwijderen
-                    </Button>
-                  </Flex>
-                </Flex>
-              </FiscalCard>
-            );
-          })}
-        </VStack>
+          <MotionSection>
+            <SectionHeader
+              title={
+                <>
+                  Platform <Text as="em">zoeken</Text>
+                </>
+              }
+              kicker="blader door 30+ ondersteunde platformen"
+            />
+            <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4}>
+              {BROWSE_PLATFORMS.map((p) => (
+                <PlatformBrowseCard key={p.id} platform={p} />
+              ))}
+            </SimpleGrid>
+            <Button
+              as={RouterLink}
+              to="/platforms/add"
+              variant="fiscalOutline"
+              size="sm"
+              mt={4}
+            >
+              Toon alle platformen →
+            </Button>
+          </MotionSection>
+
+          <MotionSection>
+            <Box
+              p={5}
+              border="1px dashed"
+              borderColor="line.DEFAULT"
+              borderRadius="base"
+              bg="backgroundHover"
+            >
+              <Text fontWeight={600} mb={2}>
+                DEGIRO · snelle CSV-import
+              </Text>
+              <Text fontSize="sm" color="ink.dim" mb={4} lineHeight={1.7}>
+                Exporteer transacties uit DEGIRO en upload het CSV-bestand. Duplicaten worden
+                overgeslagen.
+              </Text>
+              <Button
+                variant="fiscal"
+                size="sm"
+                isLoading={isImportingCsv}
+                isDisabled={!user?.email_verified}
+                onClick={() => csvInputRef.current?.click()}
+              >
+                DEGIRO CSV uploaden
+              </Button>
+            </Box>
+          </MotionSection>
+        </>
       )}
-    </VStack>
+    </PageShell>
   );
 }

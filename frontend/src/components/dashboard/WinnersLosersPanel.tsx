@@ -1,78 +1,112 @@
-import { Box, Button, Flex, HStack, Text, VStack } from "@chakra-ui/react";
+import { Box, Flex, Grid, Text } from "@chakra-ui/react";
 import { useState } from "react";
 
 import type { DashboardMover, DashboardMoversByPeriod } from "../../api/portfolio";
-import DisplayMoney from "../portfolio/DisplayMoney";
 import Kicker from "../common/Kicker";
+import { formatEur } from "../../utils/formatMoney";
 
 const PERIOD_LABELS: Record<string, string> = {
   day: "Vandaag",
-  week: "Week",
-  month: "Maand",
-  ytd: "YTD",
+  week: "Deze week",
+  month: "Deze maand",
+  ytd: "Boekjaar",
 };
 
 type PeriodKey = keyof DashboardMoversByPeriod;
 
-interface WinnersLosersPanelProps {
-  movers: DashboardMoversByPeriod;
-}
-
-function MoverRow({ item, tone }: { item: DashboardMover; tone: "positive" | "negative" }) {
-  const pct = parseFloat(item.change_percent);
+function MoverRow({ item, up }: { item: DashboardMover; up: boolean }) {
   return (
-    <Flex justify="space-between" align="center" py={2} px={2} borderRadius="base" _hover={{ bg: "azure.50" }}>
-      <Box>
-        <Text fontSize="sm" fontWeight={600} color="ink.primary">
-          {item.symbol}
-        </Text>
-        <Text fontSize="xs" color="taupe.500" noOfLines={1}>
+    <Grid
+      templateColumns="1fr auto auto"
+      gap={4}
+      alignItems="baseline"
+      py={2.5}
+      borderBottom="1px solid"
+      borderColor="line.soft"
+      _last={{ borderBottom: "none" }}
+    >
+      <Box minW={0}>
+        <Text fontSize="sm" fontWeight={500} color="ink.primary">
           {item.name}
         </Text>
-      </Box>
-      <Box textAlign="right">
-        <DisplayMoney amount={item.change_eur} size="sm" signed tone={tone} />
-        <Text fontSize="xs" color={pct >= 0 ? "moss.500" : "rust.500"}>
-          {pct >= 0 ? "+" : ""}
-          {item.change_percent}%
+        <Text
+          as="span"
+          fontSize="10px"
+          color="ink.faint"
+          ml={2}
+          sx={{ fontFeatureSettings: '"tnum" 1', fontVariantNumeric: "tabular-nums" }}
+        >
+          {item.symbol}
         </Text>
       </Box>
-    </Flex>
+      <Text
+        fontSize="sm"
+        textAlign="right"
+        color={up ? "moss.500" : "rust.500"}
+        sx={{ fontFeatureSettings: '"tnum" 1', fontVariantNumeric: "tabular-nums" }}
+      >
+        {up ? "+" : ""}
+        {formatEur(item.change_eur)}
+      </Text>
+      <Text
+        fontSize="11px"
+        px={2}
+        py={0.5}
+        borderRadius="sm"
+        textAlign="center"
+        minW="62px"
+        color={up ? "moss.500" : "rust.500"}
+        bg={up ? "moss.50" : "rust.50"}
+        sx={{ fontFeatureSettings: '"tnum" 1', fontVariantNumeric: "tabular-nums" }}
+      >
+        {up ? "+" : ""}
+        {item.change_percent}%
+      </Text>
+    </Grid>
   );
 }
 
-function MoverList({
+function MoversColumn({
   title,
+  dotColor,
   items,
   emptyLabel,
-  tone,
+  up,
 }: {
   title: string;
+  dotColor: string;
   items: DashboardMover[];
   emptyLabel: string;
-  tone: "positive" | "negative";
+  up: boolean;
 }) {
   return (
-    <Box flex={1} minW={0}>
-      <Kicker mb={2}>{title}</Kicker>
+    <Box px={{ base: 4, md: 7 }} py={5}>
+      <Flex align="center" gap={2} mb={4}>
+        <Box w="6px" h="6px" borderRadius="full" bg={dotColor} />
+        <Kicker letterSpacing="0.18em">{title}</Kicker>
+      </Flex>
       {items.length === 0 ? (
         <Text fontSize="sm" color="ink.dim">
           {emptyLabel}
         </Text>
       ) : (
-        <VStack align="stretch" spacing={0}>
-          {items.map((item) => (
-            <MoverRow key={`${item.symbol}-${item.position_id}`} item={item} tone={tone} />
-          ))}
-        </VStack>
+        items.map((item) => (
+          <MoverRow key={`${item.symbol}-${item.position_id}`} item={item} up={up} />
+        ))
       )}
     </Box>
   );
 }
 
+interface WinnersLosersPanelProps {
+  movers: DashboardMoversByPeriod;
+}
+
 export default function WinnersLosersPanel({ movers }: WinnersLosersPanelProps) {
   const periods = (Object.keys(PERIOD_LABELS) as PeriodKey[]).filter((p) => movers[p]);
-  const [period, setPeriod] = useState<PeriodKey>(periods.includes("month") ? "month" : periods[0] ?? "month");
+  const [period, setPeriod] = useState<PeriodKey>(
+    periods.includes("month") ? "month" : periods[0] ?? "month",
+  );
 
   const data = movers[period];
   if (!data) {
@@ -84,33 +118,60 @@ export default function WinnersLosersPanel({ movers }: WinnersLosersPanelProps) 
   }
 
   return (
-    <Box>
-      <HStack spacing={1} mb={3} flexWrap="wrap">
+    <Box
+      bg="backgroundCard"
+      border="1px solid"
+      borderColor="line.DEFAULT"
+      borderRadius="base"
+      overflow="hidden"
+    >
+      <Flex borderBottom="1px solid" borderColor="line.soft" bg="backgroundHover">
         {periods.map((key) => (
-          <Button
+          <Box
             key={key}
-            size="xs"
-            variant={period === key ? "fiscal" : "ghost"}
+            as="button"
+            type="button"
+            flex={1}
+            py={3.5}
+            px={2}
+            textAlign="center"
+            border="none"
+            borderBottom="2px solid"
+            borderBottomColor={period === key ? "azure.500" : "transparent"}
+            bg={period === key ? "backgroundCard" : "transparent"}
+            color={period === key ? "azure.500" : "ink.faint"}
+            fontSize="10px"
+            letterSpacing="0.15em"
+            textTransform="uppercase"
+            fontWeight={period === key ? 600 : 400}
+            cursor="pointer"
+            transition="all 0.15s ease"
+            _hover={{ color: period === key ? "azure.500" : "ink.dim" }}
             onClick={() => setPeriod(key)}
           >
             {PERIOD_LABELS[key]}
-          </Button>
+          </Box>
         ))}
-      </HStack>
-      <Flex gap={4} direction={{ base: "column", md: "row" }}>
-        <MoverList
-          title="Stijgers"
-          items={data.gainers}
-          emptyLabel="Geen stijgers in deze periode."
-          tone="positive"
-        />
-        <MoverList
-          title="Dalers"
+      </Flex>
+
+      <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }}>
+        <Box borderRight={{ md: "1px solid" }} borderColor={{ md: "line.soft" }}>
+          <MoversColumn
+            title="Winnaars"
+            dotColor="moss.500"
+            items={data.gainers}
+            emptyLabel="Geen stijgers in deze periode."
+            up
+          />
+        </Box>
+        <MoversColumn
+          title="Verliezers"
+          dotColor="rust.500"
           items={data.losers}
           emptyLabel="Geen dalers in deze periode."
-          tone="negative"
+          up={false}
         />
-      </Flex>
+      </Grid>
     </Box>
   );
 }

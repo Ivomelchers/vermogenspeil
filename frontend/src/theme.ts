@@ -98,6 +98,14 @@ const theme = extendTheme({
         MozOsxFontSmoothing: "grayscale",
         overflowX: "hidden",
       },
+      "@keyframes viewIn": {
+        from: { opacity: 0, transform: "translateY(8px)" },
+        to: { opacity: 1, transform: "translateY(0)" },
+      },
+      "@keyframes pulseLive": {
+        "0%, 100%": { opacity: 1, boxShadow: "0 0 0 0 rgba(74, 122, 78, 0.4)" },
+        "50%": { opacity: 0.6, boxShadow: "0 0 0 6px rgba(74, 122, 78, 0)" },
+      },
       "a, button": {
         transition: `color ${transition}, background ${transition}, border-color ${transition}`,
       },

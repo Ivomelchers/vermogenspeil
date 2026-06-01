@@ -1,12 +1,11 @@
 import { FormEvent, useState } from "react";
 import {
-  Box,
   Button,
   FormControl,
   FormLabel,
-  Heading,
   Input,
   Select,
+  Text,
   VStack,
 } from "@chakra-ui/react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
@@ -14,7 +13,9 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { createManualAsset } from "../api/portfolio";
 import AuthAlert from "../components/auth/AuthAlert";
 import FiscalCard from "../components/common/FiscalCard";
-import Kicker from "../components/common/Kicker";
+import MotionSection from "../components/layout/MotionSection";
+import PageHeader from "../components/layout/PageHeader";
+import PageShell from "../components/layout/PageShell";
 import { getApiErrorMessage } from "../utils/apiError";
 
 const ASSET_TYPES = [
@@ -66,15 +67,27 @@ export default function AddManualAssetPage() {
   }
 
   return (
-    <VStack align="stretch" spacing={8} maxW="lg">
-      <Box>
-        <Kicker mb={2}>Portefeuille</Kicker>
-        <Heading size="lg">Asset handmatig toevoegen</Heading>
-      </Box>
+    <PageShell maxW="640px">
+      <MotionSection>
+        <PageHeader
+          kicker="Portefeuille"
+          title={
+            <>
+              Asset <Text as="em">handmatig</Text> toevoegen
+            </>
+          }
+          subtitle="Voeg een nieuw instrument toe vóór u transacties registreert."
+        />
+      </MotionSection>
 
-      {error && <AuthAlert tone="error">{error}</AuthAlert>}
+      {error && (
+        <MotionSection>
+          <AuthAlert tone="error">{error}</AuthAlert>
+        </MotionSection>
+      )}
 
-      <FiscalCard p={6} as="form" onSubmit={(event) => void handleSubmit(event)}>
+      <MotionSection>
+      <FiscalCard elevated p={6} as="form" onSubmit={(event) => void handleSubmit(event)}>
         <VStack align="stretch" spacing={4}>
           <FormControl isRequired>
             <FormLabel>Symbool / ISIN</FormLabel>
@@ -112,6 +125,7 @@ export default function AddManualAssetPage() {
           </Button>
         </VStack>
       </FiscalCard>
-    </VStack>
+      </MotionSection>
+    </PageShell>
   );
 }
