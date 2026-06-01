@@ -11,6 +11,11 @@ import MoneyText from "../components/common/MoneyText";
 import { useUser } from "../contexts/UserContext";
 import { formatDateNl, formatEur } from "../utils/formatMoney";
 import { getApiErrorMessage } from "../utils/apiError";
+import {
+  positionPriceHint,
+  returnBasisLabel,
+  valuationBasisLabel,
+} from "../utils/valuationLabels";
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -39,6 +44,7 @@ export default function DashboardPage() {
   const todayLabel = formatDateNl(new Date().toISOString());
   const totalValue = summary?.total_value_eur ?? "0";
   const hasPositions = (summary?.positions_count ?? 0) > 0;
+  const basisLabel = valuationBasisLabel(summary?.valuation_method);
 
   return (
     <VStack align="stretch" spacing={8}>
@@ -62,7 +68,7 @@ export default function DashboardPage() {
             color="ink.dim"
             mb={1.5}
           >
-            Welkom terug, {greetingName} — totaal vermogen
+            Welkom terug, {greetingName} — totaal vermogen ({basisLabel.toLowerCase()})
           </Text>
 
           {loading ? (
@@ -73,7 +79,8 @@ export default function DashboardPage() {
             <>
               <DisplayMoney amount={totalValue} />
               <Kicker mt={3} mb={4}>
-                {summary?.valuation_note ?? "Kostprijs — marktwaarden volgen in fase 5"}
+                {summary?.valuation_note ??
+                  "Waarde op basis van kostprijs — geen live koersen beschikbaar."}
               </Kicker>
               {summary?.returns && parseFloat(summary.returns.invested_eur) > 0 ? (
                 <Box display="flex" gap={6} flexWrap="wrap" alignItems="center">
@@ -89,8 +96,14 @@ export default function DashboardPage() {
                     {formatEur(Math.abs(parseFloat(summary.returns.unrealized_return_eur)))}
                   </MoneyText>
                   <Kicker>
-                    {summary.returns.unrealized_return_percent}% · t.o.v. inleg (kostprijs)
+                    {summary.returns.unrealized_return_percent}% ·{" "}
+                    {returnBasisLabel(summary.returns.method)}
                   </Kicker>
+                  {summary.returns.note && (
+                    <Text fontSize="xs" color="ink.dim" width="100%">
+                      {summary.returns.note}
+                    </Text>
+                  )}
                 </Box>
               ) : (
                 <Kicker>Laad demo-data om rendement te zien</Kicker>
@@ -109,7 +122,7 @@ export default function DashboardPage() {
           </MoneyText>
           <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.6}>
             {hasPositions
-              ? `Grondslag (kostprijs): ${formatEur(totalValue)}. Box 3-berekening volgt in fase 6.`
+              ? `Grondslag (${basisLabel.toLowerCase()}): ${formatEur(totalValue)}. Box 3-berekening volgt in fase 6.`
               : "Koppel platformen of laad voorbeelddata om uw vermogen te zien."}
           </Text>
         </FiscalCard>
@@ -150,22 +163,30 @@ export default function DashboardPage() {
             <Box>
               <Kicker mb={3}>Posities · {summary.positions_count}</Kicker>
               <VStack align="stretch" spacing={2}>
-                {summary.positions.slice(0, 6).map((position) => (
-                  <FiscalCard key={position.id} p={4}>
-                    <Box display="flex" justifyContent="space-between" gap={4} flexWrap="wrap">
-                      <Box>
-                        <Text fontWeight={600}>{position.symbol}</Text>
-                        <Kicker>{position.category_label}</Kicker>
+                {summary.positions.slice(0, 6).map((position) => {
+                  const priceHint = positionPriceHint(position);
+                  return (
+                    <FiscalCard key={position.id} p={4}>
+                      <Box display="flex" justifyContent="space-between" gap={4} flexWrap="wrap">
+                        <Box>
+                          <Text fontWeight={600}>{position.symbol}</Text>
+                          <Kicker>{position.category_label}</Kicker>
+                        </Box>
+                        <Box textAlign="right">
+                          <Text fontWeight={500}>{formatEur(position.value_eur)}</Text>
+                          <Text fontSize="sm" color="ink.dim">
+                            {position.quantity} st.
+                          </Text>
+                          {priceHint && (
+                            <Text fontSize="xs" color="taupe.500" mt={0.5}>
+                              {priceHint}
+                            </Text>
+                          )}
+                        </Box>
                       </Box>
-                      <Box textAlign="right">
-                        <Text fontWeight={500}>{formatEur(position.value_eur)}</Text>
-                        <Text fontSize="sm" color="ink.dim">
-                          {position.quantity} st.
-                        </Text>
-                      </Box>
-                    </Box>
-                  </FiscalCard>
-                ))}
+                    </FiscalCard>
+                  );
+                })}
               </VStack>
               {summary.positions.length > 6 && (
                 <Button

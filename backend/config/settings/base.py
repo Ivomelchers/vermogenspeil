@@ -158,6 +158,21 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "socket_connect_timeout": 2,
+            "socket_timeout": 2,
+        },
+    }
+}
+
+# Koers-cache (TRAP 8)
+PRICE_CACHE_TTL_LIVE_SECONDS = 15 * 60
+PRICE_CACHE_TTL_HISTORICAL_SECONDS = 24 * 60 * 60
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
 CELERY_ACCEPT_CONTENT = ["json"]

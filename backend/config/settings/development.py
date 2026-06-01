@@ -12,7 +12,8 @@ SECRET_KEY = os.environ.get(  # noqa: F405
 )
 
 if not ENCRYPTION_KEY:  # noqa: F405
-    ENCRYPTION_KEY = base64.b64encode(b"dev-only-32-byte-key-change!!").decode()
+    # Moet exact 32 bytes zijn na base64-decode (AES-256)
+    ENCRYPTION_KEY = base64.b64encode(b"0" * 32).decode()
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
@@ -25,3 +26,11 @@ CELERY_TASK_ALWAYS_EAGER = True  # noqa: F405
 
 # Voorbeelddata / demo-koppelingen (nooit in productie)
 DEMO_FEATURES_ENABLED = True  # noqa: F405
+
+# Koers-cache lokaal zonder Redis (productie gebruikt Redis uit base.py)
+CACHES = {  # noqa: F405
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "vermogenspeil-pricing-dev",
+    }
+}

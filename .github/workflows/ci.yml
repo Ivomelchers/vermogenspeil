@@ -32,6 +32,8 @@ jobs:
       DJANGO_SETTINGS_MODULE: config.settings.development
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/vermogenspeil_test
       SECRET_KEY: ci-test-secret-key-not-for-production
+      # 32 null-bytes, base64 — alleen voor CI/tests (broker credential encryptie)
+      ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
 
     steps:
       - uses: actions/checkout@v4

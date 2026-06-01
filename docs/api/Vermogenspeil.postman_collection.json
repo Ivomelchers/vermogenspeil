@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "vermogenspeil-api-v1",
     "name": "Vermogenspeil API",
-    "description": "MijnVermogen / Vermogenspeil REST API (v1).\n\n**Dev-test zonder broker-accounts (aanbevolen):**\n1. Login → `idToken`\n2. Integrations → **Seed Dev Data** (Bitvavo + DEGIRO demo)\n3. Optioneel: **Import DEGIRO CSV** met `backend/fixtures/degiro/sample-transactions.csv`\n4. Portfolio → **Dashboard Summary**\n\n**Auth:** Bearer `{{idToken}}` na Login.\n\n**baseUrl:** http://localhost:8000/api/v1",
+    "description": "MijnVermogen / Vermogenspeil REST API (v1).\n\n**Dev-test zonder broker-accounts (aanbevolen):**\n1. Login → `idToken`\n2. Integrations → **Seed Dev Data** (Bitvavo + DEGIRO demo)\n3. Optioneel: **Import DEGIRO CSV** met `backend/fixtures/degiro/sample-transactions.csv`\n4. Pricing → **Live Quotes** (crypto: BTC,ETH — optioneel)\n5. Portfolio → **Dashboard Summary** (`valuation_method`: market | mixed | cost_basis)\n\n**Auth:** Bearer `{{idToken}}` na Login.\n\n**baseUrl:** http://localhost:8000/api/v1",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -484,7 +484,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["portfolios", "dashboard", ""]
             },
-            "description": "Totaal, categorieën, platformen, rendement (kostprijs). Run na Seed Dev Data."
+            "description": "Totaal, categorieën, platformen, rendement. Waardering: live marktprijzen (Bitvavo crypto, Yahoo aandelen/ETF) waar beschikbaar; anders kostprijs. Velden: `valuation_method`, `valuation_note`, per positie `unit_price_eur`, `valuation_source`. Run na Seed Dev Data."
           },
           "response": []
         },
@@ -561,6 +561,70 @@
               "path": ["portfolios", "{{portfolioId}}", "transactions", ""]
             },
             "description": "Laatste 200 transacties van portefeuille."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pricing",
+      "description": "Live koersen (fase 5.1). Cache 15 min. Crypto via Bitvavo ticker; aandelen/ETF via Yahoo.",
+      "item": [
+        {
+          "name": "Live Quotes (Crypto)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pricing/quotes/?symbols=BTC,ETH&asset_type=crypto",
+              "host": ["{{baseUrl}}"],
+              "path": ["pricing", "quotes", ""],
+              "query": [
+                {
+                  "key": "symbols",
+                  "value": "BTC,ETH"
+                },
+                {
+                  "key": "asset_type",
+                  "value": "crypto"
+                }
+              ]
+            },
+            "description": "Haalt gecachte live EUR-koersen op. `asset_type`: crypto | stock | etf | fund. Voorbeeld aandelen: `?symbols=ASML,IWDA&asset_type=etf`."
+          },
+          "response": []
+        },
+        {
+          "name": "Live Quotes (ETF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pricing/quotes/?symbols=IWDA,ASML&asset_type=etf",
+              "host": ["{{baseUrl}}"],
+              "path": ["pricing", "quotes", ""],
+              "query": [
+                {
+                  "key": "symbols",
+                  "value": "IWDA,ASML"
+                },
+                {
+                  "key": "asset_type",
+                  "value": "etf"
+                }
+              ]
+            },
+            "description": "Yahoo Finance (EUR). IWDA/ASML worden gemapt naar Euronext-tickers (.AS)."
           },
           "response": []
         }

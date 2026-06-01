@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -38,7 +39,10 @@ class ReturnSummaryTests(TestCase):
             category=VermogensCategorie.BELEGGING,
         )
 
-    def test_unrealized_return_on_cost_basis(self):
+    @patch("apps.portfolio.services.valuation.get_price_service")
+    def test_unrealized_return_on_cost_basis(self, mock_get_service):
+        mock_get_service.return_value.get_live_prices.return_value = {}
+
         Transaction.objects.create(
             portfolio=self.portfolio,
             asset=self.asset,
@@ -72,7 +76,10 @@ class ReturnSummaryTests(TestCase):
         self.assertEqual(summary["current_value_eur"], Decimal("65000.00"))
         self.assertEqual(summary["unrealized_return_eur"], Decimal("0.00"))
 
-    def test_dashboard_includes_returns(self):
+    @patch("apps.portfolio.services.valuation.get_price_service")
+    def test_dashboard_includes_returns(self, mock_get_service):
+        mock_get_service.return_value.get_live_prices.return_value = {}
+
         Transaction.objects.create(
             portfolio=self.portfolio,
             asset=self.asset,

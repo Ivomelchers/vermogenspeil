@@ -62,6 +62,9 @@ export interface DashboardPosition {
   category_label: string;
   quantity: string;
   value_eur: string;
+  valuation_source?: "market" | "cost_basis";
+  unit_price_eur?: string;
+  price_source?: string;
 }
 
 export interface DashboardPlatform {
@@ -87,8 +90,9 @@ export interface DashboardSummary {
   has_portfolio: boolean;
   portfolio_id?: number;
   portfolio_name?: string;
-  valuation_method: string;
+  valuation_method: "market" | "mixed" | "cost_basis";
   valuation_note?: string;
+  prices_cached?: boolean;
   as_of: string;
   total_value_eur: string;
   returns?: DashboardReturns;

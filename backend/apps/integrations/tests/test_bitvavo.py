@@ -1,3 +1,4 @@
+import base64
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -15,6 +16,8 @@ from apps.portfolio.services import get_or_create_default_portfolio
 
 User = get_user_model()
 
+TEST_ENCRYPTION_KEY = base64.b64encode(b"0" * 32).decode()
+
 
 def make_user(**kwargs):
     defaults = {
@@ -28,6 +31,7 @@ def make_user(**kwargs):
     return User.objects.create_user(**defaults)
 
 
+@override_settings(ENCRYPTION_KEY=TEST_ENCRYPTION_KEY)
 class BitvavoEncryptionTests(TestCase):
     def setUp(self):
         self.user = make_user()
@@ -50,7 +54,7 @@ class BitvavoEncryptionTests(TestCase):
         self.assertNotIn("test-secret", connection.api_secret_encrypted)
 
 
-@override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, ENCRYPTION_KEY=TEST_ENCRYPTION_KEY)
 class BitvavoAPITests(APITestCase):
     def setUp(self):
         self.client = APIClient()
@@ -109,7 +113,7 @@ class BitvavoAPITests(APITestCase):
         self.assertEqual(response.data["error"], "email_not_verified")
 
 
-@override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, ENCRYPTION_KEY=TEST_ENCRYPTION_KEY)
 class BitvavoSyncTests(TestCase):
     def setUp(self):
         self.user = make_user()
