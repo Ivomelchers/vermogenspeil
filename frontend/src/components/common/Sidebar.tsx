@@ -16,8 +16,8 @@ const navSections: { label: string; items: NavItem[] }[] = [
     label: "Overzicht",
     items: [
       { label: "Dashboard", to: "/dashboard" },
-      { label: "Portefeuille", to: "/dashboard" },
-      { label: "Transacties", to: "/dashboard" },
+      { label: "Portefeuille", to: "/portfolio" },
+      { label: "Transacties", to: "/transactions" },
     ],
   },
   {
@@ -25,6 +25,13 @@ const navSections: { label: string; items: NavItem[] }[] = [
     items: [
       { label: "Belastingpositie", to: "/dashboard", premium: true },
       { label: "Werkelijk rendement", to: "/dashboard", premium: true },
+    ],
+  },
+  {
+    label: "Platformen",
+    items: [
+      { label: "Mijn platformen", to: "/platforms" },
+      { label: "Platform toevoegen", to: "/platforms/add" },
     ],
   },
   {

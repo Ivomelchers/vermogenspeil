@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "vermogenspeil-api-v1",
     "name": "Vermogenspeil API",
-    "description": "MijnVermogen / Vermogenspeil REST API (v1) — **fase 2 afgerond (Auth0)**.\n\n**Auth-flow:**\n1. Register → Verify Email (token uit e-mail)\n2. Login via Django proxy → Auth0 tokens (`id_token`, `access_token`, `refresh_token`)\n3. Beveiligde endpoints: `Authorization: Bearer {{idToken}}`\n4. Refresh via `POST /auth/token/refresh/` met `{ \"refresh\": \"...\" }`\n\n**MFA:** Auth0-managed. Bij `mfa_required` op login: OTP/enroll via Auth0 in de frontend (niet via deze API). Reset MFA: `POST /auth/mfa/reset/` (ingelogd).\n\n**baseUrl:**\n- Lokaal: `http://localhost:8000/api/v1`\n- Render: `https://vermogenspeil-api.onrender.com/api/v1`",
+    "description": "MijnVermogen / Vermogenspeil REST API (v1).\n\n**Dev-test zonder broker-accounts (aanbevolen):**\n1. Login → `idToken`\n2. Integrations → **Seed Dev Data** (Bitvavo + DEGIRO demo)\n3. Optioneel: **Import DEGIRO CSV** met `backend/fixtures/degiro/sample-transactions.csv`\n4. Portfolio → **Dashboard Summary**\n\n**Auth:** Bearer `{{idToken}}` na Login.\n\n**baseUrl:** http://localhost:8000/api/v1",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -48,6 +48,31 @@
     },
     {
       "key": "mfaToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "portfolioId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "connectionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "syncJobId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bitvavoApiKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bitvavoApiSecret",
       "value": "",
       "type": "string"
     }
@@ -435,6 +460,317 @@
               "path": ["auth", "mfa", "reset", ""]
             },
             "description": "Verwijdert Auth0 MFA voor ingelogde user. Bij volgende login opnieuw enrollen."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Portfolio",
+      "description": "Portefeuilles, posities en transacties (user-scoped). Vereist ingelogde user + geverifieerde e-mail voor koppelingen.",
+      "item": [
+        {
+          "name": "Dashboard Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/portfolios/dashboard/",
+              "host": ["{{baseUrl}}"],
+              "path": ["portfolios", "dashboard", ""]
+            },
+            "description": "Totaal, categorieën, platformen, rendement (kostprijs). Run na Seed Dev Data."
+          },
+          "response": []
+        },
+        {
+          "name": "List Portfolios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.test('Portfolios returned', () => {",
+                  "        pm.expect(json.data).to.be.an('array');",
+                  "    });",
+                  "    if (json.data.length > 0) {",
+                  "        pm.collectionVariables.set('portfolioId', String(json.data[0].id));",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/portfolios/",
+              "host": ["{{baseUrl}}"],
+              "path": ["portfolios", ""]
+            },
+            "description": "Lijst portefeuilles van ingelogde user. Zet `portfolioId` op eerste resultaat."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Portfolio Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/portfolios/{{portfolioId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["portfolios", "{{portfolioId}}", ""]
+            },
+            "description": "Portefeuille met posities. Vereist `portfolioId` (uit List Portfolios)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Portfolio Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/portfolios/{{portfolioId}}/transactions/",
+              "host": ["{{baseUrl}}"],
+              "path": ["portfolios", "{{portfolioId}}", "transactions", ""]
+            },
+            "description": "Laatste 200 transacties van portefeuille."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Integrations",
+      "description": "Platformkoppelingen. Dev: Seed + CSV zonder echte brokers.",
+      "item": [
+        {
+          "name": "Seed Dev Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/integrations/demo/seed/",
+              "host": ["{{baseUrl}}"],
+              "path": ["integrations", "demo", "seed", ""]
+            },
+            "description": "Bitvavo + DEGIRO demo-sync. Alleen lokaal (DEMO_FEATURES_ENABLED). Geen API-keys."
+          },
+          "response": []
+        },
+        {
+          "name": "Import DEGIRO CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "backend/fixtures/degiro/sample-transactions.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/integrations/connections/degiro/import/",
+              "host": ["{{baseUrl}}"],
+              "path": ["integrations", "connections", "degiro", "import", ""]
+            },
+            "description": "Upload voorbeeld-CSV uit repo. Postman: kies bestand via file-picker (pad relatief t.o.v. collection werkt niet overal)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Connections",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/integrations/connections/",
+              "host": ["{{baseUrl}}"],
+              "path": ["integrations", "connections", ""]
+            },
+            "description": "Actieve platformkoppelingen van de user."
+          },
+          "response": []
+        },
+        {
+          "name": "Connect Bitvavo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('connectionId', String(json.data.id));",
+                  "    if (json.data.sync_job && json.data.sync_job.id) {",
+                  "        pm.collectionVariables.set('syncJobId', String(json.data.sync_job.id));",
+                  "    }",
+                  "    pm.test('Bitvavo connected', () => {",
+                  "        pm.expect(json.data.platform).to.eql('bitvavo');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"api_key\": \"{{bitvavoApiKey}}\",\n  \"api_secret\": \"{{bitvavoApiSecret}}\",\n  \"label\": \"Bitvavo Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/integrations/connections/bitvavo/",
+              "host": ["{{baseUrl}}"],
+              "path": ["integrations", "connections", "bitvavo", ""]
+            },
+            "description": "Koppelt Bitvavo (alleen-lezen keys aanbevolen). Valideert credentials, start sync. Vereist `email_verified`.\n\nZet `bitvavoApiKey` en `bitvavoApiSecret` in environment (niet committen).\n\nProductie: whitelist Render outbound IP bij Bitvavo."
+          },
+          "response": []
+        },
+        {
+          "name": "Trigger Sync",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('syncJobId', String(json.data.id));",
+                  "    pm.test('Sync started', () => {",
+                  "        pm.expect(json.data.status).to.be.oneOf(['pending', 'running']);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/integrations/connections/{{connectionId}}/sync/",
+              "host": ["{{baseUrl}}"],
+              "path": ["integrations", "connections", "{{connectionId}}", "sync", ""]
+            },
+            "description": "Start handmatige sync. Slaat `syncJobId` op. Poll daarna Get Sync Job."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sync Job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.test('Sync job loaded', () => {",
+                  "        pm.expect(json.data.status).to.be.a('string');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/integrations/sync-jobs/{{syncJobId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["integrations", "sync-jobs", "{{syncJobId}}", ""]
+            },
+            "description": "Status van sync-taak (`pending` | `running` | `success` | `error`)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Connection",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{idToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/integrations/connections/{{connectionId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["integrations", "connections", "{{connectionId}}", ""]
+            },
+            "description": "Deactiveert koppeling en wist versleutelde API-gegevens."
           },
           "response": []
         }

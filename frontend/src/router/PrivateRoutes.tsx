@@ -2,7 +2,11 @@ import { Navigate, Outlet, Route, useLocation } from "react-router-dom";
 
 import AppLayout from "../components/common/AppLayout";
 import AccountSettingsPage from "../pages/AccountSettingsPage";
+import AddPlatformPage from "../pages/AddPlatformPage";
 import DashboardPage from "../pages/DashboardPage";
+import PlatformsPage from "../pages/PlatformsPage";
+import PortfolioPage from "../pages/PortfolioPage";
+import TransactionsPage from "../pages/TransactionsPage";
 import TwoFactorSetupPage from "../pages/TwoFactorSetupPage";
 import { useUser } from "../contexts/UserContext";
 
@@ -24,6 +28,10 @@ export function PrivateRoutes() {
     <Route element={<PrivateAuthGuard />}>
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/portfolio" element={<PortfolioPage />} />
+        <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/platforms" element={<PlatformsPage />} />
+        <Route path="/platforms/add" element={<AddPlatformPage />} />
         <Route path="/settings/account" element={<AccountSettingsPage />} />
         <Route path="/settings/2fa" element={<TwoFactorSetupPage />} />
       </Route>

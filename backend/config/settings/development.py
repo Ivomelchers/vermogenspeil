@@ -19,3 +19,9 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"].append(  # noqa: F405
     "rest_framework.renderers.BrowsableAPIRenderer",
 )
+
+# Lokale sync zonder Redis-worker — productie gebruikt Celery + Redis
+CELERY_TASK_ALWAYS_EAGER = True  # noqa: F405
+
+# Voorbeelddata / demo-koppelingen (nooit in productie)
+DEMO_FEATURES_ENABLED = True  # noqa: F405

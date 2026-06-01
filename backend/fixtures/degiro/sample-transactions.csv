@@ -1,0 +1,4 @@
+Date;Time;Product;ISIN;Description;Currency;Quantity;Price;Local value;Value;Exchange rate;Transaction costs;Total
+15-01-2024;09:30:00;iShares Core MSCI World UCITS ETF;IE00B4L5Y983;Koop;EUR;8;88,50;-708,00;-708,00;;2,00;-710,00
+20-06-2024;14:15:00;iShares Core MSCI World UCITS ETF;IE00B4L5Y983;Koop;EUR;4;92,10;-368,40;-368,40;;1,00;-369,40
+10-03-2024;11:00:00;ASML HOLDING NV;NL0010273215;Koop;EUR;5;680,00;-3400,00;-3400,00;;2,50;-3402,50

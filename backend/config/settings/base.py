@@ -158,6 +158,25 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+CELERY_TASK_EAGER_PROPAGATES = True
+
+DEMO_FEATURES_ENABLED = os.environ.get("DEMO_FEATURES_ENABLED", "").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "")
 BITVAVO_API_URL = os.environ.get("BITVAVO_API_URL", "https://api.bitvavo.com/v2")
