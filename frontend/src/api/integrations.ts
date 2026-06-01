@@ -20,24 +20,9 @@ export interface PlatformConnection {
   last_synced_at: string | null;
   last_error: string;
   is_active: boolean;
-  is_demo: boolean;
   portfolio_id: number;
   created_at: string;
   updated_at: string;
-}
-
-export interface DemoSeedResult {
-  portfolio_id: number;
-  connections: Array<{
-    id: number;
-    label: string;
-    platform: string;
-    status: SyncStatus;
-    positions_synced: number;
-    transactions_synced: number;
-  }>;
-  positions_synced: number;
-  transactions_synced: number;
 }
 
 export interface SyncJob {
@@ -60,20 +45,6 @@ export interface BitvavoConnectPayload {
 
 export interface BitvavoConnectResponse extends PlatformConnection {
   sync_job?: SyncJob;
-}
-
-export async function getDemoFeaturesEnabled(): Promise<boolean> {
-  const response = await api.get<ApiEnvelope<{ enabled: boolean }>>(
-    "integrations/demo/status/",
-  );
-  return response.data.data.enabled;
-}
-
-export async function seedDemoPortfolio(): Promise<DemoSeedResult> {
-  const response = await api.post<ApiEnvelope<DemoSeedResult>>(
-    "integrations/demo/seed/",
-  );
-  return response.data.data;
 }
 
 export async function listConnections(): Promise<PlatformConnection[]> {
@@ -107,6 +78,34 @@ export async function triggerSync(connectionId: number): Promise<SyncJob> {
 export async function getSyncJob(jobId: number): Promise<SyncJob> {
   const response = await api.get<ApiEnvelope<SyncJob>>(
     `integrations/sync-jobs/${jobId}/`,
+  );
+  return response.data.data;
+}
+
+export interface DegiroCsvImportResult {
+  connection_id: number;
+  rows_parsed: number;
+  transactions_imported: number;
+  transactions_skipped: number;
+}
+
+export async function importDegiroCsv(
+  file: File,
+  label?: string,
+): Promise<DegiroCsvImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (label) {
+    formData.append("label", label);
+  }
+
+  const response = await api.post<ApiEnvelope<DegiroCsvImportResult>>(
+    "integrations/connections/degiro/import/",
+    formData,
+    {
+      // Laat axios de boundary zetten; niet application/json van de default client
+      headers: { "Content-Type": false as unknown as string },
+    },
   );
   return response.data.data;
 }

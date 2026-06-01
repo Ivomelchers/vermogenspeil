@@ -3,20 +3,35 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
+from apps.integrations.degiro.classification import CASH_SYMBOL
 from apps.integrations.degiro.parser import DegiroParseError, parse_degiro_csv
 from apps.integrations.models import ConnectionMethod, PlatformConnection, PlatformType, SyncStatus
-from apps.portfolio.models import Asset, AssetType, Position, Transaction, TransactionType, VermogensCategorie
+from apps.portfolio.models import (
+    Asset,
+    AssetType,
+    Position,
+    Transaction,
+    TransactionType,
+    VermogensCategorie,
+)
 from apps.portfolio.services import get_or_create_default_portfolio
 
 
-def _map_side(side: str) -> str:
-    return TransactionType.SELL if side == "sell" else TransactionType.BUY
-
-
-def _asset_type_for_symbol(symbol: str) -> str:
+def _asset_type_for_symbol(symbol: str, transaction_type: str) -> str:
+    if symbol == CASH_SYMBOL or transaction_type in (
+        TransactionType.DEPOSIT,
+        TransactionType.WITHDRAWAL,
+    ):
+        return AssetType.CASH
     if len(symbol) == 12 and symbol.isalnum():
         return AssetType.ETF if symbol.startswith("IE") else AssetType.STOCK
     return AssetType.STOCK
+
+
+def _category_for_asset_type(asset_type: str) -> str:
+    if asset_type == AssetType.CASH:
+        return VermogensCategorie.BANKTEGOED
+    return VermogensCategorie.BELEGGING
 
 
 @transaction.atomic
@@ -32,37 +47,42 @@ def import_degiro_csv_for_user(user, file_content: str, *, label: str = "DEGIRO 
             "portfolio": portfolio,
             "connection_method": ConnectionMethod.CSV,
             "is_active": True,
+            "is_demo": False,
             "status": SyncStatus.RUNNING,
+            "last_error": "",
         },
     )
     connection.connection_method = ConnectionMethod.CSV
+    connection.is_demo = False
+    connection.last_error = ""
     connection.save()
 
     imported = 0
     skipped = 0
+    by_type: dict[str, int] = {}
 
     for row in rows:
+        asset_type = _asset_type_for_symbol(row.symbol, row.transaction_type)
         asset, _ = Asset.objects.get_or_create(
             user=user,
             symbol=row.symbol,
             defaults={
                 "name": row.name,
-                "asset_type": _asset_type_for_symbol(row.symbol),
-                "category": VermogensCategorie.BELEGGING,
+                "asset_type": asset_type,
+                "category": _category_for_asset_type(asset_type),
             },
         )
 
-        total = row.quantity * row.price_eur
         _, created = Transaction.objects.get_or_create(
             portfolio=portfolio,
             transaction_hash=row.transaction_hash,
             defaults={
                 "asset": asset,
-                "transaction_type": _map_side(row.side),
+                "transaction_type": row.transaction_type,
                 "quantity": row.quantity,
                 "price_eur": row.price_eur,
                 "fee_eur": row.fee_eur,
-                "total_eur": total,
+                "total_eur": row.total_eur,
                 "occurred_at": row.occurred_at,
                 "external_id": row.external_id,
                 "source_platform": PlatformType.DEGIRO,
@@ -70,6 +90,7 @@ def import_degiro_csv_for_user(user, file_content: str, *, label: str = "DEGIRO 
         )
         if created:
             imported += 1
+            by_type[row.transaction_type] = by_type.get(row.transaction_type, 0) + 1
         else:
             skipped += 1
 
@@ -85,17 +106,28 @@ def import_degiro_csv_for_user(user, file_content: str, *, label: str = "DEGIRO 
         "rows_parsed": len(rows),
         "transactions_imported": imported,
         "transactions_skipped": skipped,
+        "by_type": by_type,
     }
 
 
 def _rebuild_positions_from_transactions(portfolio) -> None:
-    """Hertel posities op basis van netto aantal per asset."""
+    """Hertel posities: effecten via koop/verkoop, cash via stortingen/opnames."""
     Position.objects.filter(portfolio=portfolio).delete()
 
     totals: dict[int, Decimal] = {}
     for tx in portfolio.transactions.select_related("asset").order_by("occurred_at"):
-        qty = tx.quantity if tx.transaction_type != TransactionType.SELL else -tx.quantity
-        totals[tx.asset_id] = totals.get(tx.asset_id, Decimal(0)) + qty
+        if tx.transaction_type in (TransactionType.BUY, TransactionType.SELL):
+            qty = tx.quantity if tx.transaction_type != TransactionType.SELL else -tx.quantity
+            totals[tx.asset_id] = totals.get(tx.asset_id, Decimal(0)) + qty
+        elif tx.transaction_type == TransactionType.DEPOSIT and tx.asset.asset_type == AssetType.CASH:
+            amount = tx.total_eur or Decimal(0)
+            totals[tx.asset_id] = totals.get(tx.asset_id, Decimal(0)) + amount
+        elif tx.transaction_type == TransactionType.WITHDRAWAL and tx.asset.asset_type == AssetType.CASH:
+            amount = tx.total_eur or Decimal(0)
+            totals[tx.asset_id] = totals.get(tx.asset_id, Decimal(0)) + amount
+        elif tx.transaction_type == TransactionType.FEE and tx.asset.asset_type == AssetType.CASH:
+            amount = tx.total_eur or Decimal(0)
+            totals[tx.asset_id] = totals.get(tx.asset_id, Decimal(0)) + amount
 
     for asset_id, quantity in totals.items():
         if quantity <= 0:

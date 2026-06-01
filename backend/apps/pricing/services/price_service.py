@@ -105,18 +105,9 @@ class PriceService:
         asset_type: str,
         on_date: date,
     ) -> Decimal | None:
-        """Basis voor peildatum/YTD — uitbreiding in fase 5.2."""
-        cache_key = historical_price_cache_key(
-            symbol,
-            asset_type,
-            on_date.isoformat(),
-        )
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return Decimal(str(cached["price_eur"]))
+        from apps.pricing.services.historical import fetch_historical_price_eur
 
-        # Historische providers volgen in 5.2; cache-TTL staat klaar.
-        return None
+        return fetch_historical_price_eur(symbol, asset_type, on_date)
 
     def _fetch_from_providers(
         self,

@@ -3,6 +3,11 @@ import { Box, Button, Grid, Link, Text, VStack } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 
 import { getDashboardSummary, type DashboardSummary } from "../api/portfolio";
+import {
+  createPeildatumSnapshot,
+  getPeildatumSnapshot,
+  type PeildatumSnapshot,
+} from "../api/snapshots";
 import AuthAlert from "../components/auth/AuthAlert";
 import DisplayMoney from "../components/portfolio/DisplayMoney";
 import FiscalCard from "../components/common/FiscalCard";
@@ -20,23 +25,47 @@ import {
 export default function DashboardPage() {
   const { user } = useUser();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [peildatum, setPeildatum] = useState<PeildatumSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [error, setError] = useState("");
+  const [snapshotMessage, setSnapshotMessage] = useState("");
+
+  const taxYear = user?.active_tax_year ?? new Date().getFullYear();
 
   useEffect(() => {
     void loadSummary();
-  }, []);
+  }, [taxYear]);
 
   async function loadSummary() {
     setLoading(true);
     setError("");
+    setSnapshotMessage("");
     try {
       const data = await getDashboardSummary();
       setSummary(data);
+      const snap = await getPeildatumSnapshot(taxYear);
+      setPeildatum(snap);
     } catch (loadError) {
       setError(getApiErrorMessage(loadError, "Dashboard laden mislukt."));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleCreatePeildatum() {
+    setSnapshotBusy(true);
+    setSnapshotMessage("");
+    try {
+      const snap = await createPeildatumSnapshot(taxYear);
+      setPeildatum(snap);
+      setSnapshotMessage(`Peildatum ${taxYear} vastgelegd.`);
+    } catch (createError) {
+      setSnapshotMessage(
+        getApiErrorMessage(createError, "Peildatum vastleggen mislukt."),
+      );
+    } finally {
+      setSnapshotBusy(false);
     }
   }
 
@@ -105,37 +134,93 @@ export default function DashboardPage() {
                     </Text>
                   )}
                 </Box>
-              ) : (
-                <Kicker>Laad demo-data om rendement te zien</Kicker>
+              ) : hasPositions ? (
+                <Kicker>Voeg transacties toe om rendement te berekenen</Kicker>
+              ) : null}
+              {summary?.ytd?.available && (
+                <Box mt={4} pt={3} borderTop="1px solid" borderColor="line.soft">
+                  <Kicker mb={1}>YTD {summary.ytd.year}</Kicker>
+                  <MoneyText
+                    variant="delta"
+                    tone={
+                      parseFloat(summary.ytd.ytd_return_eur ?? "0") >= 0
+                        ? "positive"
+                        : "negative"
+                    }
+                  >
+                    {parseFloat(summary.ytd.ytd_return_eur ?? "0") >= 0 ? "+ " : "− "}
+                    {formatEur(Math.abs(parseFloat(summary.ytd.ytd_return_eur ?? "0")))}
+                  </MoneyText>
+                  <Kicker>
+                    {summary.ytd.ytd_return_percent}% · t.o.v.{" "}
+                    {formatEur(summary.ytd.start_value_eur ?? "0")} begin {summary.ytd.year}
+                  </Kicker>
+                </Box>
               )}
             </>
           )}
         </Box>
 
         <FiscalCard p={6}>
-          <Kicker mb={3}>Belastingjaar {user?.active_tax_year ?? "—"} · Peildatum 1 jan</Kicker>
+          <Kicker mb={3}>Belastingjaar {taxYear} · Peildatum 1 jan</Kicker>
           <Text fontFamily="heading" fontStyle="italic" fontSize="15px" color="ink.dim" mb={2}>
-            Te betalen belasting
+            {peildatum ? "Vastgelegd vermogen peildatum" : "Te betalen belasting"}
           </Text>
-          <MoneyText variant="display" fontSize={{ base: "48px", md: "56px" }} color="ink.dim">
-            —
-          </MoneyText>
+          {peildatum ? (
+            <>
+              <MoneyText variant="display" fontSize={{ base: "48px", md: "56px" }}>
+                {formatEur(peildatum.total_value_eur)}
+              </MoneyText>
+              <Kicker mt={2} mb={2}>
+                Vastgelegd op {formatDateNl(peildatum.data.captured_at)} ·{" "}
+                {valuationBasisLabel(peildatum.valuation_method).toLowerCase()}
+              </Kicker>
+            </>
+          ) : (
+            <MoneyText variant="display" fontSize={{ base: "48px", md: "56px" }} color="ink.dim">
+              —
+            </MoneyText>
+          )}
           <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.6}>
-            {hasPositions
-              ? `Grondslag (${basisLabel.toLowerCase()}): ${formatEur(totalValue)}. Box 3-berekening volgt in fase 6.`
-              : "Koppel platformen of laad voorbeelddata om uw vermogen te zien."}
+            {peildatum
+              ? `Peildatum ${formatDateNl(peildatum.peildatum)} (CET). Box 3-berekening volgt in fase 6.`
+              : hasPositions
+                ? `Nog geen snapshot voor ${taxYear}. Huidig vermogen (${basisLabel.toLowerCase()}): ${formatEur(totalValue)}.`
+                : "Koppel een platform of voeg handmatig assets toe om uw vermogen te zien."}
           </Text>
+          {hasPositions && !peildatum && (
+            <Button
+              variant="fiscalOutline"
+              size="sm"
+              mt={4}
+              isLoading={snapshotBusy}
+              onClick={() => void handleCreatePeildatum()}
+            >
+              Peildatum {taxYear} vastleggen
+            </Button>
+          )}
+          {snapshotMessage && (
+            <Text fontSize="xs" color="taupe.500" mt={2}>
+              {snapshotMessage}
+            </Text>
+          )}
         </FiscalCard>
       </Grid>
 
       {!loading && !hasPositions && (
         <FiscalCard p={6}>
           <Text fontFamily="heading" fontStyle="italic" color="ink.dim" lineHeight={1.7} mb={4}>
-            Nog geen posities in uw portefeuille. Laad lokaal voorbeelddata of koppel een platform.
+            Nog geen posities in uw portefeuille. Koppel een broker of voeg handmatig assets en
+            transacties toe.
           </Text>
-          <Button as={RouterLink} to="/platforms" variant="fiscal" size="sm">
-            Naar Mijn platformen
-          </Button>
+          <Box display="flex" gap={2} flexWrap="wrap" mt={2}>
+            <Button as={RouterLink} to="/platforms" variant="fiscal" size="sm">
+              Platform koppelen
+            </Button>
+            <Button as={RouterLink} to="/portfolio/manual/asset" variant="fiscalOutline" size="sm">
+              Asset toevoegen
+            </Button>
+          </Box>
         </FiscalCard>
       )}
 
@@ -220,11 +305,6 @@ export default function DashboardPage() {
                     <FiscalCard key={platform.id} p={4}>
                       <Text fontWeight={600}>
                         {platform.display_name}
-                        {platform.is_demo && (
-                          <Text as="span" fontSize="xs" color="gold.600" ml={2}>
-                            demo
-                          </Text>
-                        )}
                       </Text>
                       <Kicker>
                         {platform.connection_method_display} · {platform.platform_display}

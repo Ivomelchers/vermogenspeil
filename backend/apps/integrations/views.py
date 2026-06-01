@@ -1,4 +1,5 @@
 from rest_framework import status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
@@ -56,6 +57,8 @@ class PlatformConnectionListView(APIView):
             return error
 
         connections = PlatformConnection.objects.for_user(user).filter(is_active=True)
+        if not demo_features_enabled():
+            connections = connections.filter(is_demo=False)
         serializer = PlatformConnectionSerializer(connections, many=True)
         return api_response(data=serializer.data)
 
@@ -275,6 +278,7 @@ class DegiroCsvImportView(APIView):
     """Upload DEGIRO Transactions-CSV (test met fixtures/degiro/sample-transactions.csv)."""
 
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
         user, error = _linked_user_or_error(request)

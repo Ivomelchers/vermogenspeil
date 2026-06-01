@@ -1,0 +1,10 @@
+Date;Time;Product;ISIN;Description;Currency;Quantity;Price;Local value;Value;Exchange rate;Transaction costs;Total
+15-01-2024;09:30:00;iShares Core MSCI World UCITS ETF;IE00B4L5Y983;Koop;EUR;8;88,50;-708,00;-708,00;;2,00;-710,00
+20-06-2024;14:15:00;iShares Core MSCI World UCITS ETF;IE00B4L5Y983;Verkoop;EUR;2;95,00;190,00;190,00;;1,00;189,00
+01-04-2024;12:00:00;iShares Core MSCI World UCITS ETF;IE00B4L5Y983;Dividend;EUR;8;0,50;4,00;4,00;;0,00;4,00
+02-04-2024;12:01:00;iShares Core MSCI World UCITS ETF;IE00B4L5Y983;Dividendbelasting;EUR;0;0;,-0,60;-0,60;;0,00;-0,60
+05-01-2024;10:00:00;;;iDEAL Deposit;EUR;0;0;1000,00;1000,00;;0,00;1000,00
+06-01-2024;10:05:00;;;Flatex Interest;EUR;0;0;2,50;2,50;;0,00;2,50
+07-01-2024;11:00:00;;;Degiro Fee;EUR;0;0;,-2,50;-2,50;;0,00;-2,50
+08-01-2024;11:30:00;USD;US0378331005;Valuta Creditering;USD;0;0;100,00;100,00;;0,00;100,00
+09-01-2024;10:00:00;;;Withdrawal;EUR;0;0;,-500,00;-500,00;;0,00;-500,00

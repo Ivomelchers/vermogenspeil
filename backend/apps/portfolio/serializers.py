@@ -1,6 +1,16 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
-from apps.portfolio.models import Asset, Portfolio, Position, Transaction
+from apps.portfolio.models import (
+    Asset,
+    AssetType,
+    Portfolio,
+    Position,
+    Transaction,
+    TransactionType,
+    VermogensCategorie,
+)
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -76,3 +86,33 @@ class PortfolioDetailSerializer(PortfolioSerializer):
 
     class Meta(PortfolioSerializer.Meta):
         fields = PortfolioSerializer.Meta.fields + ["positions"]
+
+
+class ManualAssetCreateSerializer(serializers.Serializer):
+    symbol = serializers.CharField(max_length=32)
+    name = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    asset_type = serializers.ChoiceField(choices=AssetType.choices, default=AssetType.OTHER)
+    category = serializers.ChoiceField(
+        choices=VermogensCategorie.choices,
+        default=VermogensCategorie.BELEGGING,
+    )
+
+
+class ManualTransactionCreateSerializer(serializers.Serializer):
+    asset_id = serializers.IntegerField()
+    transaction_type = serializers.ChoiceField(choices=TransactionType.choices)
+    quantity = serializers.DecimalField(max_digits=24, decimal_places=12)
+    price_eur = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=6,
+        required=False,
+        allow_null=True,
+    )
+    fee_eur = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=6,
+        required=False,
+        default=Decimal("0"),
+    )
+    occurred_at = serializers.DateTimeField(required=False)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")

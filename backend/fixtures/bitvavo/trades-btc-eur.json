@@ -1,0 +1,22 @@
+[
+  {
+    "id": "fixture-btc-buy-1",
+    "timestamp": 1704067200000,
+    "market": "BTC-EUR",
+    "side": "buy",
+    "amount": "0.10",
+    "price": "42000.00",
+    "fee": "0.50",
+    "feeCurrency": "EUR"
+  },
+  {
+    "id": "fixture-btc-sell-1",
+    "timestamp": 1714521600000,
+    "market": "BTC-EUR",
+    "side": "sell",
+    "amount": "0.02",
+    "price": "61000.00",
+    "fee": "0.30",
+    "feeCurrency": "EUR"
+  }
+]

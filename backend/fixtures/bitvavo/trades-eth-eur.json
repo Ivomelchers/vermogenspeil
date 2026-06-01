@@ -1,0 +1,12 @@
+[
+  {
+    "id": "fixture-eth-buy-1",
+    "timestamp": 1717200000000,
+    "market": "ETH-EUR",
+    "side": "buy",
+    "amount": "2.5",
+    "price": "3200.00",
+    "fee": "0.18",
+    "feeCurrency": "EUR"
+  }
+]

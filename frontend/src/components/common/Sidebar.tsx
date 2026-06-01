@@ -17,6 +17,8 @@ const navSections: { label: string; items: NavItem[] }[] = [
     items: [
       { label: "Dashboard", to: "/dashboard" },
       { label: "Portefeuille", to: "/portfolio" },
+      { label: "Asset toevoegen", to: "/portfolio/manual/asset" },
+      { label: "Transactie toevoegen", to: "/portfolio/manual/transaction" },
       { label: "Transacties", to: "/transactions" },
     ],
   },

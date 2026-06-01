@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -179,6 +180,13 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "annual-peildatum-snapshot": {
+        "task": "apps.snapshots.tasks.run_annual_peildatum_snapshots",
+        "schedule": crontab(minute=0, hour=0, day_of_month=1, month_of_year=1),
+    },
+}
+
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "").lower() in (
     "true",
     "1",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Badge,
@@ -13,10 +13,9 @@ import { Link as RouterLink } from "react-router-dom";
 
 import {
   deleteConnection,
-  getDemoFeaturesEnabled,
+  importDegiroCsv,
   listConnections,
   pollSyncJob,
-  seedDemoPortfolio,
   triggerSync,
   type PlatformConnection,
   type SyncStatus,
@@ -62,14 +61,8 @@ export default function PlatformsPage() {
     (location.state as { message?: string } | null)?.message ?? "",
   );
   const [syncingId, setSyncingId] = useState<number | null>(null);
-  const [demoEnabled, setDemoEnabled] = useState(false);
-  const [isSeedingDemo, setIsSeedingDemo] = useState(false);
-
-  useEffect(() => {
-    void getDemoFeaturesEnabled()
-      .then(setDemoEnabled)
-      .catch(() => setDemoEnabled(false));
-  }, []);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const loadConnections = useCallback(async () => {
     setLoading(true);
@@ -110,21 +103,25 @@ export default function PlatformsPage() {
     }
   }
 
-  async function handleSeedDemo() {
+  async function handleDegiroCsvSelected(file: File | undefined) {
+    if (!file) return;
     setError("");
     setMessage("");
-    setIsSeedingDemo(true);
+    setIsImportingCsv(true);
     try {
-      const result = await seedDemoPortfolio();
+      const result = await importDegiroCsv(file);
       setMessage(
-        `Voorbeelddata geladen: ${result.connections.length} platformen, ` +
-          `${result.positions_synced} posities, ${result.transactions_synced} transacties.`,
+        `DEGIRO CSV geïmporteerd: ${result.transactions_imported} nieuw, ` +
+          `${result.transactions_skipped} overgeslagen (${result.rows_parsed} regels).`,
       );
       await loadConnections();
-    } catch (seedError) {
-      setError(getApiErrorMessage(seedError, "Voorbeelddata laden mislukt."));
+    } catch (importError) {
+      setError(getApiErrorMessage(importError, "DEGIRO CSV-import mislukt."));
     } finally {
-      setIsSeedingDemo(false);
+      setIsImportingCsv(false);
+      if (csvInputRef.current) {
+        csvInputRef.current.value = "";
+      }
     }
   }
 
@@ -163,25 +160,30 @@ export default function PlatformsPage() {
       {error && <AuthAlert tone="error">{error}</AuthAlert>}
       {message && <AuthAlert tone="success">{message}</AuthAlert>}
 
-      {demoEnabled && (
-        <FiscalCard p={5} borderLeft="3px solid" borderLeftColor="gold.500" bg="gold.50">
-          <Kicker mb={2} color="gold.600">
-            Ontwikkeling · voorbeelddata
-          </Kicker>
-          <Text fontSize="sm" color="ink.dim" lineHeight={1.7} mb={4}>
-            Laad een fictieve Bitvavo- en DEGIRO-koppeling met posities en transacties.
-            Geen broker-accounts of API-keys nodig — alleen lokaal beschikbaar.
-          </Text>
-          <Button
-            variant="fiscal"
-            isLoading={isSeedingDemo}
-            loadingText="Laden…"
-            onClick={() => void handleSeedDemo()}
-          >
-            Laad voorbeeldportefeuille
-          </Button>
-        </FiscalCard>
-      )}
+      <FiscalCard p={5}>
+        <Kicker mb={2}>DEGIRO · CSV-import</Kicker>
+        <Text fontSize="sm" color="ink.dim" lineHeight={1.7} mb={4}>
+          Exporteer transacties uit DEGIRO (Transactions) en upload het CSV-bestand.
+          Duplicaten worden automatisch overgeslagen.
+        </Text>
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          hidden
+          onChange={(event) => void handleDegiroCsvSelected(event.target.files?.[0])}
+        />
+        <Button
+          variant="fiscalOutline"
+          size="sm"
+          isLoading={isImportingCsv}
+          loadingText="Importeren…"
+          isDisabled={!user?.email_verified}
+          onClick={() => csvInputRef.current?.click()}
+        >
+          DEGIRO CSV uploaden
+        </Button>
+      </FiscalCard>
 
       <Flex gap={3} flexWrap="wrap">
         <Button
@@ -190,7 +192,7 @@ export default function PlatformsPage() {
           variant="fiscal"
           isDisabled={!user?.email_verified}
         >
-          Platform toevoegen
+          Bitvavo koppelen (API)
         </Button>
       </Flex>
 
@@ -201,8 +203,8 @@ export default function PlatformsPage() {
       ) : connections.length === 0 ? (
         <FiscalCard p={6}>
           <Text fontFamily="heading" fontStyle="italic" color="ink.dim" lineHeight={1.7}>
-            U heeft nog geen platformen gekoppeld. Begin met Bitvavo via API voor
-            automatische crypto-synchronisatie.
+            U heeft nog geen platformen gekoppeld. Koppel Bitvavo via API of importeer
+            een DEGIRO CSV-export.
           </Text>
         </FiscalCard>
       ) : (
@@ -220,17 +222,6 @@ export default function PlatformsPage() {
                   <Box>
                     <Flex align="center" gap={2} mb={1} flexWrap="wrap">
                       <Text fontWeight={600}>{connection.display_name}</Text>
-                      {connection.is_demo && (
-                        <Badge
-                          colorScheme="yellow"
-                          variant="subtle"
-                          fontSize="10px"
-                          textTransform="uppercase"
-                          letterSpacing="0.08em"
-                        >
-                          Demo
-                        </Badge>
-                      )}
                       <Badge
                         colorScheme={badge.colorScheme}
                         variant="subtle"
@@ -248,6 +239,11 @@ export default function PlatformsPage() {
                     <Text fontSize="sm" color="ink.dim" mt={2}>
                       {formatSyncedAt(connection.last_synced_at)}
                     </Text>
+                    {connection.connection_method === "csv" && (
+                      <Text fontSize="sm" color="ink.dim" mt={1}>
+                        Bijwerken via een nieuwe CSV-upload hierboven.
+                      </Text>
+                    )}
                     {connection.last_error && (
                       <Text fontSize="sm" color="rust.500" mt={1}>
                         {connection.last_error}
@@ -256,15 +252,17 @@ export default function PlatformsPage() {
                   </Box>
 
                   <Flex gap={2} flexWrap="wrap">
-                    <Button
-                      variant="fiscalOutline"
-                      size="sm"
-                      isLoading={syncingId === connection.id}
-                      onClick={() => void handleSync(connection)}
-                      isDisabled={!user?.email_verified}
-                    >
-                      Synchroniseren
-                    </Button>
+                    {connection.connection_method !== "csv" && (
+                      <Button
+                        variant="fiscalOutline"
+                        size="sm"
+                        isLoading={syncingId === connection.id}
+                        onClick={() => void handleSync(connection)}
+                        isDisabled={!user?.email_verified}
+                      >
+                        Synchroniseren
+                      </Button>
+                    )}
                     <Button
                       variant="fiscalOutline"
                       size="sm"

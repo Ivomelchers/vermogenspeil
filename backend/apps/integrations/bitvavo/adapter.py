@@ -1,10 +1,11 @@
 from datetime import datetime, timezone as dt_timezone
-from decimal import Decimal
 
 from apps.accounts.utils.encryption import decrypt_value
 from apps.integrations.base import BalanceHolding, PlatformAdapter, PlatformAdapterError, TradeRecord
 from apps.integrations.bitvavo.client import BitvavoAPIError, BitvavoClient
+from apps.integrations.bitvavo.history import CASH_SYMBOL, history_item_to_trade_record
 from apps.integrations.models import PlatformType
+from apps.portfolio.models import AssetType
 
 
 class BitvavoPlatformAdapter(PlatformAdapter):
@@ -43,6 +44,7 @@ class BitvavoPlatformAdapter(PlatformAdapter):
                     symbol=symbol,
                     quantity=quantity,
                     name=symbol,
+                    asset_type=AssetType.CASH if symbol == CASH_SYMBOL else AssetType.CRYPTO,
                 )
             )
 
@@ -51,40 +53,14 @@ class BitvavoPlatformAdapter(PlatformAdapter):
     def fetch_transactions(self, since: datetime | None = None) -> list[TradeRecord]:
         client = self._client()
         records: list[TradeRecord] = []
-        since_ms = int(since.timestamp() * 1000) if since else 0
+        since_ms = int(since.timestamp() * 1000) if since else None
 
-        balances = client.get_balance()
-        markets_with_balance = set()
-        for entry in balances:
-            symbol = entry.get("symbol", "")
-            if symbol and symbol != "EUR":
-                markets_with_balance.add(f"{symbol}-EUR")
-
-        for market in sorted(markets_with_balance):
-            try:
-                trades = client.get_trades(market)
-            except BitvavoAPIError:
+        for item in client.get_account_history(from_date_ms=since_ms):
+            record = history_item_to_trade_record(item)
+            if not record:
                 continue
-
-            for trade in trades:
-                parsed = client.parse_trade(trade, market)
-                if parsed["occurred_at_ms"] < since_ms:
-                    continue
-                occurred_at = datetime.fromtimestamp(
-                    parsed["occurred_at_ms"] / 1000,
-                    tz=dt_timezone.utc,
-                )
-                records.append(
-                    TradeRecord(
-                        external_id=parsed["external_id"],
-                        symbol=parsed["symbol"],
-                        side=parsed["side"],
-                        quantity=parsed["quantity"],
-                        price_eur=parsed["price_eur"],
-                        fee_eur=parsed["fee_eur"],
-                        occurred_at=occurred_at,
-                        market=parsed["market"],
-                    )
-                )
+            if since and record.occurred_at < since.replace(tzinfo=dt_timezone.utc):
+                continue
+            records.append(record)
 
         return records

@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.integrations.base import BalanceHolding, PlatformAdapterError, TradeRecord
-from apps.integrations.models import PlatformType, SyncStatus
+from apps.integrations.models import ConnectionMethod, PlatformType, SyncStatus
 from apps.portfolio.models import (
     Asset,
     AssetType,
@@ -40,13 +40,18 @@ def _get_or_create_asset(
     asset_type: str = AssetType.CRYPTO,
     name: str = "",
 ) -> Asset:
+    category = (
+        VermogensCategorie.BANKTEGOED
+        if asset_type == AssetType.CASH
+        else VermogensCategorie.BELEGGING
+    )
     asset, _ = Asset.objects.get_or_create(
         user=user,
         symbol=symbol,
         defaults={
             "name": name or symbol,
             "asset_type": asset_type,
-            "category": VermogensCategorie.BELEGGING,
+            "category": category,
         },
     )
     return asset
@@ -72,38 +77,47 @@ def apply_sync_results(connection, balances: list[BalanceHolding], trades: list[
             asset_type=holding.asset_type or AssetType.CRYPTO,
             name=holding.name,
         )
+        existing = Position.objects.filter(portfolio=portfolio, asset=asset).first()
+        old_qty = existing.quantity if existing else None
         position, created = Position.objects.update_or_create(
             portfolio=portfolio,
             asset=asset,
             defaults={"quantity": holding.quantity},
         )
-        if created or position.quantity != holding.quantity:
+        if created or old_qty != holding.quantity:
             positions_updated += 1
 
     for trade in trades:
+        asset_type = trade.asset_type or AssetType.CRYPTO
         asset = _get_or_create_asset(
             user,
             trade.symbol,
-            asset_type=trade.asset_type or AssetType.CRYPTO,
+            asset_type=asset_type,
+        )
+        tx_type = trade.transaction_type or _map_trade_type(trade.side)
+        price = trade.price_eur if trade.price_eur is not None else Decimal(0)
+        total = (
+            trade.total_eur
+            if trade.total_eur is not None
+            else trade.quantity * price
         )
         tx_hash = _transaction_hash(
             platform=connection.platform,
             external_id=trade.external_id or "",
             symbol=trade.symbol,
-            side=trade.side,
+            side=tx_type,
             quantity=trade.quantity,
-            price=trade.price_eur,
+            price=price,
             occurred_at=trade.occurred_at,
         )
-        total = trade.quantity * trade.price_eur
         _, created = Transaction.objects.get_or_create(
             portfolio=portfolio,
             transaction_hash=tx_hash,
             defaults={
                 "asset": asset,
-                "transaction_type": _map_trade_type(trade.side),
+                "transaction_type": tx_type,
                 "quantity": trade.quantity,
-                "price_eur": trade.price_eur,
+                "price_eur": price if price else None,
                 "fee_eur": trade.fee_eur,
                 "total_eur": total,
                 "occurred_at": trade.occurred_at,
@@ -135,8 +149,34 @@ def get_adapter(connection):
     }
     adapter_cls = adapters.get(connection.platform)
     if not adapter_cls:
+        if (
+            connection.platform == PlatformType.DEGIRO
+            and connection.connection_method == ConnectionMethod.CSV
+        ):
+            raise PlatformAdapterError(
+                "DEGIRO wordt via CSV bijgewerkt. Upload een nieuw exportbestand."
+            )
         raise PlatformAdapterError(f"Platform {connection.platform} wordt nog niet ondersteund.")
     return adapter_cls(connection)
+
+
+def _complete_csv_connection_sync(connection, sync_job) -> None:
+    """CSV-koppelingen hebben geen API — status op basis van reeds geïmporteerde data."""
+    portfolio = connection.portfolio
+    positions_count = portfolio.positions.count()
+    transactions_count = portfolio.transactions.filter(
+        source_platform=connection.platform,
+    ).count()
+
+    sync_job.positions_synced = positions_count
+    sync_job.transactions_synced = transactions_count
+    sync_job.status = SyncStatus.SUCCESS
+    sync_job.error_message = ""
+
+    connection.status = SyncStatus.SUCCESS
+    connection.last_synced_at = timezone.now()
+    connection.last_error = ""
+    connection.save(update_fields=["status", "last_synced_at", "last_error", "updated_at"])
 
 
 def run_connection_sync(sync_job_id: int) -> None:
@@ -155,6 +195,10 @@ def run_connection_sync(sync_job_id: int) -> None:
     connection.save(update_fields=["status", "updated_at"])
 
     try:
+        if connection.connection_method == ConnectionMethod.CSV and not connection.is_demo:
+            _complete_csv_connection_sync(connection, sync_job)
+            return
+
         adapter = get_adapter(connection)
         positions, transactions = adapter.sync()
         sync_job.positions_synced = positions

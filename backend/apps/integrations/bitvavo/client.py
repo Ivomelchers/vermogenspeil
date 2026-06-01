@@ -108,6 +108,38 @@ class BitvavoClient:
         data = self._request("GET", "markets")
         return data if isinstance(data, list) else []
 
+    def get_account_history(
+        self,
+        *,
+        from_date_ms: int | None = None,
+        to_date_ms: int | None = None,
+        max_items: int = 100,
+    ) -> list[dict]:
+        """GET /account/history — alle transactietypes (gepagineerd)."""
+        all_items: list[dict] = []
+        page = 1
+        total_pages = 1
+
+        while page <= total_pages:
+            params: dict = {"page": page, "maxItems": max_items}
+            if from_date_ms is not None:
+                params["fromDate"] = from_date_ms
+            if to_date_ms is not None:
+                params["toDate"] = to_date_ms
+
+            data = self._request("GET", "account/history", params=params)
+            if not isinstance(data, dict):
+                break
+
+            items = data.get("items") or []
+            if isinstance(items, list):
+                all_items.extend(items)
+
+            total_pages = int(data.get("totalPages") or 1)
+            page += 1
+
+        return all_items
+
     @staticmethod
     def parse_balance(entry: dict) -> tuple[str, Decimal] | None:
         symbol = entry.get("symbol", "")

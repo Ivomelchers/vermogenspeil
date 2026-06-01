@@ -74,8 +74,18 @@ export interface DashboardPlatform {
   platform_display: string;
   connection_method_display: string;
   status: string;
-  is_demo: boolean;
   last_synced_at: string | null;
+}
+
+export interface DashboardYtd {
+  year: number;
+  available: boolean;
+  start_value_eur?: string;
+  current_value_eur?: string;
+  ytd_return_eur?: string;
+  ytd_return_percent?: string;
+  start_method?: string;
+  note?: string;
 }
 
 export interface DashboardReturns {
@@ -96,6 +106,7 @@ export interface DashboardSummary {
   as_of: string;
   total_value_eur: string;
   returns?: DashboardReturns;
+  ytd?: DashboardYtd;
   positions: DashboardPosition[];
   by_category: DashboardCategory[];
   platforms: DashboardPlatform[];
@@ -128,6 +139,44 @@ export async function getPortfolioTransactions(
 ): Promise<Transaction[]> {
   const response = await api.get<ApiEnvelope<Transaction[]>>(
     `portfolios/${portfolioId}/transactions/`,
+  );
+  return response.data.data;
+}
+
+export interface ManualAssetPayload {
+  symbol: string;
+  name?: string;
+  asset_type: string;
+  category: string;
+}
+
+export interface ManualTransactionPayload {
+  asset_id: number;
+  transaction_type: string;
+  quantity: string;
+  price_eur?: string | null;
+  fee_eur?: string;
+  occurred_at?: string;
+  notes?: string;
+}
+
+export async function listAssets(): Promise<Asset[]> {
+  const response = await api.get<ApiEnvelope<Asset[]>>("portfolios/assets/");
+  return response.data.data;
+}
+
+export async function createManualAsset(payload: ManualAssetPayload): Promise<Asset> {
+  const response = await api.post<ApiEnvelope<Asset>>("portfolios/assets/", payload);
+  return response.data.data;
+}
+
+export async function createManualTransaction(
+  portfolioId: number,
+  payload: ManualTransactionPayload,
+): Promise<Transaction> {
+  const response = await api.post<ApiEnvelope<Transaction>>(
+    `portfolios/${portfolioId}/transactions/manual/`,
+    payload,
   );
   return response.data.data;
 }

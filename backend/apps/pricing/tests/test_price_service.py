@@ -61,12 +61,16 @@ class PriceServiceTests(TestCase):
         self.assertEqual(quotes["BTC"].source, "bitvavo")
 
     @patch("apps.pricing.providers.bitvavo_crypto.requests.get")
-    def test_bitvavo_provider_parses_multiple_markets(self, mock_get):
-        mock_get.return_value.json.return_value = [
-            {"market": "BTC-EUR", "price": "90000"},
-            {"market": "ETH-EUR", "price": "3500"},
-        ]
-        mock_get.return_value.raise_for_status = MagicMock()
+    def test_bitvavo_provider_fetches_each_market_separately(self, mock_get):
+        def fake_get(url, params=None, timeout=None):
+            response = MagicMock()
+            response.raise_for_status = MagicMock()
+            market = (params or {}).get("market", "")
+            prices = {"BTC-EUR": "90000", "ETH-EUR": "3500"}
+            response.json.return_value = {"market": market, "price": prices.get(market, "0")}
+            return response
+
+        mock_get.side_effect = fake_get
 
         from apps.pricing.providers.bitvavo_crypto import BitvavoCryptoProvider
 
@@ -74,5 +78,6 @@ class PriceServiceTests(TestCase):
             ["BTC", "ETH"]
         )
 
+        self.assertEqual(mock_get.call_count, 2)
         self.assertEqual(len(quotes), 2)
         self.assertEqual(quotes["ETH"].price_eur, Decimal("3500"))

@@ -23,6 +23,8 @@ class TradeRecord:
     occurred_at: datetime
     market: str = ""
     asset_type: str = ""
+    transaction_type: str = ""
+    total_eur: Decimal | None = None
 
 
 class PlatformAdapterError(Exception):

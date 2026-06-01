@@ -68,7 +68,7 @@ export default function TransactionsPage() {
         <Kicker mb={2}>Transacties</Kicker>
         <Heading size="lg">Transactiehistorie</Heading>
         <Text color="ink.dim" fontSize="sm" mt={3} lineHeight={1.7}>
-          Laatste transacties uit uw standaardportefeuille (sync en demo).
+          Laatste transacties uit uw standaardportefeuille.
         </Text>
       </Box>
 
