@@ -1,0 +1,2 @@
+Timestamp,Transaction Type,Asset,Quantity Transacted,Spot Price at Transaction,Subtotal,Total,Fees,Notes
+2024-01-15 10:00:00 UTC,Buy,BTC,0.01,42000,420,420,2,Coinbase purchase

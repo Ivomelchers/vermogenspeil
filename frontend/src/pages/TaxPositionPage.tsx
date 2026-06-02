@@ -21,7 +21,10 @@ import {
   type Box3Summary,
   type TaxYearContext,
 } from "../api/tax";
-import { createPeildatumSnapshot, getPeildatumSnapshot } from "../api/snapshots";
+import {
+  createPeildatumSnapshot,
+  getPeildatumSnapshot,
+} from "../api/snapshots";
 import AuthAlert from "../components/auth/AuthAlert";
 import DisplayMoney from "../components/portfolio/DisplayMoney";
 import FiscalCard from "../components/common/FiscalCard";
@@ -103,7 +106,9 @@ export default function TaxPositionPage() {
       const data = await getBox3Summary(year);
       setSummary(data);
     } catch (loadError) {
-      setError(getApiErrorMessage(loadError, "Belastinggegevens laden mislukt."));
+      setError(
+        getApiErrorMessage(loadError, "Belastinggegevens laden mislukt."),
+      );
     } finally {
       setLoading(false);
     }
@@ -115,7 +120,9 @@ export default function TaxPositionPage() {
       await createPeildatumSnapshot(taxYear);
       await loadData();
     } catch (createError) {
-      setError(getApiErrorMessage(createError, "Peildatum vastleggen mislukt."));
+      setError(
+        getApiErrorMessage(createError, "Peildatum vastleggen mislukt."),
+      );
     } finally {
       setSnapshotBusy(false);
     }
@@ -194,7 +201,11 @@ export default function TaxPositionPage() {
               <FiscalCard elevated p={5}>
                 <Kicker mb={2}>Te betalen (toegepast)</Kicker>
                 {summary?.applied_tax_eur ? (
-                  <DisplayMoney amount={summary.applied_tax_eur} size="md" tone="accent" />
+                  <DisplayMoney
+                    amount={summary.applied_tax_eur}
+                    size="md"
+                    tone="accent"
+                  />
                 ) : (
                   <Text fontSize="2xl" color="ink.dim">
                     —
@@ -231,10 +242,15 @@ export default function TaxPositionPage() {
                 display="block"
                 _hover={{ textDecoration: "none" }}
               >
-                <FiscalCard elevated p={5} _hover={{ borderColor: "azure.400" }}>
+                <FiscalCard
+                  elevated
+                  p={5}
+                  _hover={{ borderColor: "azure.400" }}
+                >
                   <Kicker mb={2}>Werkelijk rendement</Kicker>
                   <Text fontSize="sm" color="ink.dim" lineHeight={1.65} mb={3}>
-                    Vergelijk forfaitair met uw werkelijke rendement en zie of opgeven voordelig kan zijn.
+                    Vergelijk forfaitair met uw werkelijke rendement en zie of
+                    opgeven voordelig kan zijn.
                   </Text>
                   <Text fontSize="sm" color="azure.500" fontWeight={500}>
                     Naar werkelijk rendement →
@@ -247,10 +263,15 @@ export default function TaxPositionPage() {
                 display="block"
                 _hover={{ textDecoration: "none" }}
               >
-                <FiscalCard elevated p={5} _hover={{ borderColor: "azure.400" }}>
+                <FiscalCard
+                  elevated
+                  p={5}
+                  _hover={{ borderColor: "azure.400" }}
+                >
                   <Kicker mb={2}>Overig vermogen</Kicker>
                   <Text fontSize="sm" color="ink.dim" lineHeight={1.65} mb={3}>
-                    Banktegoeden, schulden en onroerend goed die niet via brokers binnenkomen.
+                    Banktegoeden, schulden en onroerend goed die niet via
+                    brokers binnenkomen.
                   </Text>
                   <Text fontSize="sm" color="azure.500" fontWeight={500}>
                     Naar overig vermogen →
@@ -262,91 +283,107 @@ export default function TaxPositionPage() {
 
           {!hasSnapshot && (
             <MotionSection>
-            <FiscalCard elevated p={6}>
-              <Text color="ink.dim" mb={4} lineHeight={1.7}>
-                Leg eerst uw peildatum vast om Box 3 te berekenen.
-              </Text>
-              <Button variant="fiscal" size="sm" isLoading={snapshotBusy} onClick={() => void handleCreateSnapshot()}>
-                Peildatum {taxYear} vastleggen
-              </Button>
-            </FiscalCard>
+              <FiscalCard elevated p={6}>
+                <Text color="ink.dim" mb={4} lineHeight={1.7}>
+                  Leg eerst uw peildatum vast om Box 3 te berekenen.
+                </Text>
+                <Button
+                  variant="fiscal"
+                  size="sm"
+                  isLoading={snapshotBusy}
+                  onClick={() => void handleCreateSnapshot()}
+                >
+                  Peildatum {taxYear} vastleggen
+                </Button>
+              </FiscalCard>
             </MotionSection>
           )}
 
           {forfait?.available && forfait.calculation?.steps && (
             <MotionSection>
-            <SectionHeader
-              title={
-                <>
-                  Forfaitair · <Text as="em">tussenstappen</Text>
-                </>
-              }
-              kicker="box 3 berekening"
-            />
-            <FiscalCard elevated p={5}>
-              {forfait.box3_inputs && (
-                <Grid
-                  templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }}
-                  gap={3}
-                  mb={4}
-                >
-                  <Box>
-                    <Text fontSize="xs" color="ink.dim">
-                      Banktegoeden (B)
-                    </Text>
-                    <Text fontWeight={600}>{formatEur(forfait.box3_inputs.banktegoeden_eur)}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="xs" color="ink.dim">
-                      Overige bezittingen (O)
-                    </Text>
-                    <Text fontWeight={600}>
-                      {formatEur(forfait.box3_inputs.overige_bezittingen_eur)}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="xs" color="ink.dim">
-                      Schulden (S)
-                    </Text>
-                    <Text fontWeight={600}>{formatEur(forfait.box3_inputs.schulden_eur)}</Text>
-                  </Box>
-                </Grid>
-              )}
-              <StepTable steps={forfait.calculation.steps} />
-              <FiscalNote mt={4} fontSize="xs">
-                {forfait.disclaimer}
-              </FiscalNote>
-            </FiscalCard>
+              <SectionHeader
+                title={
+                  <>
+                    Forfaitair · <Text as="em">tussenstappen</Text>
+                  </>
+                }
+                kicker="box 3 berekening"
+              />
+              <FiscalCard elevated p={5}>
+                {forfait.box3_inputs && (
+                  <Grid
+                    templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }}
+                    gap={3}
+                    mb={4}
+                  >
+                    <Box>
+                      <Text fontSize="xs" color="ink.dim">
+                        Banktegoeden (B)
+                      </Text>
+                      <Text fontWeight={600}>
+                        {formatEur(forfait.box3_inputs.banktegoeden_eur)}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text fontSize="xs" color="ink.dim">
+                        Overige bezittingen (O)
+                      </Text>
+                      <Text fontWeight={600}>
+                        {formatEur(forfait.box3_inputs.overige_bezittingen_eur)}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text fontSize="xs" color="ink.dim">
+                        Schulden (S)
+                      </Text>
+                      <Text fontWeight={600}>
+                        {formatEur(forfait.box3_inputs.schulden_eur)}
+                      </Text>
+                    </Box>
+                  </Grid>
+                )}
+                <StepTable steps={forfait.calculation.steps} />
+                <FiscalNote mt={4} fontSize="xs">
+                  {forfait.disclaimer}
+                </FiscalNote>
+              </FiscalCard>
             </MotionSection>
           )}
 
           <MotionSection>
-          <SectionHeader title="Box 3-rapport" kicker="pdf export" />
-          <FiscalCard elevated p={5}>
-            <Text color="ink.dim" fontSize="sm" mb={4} lineHeight={1.7}>
-              Download onderbouwing: posities, handmatig vermogen en berekeningen als PDF.
-            </Text>
-            <Button
-              variant="fiscal"
-              size="sm"
-              isLoading={reportBusy}
-              onClick={() => void handleDownloadPdf()}
-              isDisabled={!hasSnapshot}
-            >
-              Download PDF
-            </Button>
-            {reportMessage && (
-              <Text fontSize="xs" color="taupe.500" mt={2}>
-                {reportMessage}
+            <SectionHeader title="Box 3-rapport" kicker="pdf export" />
+            <FiscalCard elevated p={5}>
+              <Text color="ink.dim" fontSize="sm" mb={4} lineHeight={1.7}>
+                Download onderbouwing: posities, handmatig vermogen en
+                berekeningen als PDF.
               </Text>
-            )}
-          </FiscalCard>
+              <Button
+                variant="fiscal"
+                size="sm"
+                isLoading={reportBusy}
+                onClick={() => void handleDownloadPdf()}
+                isDisabled={!hasSnapshot}
+              >
+                Download PDF
+              </Button>
+              {reportMessage && (
+                <Text fontSize="xs" color="taupe.500" mt={2}>
+                  {reportMessage}
+                </Text>
+              )}
+            </FiscalCard>
           </MotionSection>
 
           <MotionSection>
-          <Button as={RouterLink} to="/dashboard" variant="ghostNav" size="sm" maxW="fit-content">
-            ← Terug naar dashboard
-          </Button>
+            <Button
+              as={RouterLink}
+              to="/dashboard"
+              variant="ghostNav"
+              size="sm"
+              maxW="fit-content"
+            >
+              ← Terug naar dashboard
+            </Button>
           </MotionSection>
         </>
       )}

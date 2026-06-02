@@ -108,3 +108,44 @@ class SyncJob(models.Model):
 
     def __str__(self):
         return f"Sync {self.connection_id} ({self.status})"
+
+
+class CsvImportEvent(models.TextChoices):
+    PREVIEW = "preview", "Preview"
+    IMPORT = "import", "Import"
+    REJECTED = "rejected", "Afgewezen"
+
+
+class CsvImportDiagnostic(models.Model):
+    """Geanonimiseerde CSV-drift signalen voor onderhoud (geen ruwe CSV)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="csv_import_diagnostics",
+    )
+    platform = models.CharField(max_length=32)
+    schema_version = models.CharField(max_length=64, blank=True, default="")
+    event = models.CharField(max_length=16, choices=CsvImportEvent.choices)
+    failure_reason = models.CharField(max_length=64, blank=True, default="")
+    file_headers = models.JSONField(default=list)
+    missing_canonical = models.JSONField(default=list)
+    unmapped_headers = models.JSONField(default=list)
+    unknown_descriptions = models.JSONField(default=list)
+    schema_warnings = models.JSONField(default=list)
+    suggested_aliases = models.JSONField(default=list)
+    rows_in_file = models.PositiveIntegerField(default=0)
+    rows_recognized = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "CSV-import diagnostiek"
+        verbose_name_plural = "CSV-import diagnostiek"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["platform", "created_at"]),
+            models.Index(fields=["event", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.platform} {self.event} ({self.created_at:%Y-%m-%d})"

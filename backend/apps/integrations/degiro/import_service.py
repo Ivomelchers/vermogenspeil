@@ -4,7 +4,10 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.integrations.degiro.classification import CASH_SYMBOL
-from apps.integrations.degiro.parser import DegiroParseError, parse_degiro_csv
+from apps.integrations.csv.base import CsvParseError, CsvParseResult
+from apps.integrations.degiro.parser import parse_degiro_csv
+
+DegiroParseError = CsvParseError
 from apps.integrations.models import ConnectionMethod, PlatformConnection, PlatformType, SyncStatus
 from apps.portfolio.models import (
     Asset,
@@ -35,8 +38,15 @@ def _category_for_asset_type(asset_type: str) -> str:
 
 
 @transaction.atomic
-def import_degiro_csv_for_user(user, file_content: str, *, label: str = "DEGIRO (CSV)") -> dict:
-    rows = parse_degiro_csv(file_content)
+def import_degiro_csv_for_user(
+    user,
+    file_content: str,
+    *,
+    label: str = "DEGIRO (CSV)",
+    parse_result: CsvParseResult | None = None,
+) -> dict:
+    result = parse_result or parse_degiro_csv(file_content)
+    rows = result.rows
     portfolio = get_or_create_default_portfolio(user)
 
     connection, _ = PlatformConnection.objects.update_or_create(
@@ -115,6 +125,7 @@ def import_degiro_csv_for_user(user, file_content: str, *, label: str = "DEGIRO 
         "transactions_imported": imported,
         "transactions_skipped": skipped,
         "by_type": by_type,
+        "parser_skipped_count": result.rows_skipped,
     }
 
 

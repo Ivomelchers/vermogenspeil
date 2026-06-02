@@ -8,12 +8,16 @@ from decimal import Decimal, InvalidOperation
 
 from django.utils import timezone
 
+from apps.integrations.csv.base import CsvParseError, CsvParseResult, CsvSkippedRow
+from apps.integrations.csv.column_schema import build_column_resolver
+from apps.integrations.csv.headers import detect_delimiter, normalize_header
 from apps.integrations.degiro.classification import CASH_SYMBOL, classify_degiro_description, is_cash_row
+from apps.integrations.degiro.column_schema import DEGIRO_SCHEMA
+from apps.integrations.degiro.fingerprint import degiro_fingerprint_score, degiro_missing_required
 from apps.portfolio.models import TransactionType
 
-
-class DegiroParseError(ValueError):
-    pass
+# Backwards compatibility
+DegiroParseError = CsvParseError
 
 
 @dataclass
@@ -37,7 +41,7 @@ def _parse_decimal(value: str) -> Decimal:
     try:
         return Decimal(cleaned)
     except InvalidOperation as exc:
-        raise DegiroParseError(f"Ongeldig getal: {value}") from exc
+        raise CsvParseError(f"Ongeldig getal: {value}") from exc
 
 
 def _parse_date(value: str, time_value: str) -> datetime:
@@ -52,11 +56,7 @@ def _parse_date(value: str, time_value: str) -> datetime:
             return timezone.make_aware(parsed, timezone.get_current_timezone())
         except ValueError:
             continue
-    raise DegiroParseError(f"Ongeldige datum: {value} {time_value}")
-
-
-def _normalize_header(name: str) -> str:
-    return re.sub(r"\s+", " ", (name or "").strip().lower())
+    raise CsvParseError(f"Ongeldige datum: {value} {time_value}")
 
 
 def _row_hash(parts: list[str]) -> str:
@@ -84,70 +84,77 @@ def _amounts_for_row(
     total_raw: Decimal,
     fee_raw: Decimal,
 ) -> tuple[Decimal, Decimal | None, Decimal] | None:
-    """Return (quantity, price_eur, total_eur) or None to skip row."""
-    if transaction_type in (TransactionType.BUY, TransactionType.SELL):
-        quantity = abs(quantity_raw)
-        price = abs(price_raw)
-        if quantity <= 0 or price <= 0:
-            return None
-        total = quantity * price
-        return quantity, price, total
-
-    if total_raw != 0:
-        total = total_raw
-    else:
-        total = quantity_raw * price_raw
+    """
+    DEGIRO Transactions-CSV: Total is vaak negatief bij uitgaven (koop, kosten, opname).
+    Wij slaan total_eur op als positief bedrag (grootte van de transactie).
+    """
+    total = total_raw
     if total == 0:
         return None
-    if transaction_type in (TransactionType.DEPOSIT, TransactionType.DIVIDEND):
-        total = abs(total)
+    total = abs(total)
     quantity = abs(quantity_raw) if quantity_raw > 0 else Decimal(1)
     return quantity, None, total
 
 
-def parse_degiro_csv(content: str) -> list[DegiroRow]:
+def _row_preview(raw: dict, max_len: int = 120) -> str:
+    parts = [str(v) for v in raw.values() if v]
+    text = ";".join(parts)
+    return text[:max_len] + ("…" if len(text) > max_len else "")
+
+
+def parse_degiro_csv(content: str) -> CsvParseResult:
     """Parse DEGIRO Transactions-export (komma of puntkomma)."""
     if not content.strip():
-        raise DegiroParseError("CSV-bestand is leeg.")
+        raise CsvParseError("CSV-bestand is leeg.")
 
-    sample = content[:2048]
-    delimiter = ";" if sample.count(";") > sample.count(",") else ","
-
+    delimiter = detect_delimiter(content)
     reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
     if not reader.fieldnames:
-        raise DegiroParseError("CSV heeft geen kolomkoppen.")
+        raise CsvParseError("CSV heeft geen kolomkoppen.")
 
     header_map = {_normalize_header(name): name for name in reader.fieldnames if name}
+    normalized_headers = set(header_map.keys())
 
-    def col(*candidates: str) -> str | None:
-        for candidate in candidates:
-            key = _normalize_header(candidate)
-            if key in header_map:
-                return header_map[key]
-        return None
+    score = degiro_fingerprint_score(normalized_headers)
+    if score < 0.85:
+        missing = degiro_missing_required(normalized_headers)
+        raise CsvParseError(
+            "Dit is geen herkende DEGIRO-transactie-export. "
+            f"Ontbrekende kolommen: {', '.join(missing) or 'onbekend format'}. "
+            "Download het bestand 'Transactions' uit uw DEGIRO-account."
+        )
 
-    date_col = col("date", "datum")
-    time_col = col("time", "tijd")
-    product_col = col("product")
-    isin_col = col("isin")
-    desc_col = col("description", "omschrijving", "type")
-    qty_col = col("quantity", "aantal")
-    price_col = col("price", "koers")
-    fee_col = col("transaction costs", "transactiekosten", "kosten")
-    total_col = col("total", "totaal", "value")
-
-    if not date_col:
-        raise DegiroParseError("Ontbrekende kolom: Date")
+    columns = build_column_resolver(DEGIRO_SCHEMA, header_map)
+    date_col = columns.get("date")
+    time_col = columns.get("time")
+    product_col = columns.get("product")
+    isin_col = columns.get("isin")
+    desc_col = columns.get("description")
+    qty_col = columns.get("quantity")
+    price_col = columns.get("price")
+    fee_col = columns.get("fee")
+    total_col = columns.get("total")
 
     rows: list[DegiroRow] = []
-    unknown_descriptions: set[str] = set()
+    skipped: list[CsvSkippedRow] = []
+    data_row_count = 0
 
     for index, raw in enumerate(reader, start=2):
+        if not any((v or "").strip() for v in raw.values()):
+            continue
+        data_row_count += 1
+
         description = raw.get(desc_col or "", "") if desc_col else ""
         transaction_type = classify_degiro_description(description)
         if not transaction_type:
-            if description.strip():
-                unknown_descriptions.add(description.strip())
+            skipped.append(
+                CsvSkippedRow(
+                    line_number=index,
+                    reason="unknown_description",
+                    description=description.strip(),
+                    preview=_row_preview(raw),
+                )
+            )
             continue
 
         try:
@@ -155,8 +162,8 @@ def parse_degiro_csv(content: str) -> list[DegiroRow]:
             price_raw = _parse_decimal(raw[price_col]) if price_col else Decimal(0)
             total_raw = _parse_decimal(raw[total_col]) if total_col else Decimal(0)
             fee = abs(_parse_decimal(raw[fee_col])) if fee_col else Decimal(0)
-        except DegiroParseError as exc:
-            raise DegiroParseError(f"Regel {index}: {exc}") from exc
+        except CsvParseError as exc:
+            raise CsvParseError(f"Regel {index}: {exc}") from exc
 
         amounts = _amounts_for_row(
             transaction_type,
@@ -166,6 +173,14 @@ def parse_degiro_csv(content: str) -> list[DegiroRow]:
             fee_raw=fee,
         )
         if not amounts:
+            skipped.append(
+                CsvSkippedRow(
+                    line_number=index,
+                    reason="zero_amount",
+                    description=description.strip(),
+                    preview=_row_preview(raw),
+                )
+            )
             continue
 
         quantity, price_eur, total_eur = amounts
@@ -203,14 +218,8 @@ def parse_degiro_csv(content: str) -> list[DegiroRow]:
             )
         )
 
-    if not rows:
-        hint = ""
-        if unknown_descriptions:
-            hint = f" Onbekende omschrijvingen: {', '.join(sorted(unknown_descriptions)[:5])}."
-        raise DegiroParseError(
-            f"Geen herkende transacties in CSV.{hint} "
-            "Ondersteund: koop, verkoop, dividend, dividendbelasting, storting, opname, "
-            "kosten, rente, valuta en overige DEGIRO-regels."
-        )
+    return CsvParseResult(rows=rows, rows_in_file=data_row_count, skipped=skipped)
 
-    return rows
+
+def _normalize_header(name: str) -> str:
+    return normalize_header(name)

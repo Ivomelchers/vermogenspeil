@@ -82,32 +82,192 @@ export async function getSyncJob(jobId: number): Promise<SyncJob> {
   return response.data.data;
 }
 
-export interface DegiroCsvImportResult {
+export interface CsvSkippedRowReport {
+  line_number: number;
+  reason: string;
+  description: string;
+  preview: string;
+}
+
+export interface CsvImportResult {
+  platform: string;
+  platform_display: string;
   connection_id: number;
+  rows_in_file: number;
+  rows_recognized: number;
   rows_parsed: number;
   transactions_imported: number;
   transactions_skipped: number;
+  rows_skipped_unrecognized: number;
+  rows_skipped_other: number;
+  skipped_rows: CsvSkippedRowReport[];
+  skipped_rows_truncated: boolean;
+  unknown_descriptions: string[];
+  has_import_gaps: boolean;
+  trust_summary: string;
+  by_type?: Record<string, number>;
+  detection?: {
+    confidence: number;
+    missing_headers: string[];
+  };
+}
+
+/** @deprecated Gebruik CsvImportResult */
+export type DegiroCsvImportResult = CsvImportResult;
+
+export interface CsvDetectionMatch {
+  platform: string;
+  platform_display: string;
+  confidence: number;
+  missing_headers: string[];
+}
+
+export interface CsvPreviewTransaction {
+  date: string;
+  time: string;
+  transaction_type: string;
+  symbol: string;
+  name: string;
+  quantity: string | null;
+  price_eur: string | null;
+  fee_eur: string | null;
+  total_eur: string | null;
+  status: "new" | "duplicate";
+  transaction_hash: string;
+}
+
+export interface CsvPreviewIssue {
+  line_number: number;
+  reason: string;
+  description: string;
+  preview: string;
+  suggestion: string;
+}
+
+export interface CsvPreviewSummary {
+  rows_in_file: number;
+  rows_recognized: number;
+  new: number;
+  duplicate: number;
+  skipped_unrecognized: number;
+  skipped_other: number;
+  transactions_truncated: boolean;
+  transactions_total: number;
+}
+
+export type CsvPreviewFailureReason =
+  | "unsupported_platform"
+  | "platform_mismatch"
+  | "no_recognized_rows"
+  | "parse_error";
+
+export interface CsvSchemaWarning {
+  code: string;
+  severity: "info" | "warning";
+  message: string;
+  file_header?: string;
+  canonical?: string;
+}
+
+export interface CsvSuggestedAlias {
+  file_header: string;
+  canonical: string;
+  canonical_label: string;
+  matched_alias: string;
+  confidence: number;
+}
+
+export interface CsvColumnSchemaReport {
+  schema_version: string;
+  mapped_columns: Record<string, string>;
+  missing_required: string[];
+  unmapped_headers: string[];
+  schema_warnings: CsvSchemaWarning[];
+  suggested_aliases: CsvSuggestedAlias[];
+  has_blocking_issues: boolean;
+  has_warnings: boolean;
+}
+
+export interface CsvPreviewResult {
+  status: "ok" | "rejected";
+  failure_reason: CsvPreviewFailureReason | null;
+  message: string | null;
+  platform?: string;
+  platform_display?: string;
+  file_headers: string[];
+  detection?: CsvImportResult["detection"];
+  matches: CsvDetectionMatch[];
+  supported_platforms: { platform: string; display_name: string }[];
+  summary: CsvPreviewSummary | null;
+  transactions: CsvPreviewTransaction[];
+  issues: CsvPreviewIssue[];
+  unknown_descriptions: string[];
+  has_import_gaps: boolean;
+  has_schema_warnings?: boolean;
+  column_schema?: CsvColumnSchemaReport | null;
+  can_confirm_import: boolean;
+  confirm_hint: string;
+}
+
+export async function previewPlatformCsv(
+  file: File,
+  options?: { platform?: string },
+): Promise<CsvPreviewResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (options?.platform) {
+    formData.append("platform", options.platform);
+  }
+  const response = await api.post<ApiEnvelope<CsvPreviewResult>>(
+    "integrations/csv/preview/",
+    formData,
+    { headers: { "Content-Type": false as unknown as string } },
+  );
+  return response.data.data;
+}
+
+export async function detectCsvPlatform(file: File): Promise<{
+  matches: CsvDetectionMatch[];
+  recommended: string | null;
+}> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post<
+    ApiEnvelope<{ matches: CsvDetectionMatch[]; recommended: string | null }>
+  >("integrations/csv/detect/", formData, {
+    headers: { "Content-Type": false as unknown as string },
+  });
+  return response.data.data;
+}
+
+export async function importPlatformCsv(
+  file: File,
+  options?: { platform?: string; label?: string },
+): Promise<CsvImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (options?.platform) {
+    formData.append("platform", options.platform);
+  }
+  if (options?.label) {
+    formData.append("label", options.label);
+  }
+
+  const response = await api.post<ApiEnvelope<CsvImportResult>>(
+    "integrations/csv/import/",
+    formData,
+    {
+      headers: { "Content-Type": false as unknown as string },
+    },
+  );
+  return response.data.data;
 }
 
 export async function importDegiroCsv(
   file: File,
   label?: string,
-): Promise<DegiroCsvImportResult> {
-  const formData = new FormData();
-  formData.append("file", file);
-  if (label) {
-    formData.append("label", label);
-  }
-
-  const response = await api.post<ApiEnvelope<DegiroCsvImportResult>>(
-    "integrations/connections/degiro/import/",
-    formData,
-    {
-      // Laat axios de boundary zetten; niet application/json van de default client
-      headers: { "Content-Type": false as unknown as string },
-    },
-  );
-  return response.data.data;
+): Promise<CsvImportResult> {
+  return importPlatformCsv(file, { platform: "degiro", label });
 }
 
 export async function pollSyncJob(

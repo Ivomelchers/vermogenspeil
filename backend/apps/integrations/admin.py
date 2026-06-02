@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.integrations.models import PlatformConnection, SyncJob
+from apps.integrations.models import CsvImportDiagnostic, PlatformConnection, SyncJob
 
 
 @admin.register(PlatformConnection)
@@ -28,3 +28,33 @@ class SyncJobAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("status",)
+
+
+@admin.register(CsvImportDiagnostic)
+class CsvImportDiagnosticAdmin(admin.ModelAdmin):
+    list_display = (
+        "platform",
+        "event",
+        "failure_reason",
+        "rows_recognized",
+        "created_at",
+        "user",
+    )
+    list_filter = ("platform", "event", "failure_reason")
+    readonly_fields = (
+        "user",
+        "platform",
+        "schema_version",
+        "event",
+        "failure_reason",
+        "file_headers",
+        "missing_canonical",
+        "unmapped_headers",
+        "unknown_descriptions",
+        "schema_warnings",
+        "suggested_aliases",
+        "rows_in_file",
+        "rows_recognized",
+        "created_at",
+    )
+    search_fields = ("user__email", "platform")

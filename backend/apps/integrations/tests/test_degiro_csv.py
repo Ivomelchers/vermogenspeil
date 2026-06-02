@@ -16,13 +16,16 @@ User = get_user_model()
 class DegiroParserTests(TestCase):
     def test_parse_sample_fixture_buy_only(self):
         content = load_text_fixture("degiro", "sample-transactions.csv")
-        rows = parse_degiro_csv(content)
-        self.assertEqual(len(rows), 3)
-        self.assertTrue(all(r.transaction_type == TransactionType.BUY for r in rows))
+        result = parse_degiro_csv(content)
+        self.assertEqual(len(result.rows), 3)
+        self.assertTrue(
+            all(r.transaction_type == TransactionType.BUY for r in result.rows),
+        )
 
     def test_parse_all_transaction_types_fixture(self):
         content = load_text_fixture("degiro", "all-transaction-types.csv")
-        rows = parse_degiro_csv(content)
+        result = parse_degiro_csv(content)
+        rows = result.rows
         types = {r.transaction_type for r in rows}
         self.assertEqual(len(rows), 9)
         self.assertEqual(
@@ -110,3 +113,4 @@ class DegiroCsvUploadAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["data"]["transactions_imported"], 3)
+        self.assertIn("trust_summary", response.data["data"])

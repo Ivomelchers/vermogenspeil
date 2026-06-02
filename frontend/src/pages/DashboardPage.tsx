@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Flex, Grid, HStack, Link, Text, VStack } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Flex,
+  Grid,
+  HStack,
+  Link,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 
 import { getDashboardSummary, type DashboardSummary } from "../api/portfolio";
@@ -8,7 +17,11 @@ import {
   getPeildatumSnapshot,
   type PeildatumSnapshot,
 } from "../api/snapshots";
-import { getForfaitairBox3, getTaxYearContext, type ForfaitairBox3Summary } from "../api/tax";
+import {
+  getForfaitairBox3,
+  getTaxYearContext,
+  type ForfaitairBox3Summary,
+} from "../api/tax";
 import { relevantTaxYear } from "../utils/taxYear";
 import AllocationChart from "../components/dashboard/AllocationChart";
 import DashboardHero from "../components/dashboard/DashboardHero";
@@ -30,7 +43,9 @@ export default function DashboardPage() {
   const { user } = useUser();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [peildatum, setPeildatum] = useState<PeildatumSnapshot | null>(null);
-  const [forfaitair, setForfaitair] = useState<ForfaitairBox3Summary | null>(null);
+  const [forfaitair, setForfaitair] = useState<ForfaitairBox3Summary | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [error, setError] = useState("");
@@ -122,7 +137,8 @@ export default function DashboardPage() {
                 color="ink.dim"
                 mb={4}
               >
-                Nog geen posities — koppel een broker of voeg handmatig assets toe.
+                Nog geen posities — koppel een broker of voeg handmatig assets
+                toe.
               </Text>
               <HStack spacing={3} justify="center" flexWrap="wrap">
                 <Button as={RouterLink} to="/platforms" variant="fiscal">
@@ -195,7 +211,12 @@ export default function DashboardPage() {
                   }
                   kicker={`${summary.platforms.length} actief`}
                   action={
-                    <Link as={RouterLink} to="/platforms" fontSize="xs" color="azure.500">
+                    <Link
+                      as={RouterLink}
+                      to="/platforms"
+                      fontSize="xs"
+                      color="azure.500"
+                    >
                       Beheer →
                     </Link>
                   }
@@ -231,7 +252,12 @@ export default function DashboardPage() {
                     kicker={`${summary.positions_count} posities`}
                     mb={0}
                   />
-                  <Link as={RouterLink} to="/portfolio" fontSize="xs" color="azure.500">
+                  <Link
+                    as={RouterLink}
+                    to="/portfolio"
+                    fontSize="xs"
+                    color="azure.500"
+                  >
                     Alles →
                   </Link>
                 </Flex>
@@ -244,7 +270,12 @@ export default function DashboardPage() {
               <Box>
                 <Flex justify="space-between" align="center" mb={3}>
                   <Kicker>Recente activiteit</Kicker>
-                  <Link as={RouterLink} to="/transactions" fontSize="xs" color="azure.500">
+                  <Link
+                    as={RouterLink}
+                    to="/transactions"
+                    fontSize="xs"
+                    color="azure.500"
+                  >
                     Alle transacties →
                   </Link>
                 </Flex>
@@ -262,7 +293,8 @@ export default function DashboardPage() {
               fontStyle="italic"
               pt={4}
             >
-              Fiscaal inzicht — geen fiscaal advies · MijnVermogen © {new Date().getFullYear()}
+              Fiscaal inzicht — geen fiscaal advies · MijnVermogen ©{" "}
+              {new Date().getFullYear()}
             </Text>
           </VStack>
         )}

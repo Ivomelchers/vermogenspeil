@@ -146,7 +146,9 @@ export async function getTaxYearContext(): Promise<TaxYearContext> {
   return response.data.data;
 }
 
-export async function getForfaitairBox3(year: number): Promise<ForfaitairBox3Summary> {
+export async function getForfaitairBox3(
+  year: number,
+): Promise<ForfaitairBox3Summary> {
   const response = await api.get<ApiEnvelope<ForfaitairBox3Summary>>(
     `tax/box3/forfaitair/${year}/`,
   );
@@ -169,7 +171,8 @@ export async function downloadBox3ReportPdf(year: number): Promise<Blob> {
 
   if (!contentType.includes("application/pdf")) {
     const text = await blob.text();
-    let message = "PDF laden mislukt. Herstart de backend (runserver) na een update.";
+    let message =
+      "PDF laden mislukt. Herstart de backend (runserver) na een update.";
     try {
       const parsed = JSON.parse(text) as { message?: string; detail?: string };
       message = parsed.message ?? parsed.detail ?? message;
@@ -182,10 +185,15 @@ export async function downloadBox3ReportPdf(year: number): Promise<Blob> {
   return blob;
 }
 
-export async function listBox3BankBalances(year: number): Promise<Box3BankBalance[]> {
-  const response = await api.get<ApiEnvelope<Box3BankBalance[]>>("tax/manual/bank-balances/", {
-    params: { year },
-  });
+export async function listBox3BankBalances(
+  year: number,
+): Promise<Box3BankBalance[]> {
+  const response = await api.get<ApiEnvelope<Box3BankBalance[]>>(
+    "tax/manual/bank-balances/",
+    {
+      params: { year },
+    },
+  );
   return response.data.data;
 }
 
@@ -210,8 +218,13 @@ export async function listBox3Debts(year: number): Promise<Box3Debt[]> {
   return response.data.data;
 }
 
-export async function createBox3Debt(payload: Box3DebtInput): Promise<Box3Debt> {
-  const response = await api.post<ApiEnvelope<Box3Debt>>("tax/manual/debts/", payload);
+export async function createBox3Debt(
+  payload: Box3DebtInput,
+): Promise<Box3Debt> {
+  const response = await api.post<ApiEnvelope<Box3Debt>>(
+    "tax/manual/debts/",
+    payload,
+  );
   return response.data.data;
 }
 
@@ -219,7 +232,10 @@ export async function updateBox3Debt(
   id: number,
   payload: Partial<Box3DebtInput>,
 ): Promise<Box3Debt> {
-  const response = await api.patch<ApiEnvelope<Box3Debt>>(`tax/manual/debts/${id}/`, payload);
+  const response = await api.patch<ApiEnvelope<Box3Debt>>(
+    `tax/manual/debts/${id}/`,
+    payload,
+  );
   return response.data.data;
 }
 
@@ -227,14 +243,21 @@ export async function deleteBox3Debt(id: number): Promise<void> {
   await api.delete(`tax/manual/debts/${id}/`);
 }
 
-export async function listBox3RealEstate(year: number): Promise<Box3RealEstate[]> {
-  const response = await api.get<ApiEnvelope<Box3RealEstate[]>>("tax/manual/real-estate/", {
-    params: { year },
-  });
+export async function listBox3RealEstate(
+  year: number,
+): Promise<Box3RealEstate[]> {
+  const response = await api.get<ApiEnvelope<Box3RealEstate[]>>(
+    "tax/manual/real-estate/",
+    {
+      params: { year },
+    },
+  );
   return response.data.data;
 }
 
-export async function createBox3RealEstate(payload: Box3RealEstateInput): Promise<Box3RealEstate> {
+export async function createBox3RealEstate(
+  payload: Box3RealEstateInput,
+): Promise<Box3RealEstate> {
   const response = await api.post<ApiEnvelope<Box3RealEstate>>(
     "tax/manual/real-estate/",
     payload,

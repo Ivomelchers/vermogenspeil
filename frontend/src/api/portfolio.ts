@@ -41,7 +41,9 @@ export async function listPortfolios(): Promise<Portfolio[]> {
   return response.data.data;
 }
 
-export async function getPortfolio(portfolioId: number): Promise<PortfolioDetail> {
+export async function getPortfolio(
+  portfolioId: number,
+): Promise<PortfolioDetail> {
   const response = await api.get<ApiEnvelope<PortfolioDetail>>(
     `portfolios/${portfolioId}/`,
   );
@@ -282,8 +284,13 @@ export async function listAssets(): Promise<Asset[]> {
   return response.data.data;
 }
 
-export async function createManualAsset(payload: ManualAssetPayload): Promise<Asset> {
-  const response = await api.post<ApiEnvelope<Asset>>("portfolios/assets/", payload);
+export async function createManualAsset(
+  payload: ManualAssetPayload,
+): Promise<Asset> {
+  const response = await api.post<ApiEnvelope<Asset>>(
+    "portfolios/assets/",
+    payload,
+  );
   return response.data.data;
 }
 

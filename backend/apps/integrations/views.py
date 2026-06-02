@@ -20,8 +20,8 @@ from apps.integrations.serializers import (
     SyncJobSerializer,
 )
 from apps.integrations.services.credentials import store_api_credentials
-from apps.integrations.degiro.import_service import import_degiro_csv_for_user
-from apps.integrations.degiro.parser import DegiroParseError
+from apps.integrations.csv.base import CsvParseError
+from apps.integrations.csv.import_service import import_csv_for_user
 from apps.integrations.services.demo_seed import demo_features_enabled, seed_demo_for_user
 from apps.integrations.tasks import sync_platform_connection
 from apps.portfolio.services import get_or_create_default_portfolio
@@ -275,7 +275,7 @@ class DemoSeedView(APIView):
 
 
 class DegiroCsvImportView(APIView):
-    """Upload DEGIRO Transactions-CSV (test met fixtures/degiro/sample-transactions.csv)."""
+    """Upload DEGIRO Transactions-CSV (legacy URL → generieke CSV-pipeline)."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -309,16 +309,22 @@ class DegiroCsvImportView(APIView):
         label = request.data.get("label", "DEGIRO (CSV)")
 
         try:
-            result = import_degiro_csv_for_user(user, content, label=label)
-        except DegiroParseError as exc:
+            result = import_csv_for_user(
+                user,
+                content,
+                platform=PlatformType.DEGIRO,
+                label=label,
+            )
+        except CsvParseError as exc:
             return api_error(
                 message=str(exc),
                 error="degiro_csv_invalid",
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        message = result.get("trust_summary") or "DEGIRO CSV geïmporteerd."
         return api_response(
             data=result,
-            message="DEGIRO CSV geïmporteerd.",
+            message=message,
             status=status.HTTP_201_CREATED,
         )

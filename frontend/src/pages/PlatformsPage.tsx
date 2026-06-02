@@ -12,12 +12,15 @@ import { Link as RouterLink } from "react-router-dom";
 
 import {
   deleteConnection,
-  importDegiroCsv,
+  type CsvImportResult,
   listConnections,
   pollSyncJob,
   triggerSync,
   type PlatformConnection,
 } from "../api/integrations";
+import CsvImportWizard, {
+  formatPreviewMessage,
+} from "../components/platforms/CsvImportWizard";
 import { getDashboardSummary } from "../api/portfolio";
 import AuthAlert from "../components/auth/AuthAlert";
 import SectionHeader from "../components/common/SectionHeader";
@@ -60,7 +63,9 @@ export default function PlatformsPage() {
     (location.state as { message?: string } | null)?.message ?? "",
   );
   const [syncingId, setSyncingId] = useState<number | null>(null);
-  const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const [csvWizardOpen, setCsvWizardOpen] = useState(false);
+  const [csvWizardFile, setCsvWizardFile] = useState<File | null>(null);
+  const [csvWizardPlatform, setCsvWizardPlatform] = useState<string | undefined>("degiro");
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   const loadConnections = useCallback(async () => {
@@ -138,24 +143,16 @@ export default function PlatformsPage() {
     }
   }
 
-  async function handleDegiroCsvSelected(file: File | undefined) {
-    if (!file) return;
-    setError("");
-    setMessage("");
-    setIsImportingCsv(true);
-    try {
-      const result = await importDegiroCsv(file);
-      setMessage(
-        `DEGIRO CSV geïmporteerd: ${result.transactions_imported} nieuw, ` +
-          `${result.transactions_skipped} overgeslagen.`,
-      );
-      await loadConnections();
-    } catch (importError) {
-      setError(getApiErrorMessage(importError, "DEGIRO CSV-import mislukt."));
-    } finally {
-      setIsImportingCsv(false);
-      if (csvInputRef.current) csvInputRef.current.value = "";
-    }
+  function openCsvWizard(file: File, platform = "degiro") {
+    setCsvWizardFile(file);
+    setCsvWizardPlatform(platform);
+    setCsvWizardOpen(true);
+  }
+
+  function handleCsvWizardComplete(result: CsvImportResult) {
+    setMessage(formatPreviewMessage(result));
+    void loadConnections();
+    if (csvInputRef.current) csvInputRef.current.value = "";
   }
 
   async function handleDelete(connection: PlatformConnection) {
@@ -295,7 +292,10 @@ export default function PlatformsPage() {
         type="file"
         accept=".csv,text/csv"
         hidden
-        onChange={(e) => void handleDegiroCsvSelected(e.target.files?.[0])}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) openCsvWizard(f);
+        }}
       />
 
       {!loading && (
@@ -374,13 +374,12 @@ export default function PlatformsPage() {
                 DEGIRO · snelle CSV-import
               </Text>
               <Text fontSize="sm" color="ink.dim" mb={4} lineHeight={1.7}>
-                Exporteer transacties uit DEGIRO en upload het CSV-bestand. Duplicaten worden
-                overgeslagen.
+                Exporteer transacties uit DEGIRO en upload het CSV-bestand. U ziet eerst een preview
+                vóór import.
               </Text>
               <Button
                 variant="fiscal"
                 size="sm"
-                isLoading={isImportingCsv}
                 isDisabled={!user?.email_verified}
                 onClick={() => csvInputRef.current?.click()}
               >
@@ -390,6 +389,16 @@ export default function PlatformsPage() {
           </MotionSection>
         </>
       )}
+      <CsvImportWizard
+        isOpen={csvWizardOpen}
+        file={csvWizardFile}
+        platform={csvWizardPlatform}
+        onClose={() => {
+          setCsvWizardOpen(false);
+          setCsvWizardFile(null);
+        }}
+        onComplete={handleCsvWizardComplete}
+      />
     </PageShell>
   );
 }

@@ -1,5 +1,11 @@
 from django.urls import path
 
+from apps.integrations.csv.views import (
+    CsvDetectView,
+    CsvImportView,
+    CsvPlatformsListView,
+    CsvPreviewView,
+)
 from apps.integrations.views import (
     BitvavoConnectView,
     DegiroCsvImportView,
@@ -28,4 +34,8 @@ urlpatterns = [
     path("demo/status/", DemoFeaturesStatusView.as_view(), name="demo-status"),
     path("demo/seed/", DemoSeedView.as_view(), name="demo-seed"),
     path("connections/degiro/import/", DegiroCsvImportView.as_view(), name="degiro-csv-import"),
+    path("csv/platforms/", CsvPlatformsListView.as_view(), name="csv-platforms"),
+    path("csv/detect/", CsvDetectView.as_view(), name="csv-detect"),
+    path("csv/preview/", CsvPreviewView.as_view(), name="csv-preview"),
+    path("csv/import/", CsvImportView.as_view(), name="csv-import"),
 ]
