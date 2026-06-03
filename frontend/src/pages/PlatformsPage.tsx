@@ -67,6 +67,7 @@ export default function PlatformsPage() {
   const [csvWizardFile, setCsvWizardFile] = useState<File | null>(null);
   const [csvWizardPlatform, setCsvWizardPlatform] = useState<string | undefined>("degiro");
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const degiroCsvSectionRef = useRef<HTMLDivElement>(null);
 
   const loadConnections = useCallback(async () => {
     setLoading(true);
@@ -97,6 +98,18 @@ export default function PlatformsPage() {
   useEffect(() => {
     void loadConnections();
   }, [loadConnections]);
+
+  useEffect(() => {
+    const state = location.state as { focusDegiroCsv?: boolean } | null;
+    if (!state?.focusDegiroCsv) {
+      return;
+    }
+    navigate(location.pathname, { replace: true, state: {} });
+    const timer = window.setTimeout(() => {
+      degiroCsvSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, location.state, navigate]);
 
   const grouped = useMemo(() => {
     const groups: Record<IntegrationMethod, PlatformConnection[]> = {
@@ -364,6 +377,7 @@ export default function PlatformsPage() {
 
           <MotionSection>
             <Box
+              ref={degiroCsvSectionRef}
               p={5}
               border="1px dashed"
               borderColor="line.DEFAULT"

@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from unittest.mock import patch
 
+from apps.integrations.csv.detection import validate_csv_for_platform
 from apps.integrations.degiro.import_service import import_degiro_csv_for_user
 from apps.integrations.degiro.parser import parse_degiro_csv
 from apps.integrations.testing.fixtures import load_bytes_fixture, load_text_fixture
@@ -21,6 +22,19 @@ class DegiroParserTests(TestCase):
         self.assertTrue(
             all(r.transaction_type == TransactionType.BUY for r in result.rows),
         )
+
+    def test_parse_dutch_nl_export_without_description_column(self):
+        """Bètatester-export (NL UI): geen Description-kolom, wel Datum/Totaal EUR/Order ID."""
+        content = load_text_fixture("degiro", "nl-transactions-export.csv")
+        match = validate_csv_for_platform(content, "degiro")
+        self.assertGreaterEqual(match.confidence, 0.85)
+        self.assertNotIn("Description", match.missing_headers)
+
+        result = parse_degiro_csv(content)
+        self.assertEqual(len(result.rows), 2)
+        self.assertEqual(result.rows[0].transaction_type, TransactionType.BUY)
+        self.assertEqual(result.rows[1].transaction_type, TransactionType.SELL)
+        self.assertEqual(result.rows[0].external_id, "degiro-order-ord-1001")
 
     def test_parse_all_transaction_types_fixture(self):
         content = load_text_fixture("degiro", "all-transaction-types.csv")

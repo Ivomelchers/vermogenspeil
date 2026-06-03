@@ -6,7 +6,7 @@ from apps.integrations.csv.column_schema import ColumnField, PlatformColumnSchem
 # andere tools (PP/Ghostfolio). Uitbreiden na report_csv_drift of echte bètatester-export.
 DEGIRO_SCHEMA = PlatformColumnSchema(
     platform="degiro",
-    schema_version="degiro-transactions-v2",
+    schema_version="degiro-transactions-v3",
     fields=(
         ColumnField(
             "date",
@@ -30,7 +30,8 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
                     "soort",
                 }
             ),
-            required=True,
+            required=False,
+            fingerprint=False,
         ),
         ColumnField(
             "currency",
@@ -54,12 +55,14 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
                 {
                     "transaction costs",
                     "transactiekosten",
+                    "transactiekosten en/of kosten van derden eur",
                     "kosten",
                     "fees",
                     "fee",
                     "commission",
                     "provisie",
                     "charges",
+                    "autofx kosten",
                 }
             ),
         ),
@@ -70,6 +73,7 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
                 {
                     "total",
                     "totaal",
+                    "totaal eur",
                     "value",
                     "subtotal",
                     "sub total",
@@ -82,9 +86,17 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
                     "mutatie",
                     "change",
                     "waarde",
+                    "waarde eur",
                     "nettowaarde",
                 }
             ),
+        ),
+        ColumnField(
+            "order_id",
+            "Order ID",
+            frozenset({"order id", "orderid", "order-id", "order nr"}),
+            fingerprint=False,
+            required=False,
         ),
         ColumnField(
             "local_value",

@@ -86,7 +86,7 @@ class CsvImportTransparencyTests(TestCase):
 
         self.assertEqual(result["transactions_imported"], 2)
         self.assertTrue(result["has_import_gaps"])
-        self.assertGreaterEqual(result["rows_skipped_unrecognized"], 1)
+        self.assertEqual(result["rows_skipped_unrecognized"], 1)
         self.assertTrue(result["skipped_rows"])
         self.assertIn("Onbekende regel", result["unknown_descriptions"][0])
         self.assertEqual(Transaction.objects.filter(portfolio__user=self.user).count(), 2)

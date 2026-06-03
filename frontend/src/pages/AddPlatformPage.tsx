@@ -331,7 +331,13 @@ export default function AddPlatformPage() {
               Upload uw DEGIRO-transactie-export op de pagina Mijn platformen. Duplicaten worden
               automatisch overgeslagen.
             </Text>
-            <Button as={RouterLink} to="/platforms" variant="fiscal" size="sm">
+            <Button
+              as={RouterLink}
+              to="/platforms"
+              state={{ focusDegiroCsv: true }}
+              variant="fiscal"
+              size="sm"
+            >
               Naar DEGIRO CSV-upload
             </Button>
           </FiscalCard>

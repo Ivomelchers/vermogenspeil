@@ -1,4 +1,6 @@
-"""Map DEGIRO CSV Description-kolom naar TransactionType."""
+"""Map DEGIRO CSV Description-kolom naar TransactionType (of NL-export zonder Description)."""
+
+from decimal import Decimal
 
 from apps.portfolio.models import TransactionType
 
@@ -59,6 +61,42 @@ def classify_degiro_description(description: str) -> str | None:
     for keywords, tx_type in _RULES:
         if any(keyword in text for keyword in keywords):
             return tx_type
+    return None
+
+
+def classify_degiro_row(
+    *,
+    description: str,
+    quantity: Decimal,
+    total: Decimal,
+    product: str,
+    isin: str,
+) -> str | None:
+    """
+    Engelse export: Description-kolom (Koop/Verkoop/Dividend).
+    Nederlandse export (2024+): vaak geen Description — gebruik teken van Aantal/Totaal.
+    """
+    from_description = classify_degiro_description(description)
+    if from_description:
+        return from_description
+    if (description or "").strip():
+        return None
+
+    product_clean = (product or "").strip()
+    isin_clean = (isin or "").strip()
+    if not product_clean and not isin_clean:
+        if total > 0:
+            return TransactionType.DEPOSIT
+        if total < 0:
+            return TransactionType.WITHDRAWAL
+        return None
+
+    if quantity < 0:
+        return TransactionType.SELL
+    if quantity > 0:
+        return TransactionType.BUY
+    if total != 0 and not product_clean:
+        return TransactionType.FEE
     return None
 
 
