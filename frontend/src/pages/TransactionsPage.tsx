@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  Box,
   Button,
   Flex,
   FormControl,
@@ -53,7 +54,7 @@ type SortField =
   | "transaction_type"
   | "source_platform"
   | "quantity"
-  | "price_eur";
+  | "total_eur";
 
 const SORT_COLUMNS: { key: SortField; label: string; align?: "right" }[] = [
   { key: "occurred_at", label: "Datum" },
@@ -61,7 +62,7 @@ const SORT_COLUMNS: { key: SortField; label: string; align?: "right" }[] = [
   { key: "transaction_type", label: "Type" },
   { key: "source_platform", label: "Platform" },
   { key: "quantity", label: "Aantal", align: "right" },
-  { key: "price_eur", label: "Prijs", align: "right" },
+  { key: "total_eur", label: "Bedrag (EUR)", align: "right" },
 ];
 
 const selectSx = {
@@ -442,7 +443,22 @@ export default function TransactionsPage() {
                   <Td color="ink.dim">{platformLabel(tx.source_platform)}</Td>
                   <Td isNumeric>{formatQuantity(tx.quantity)}</Td>
                   <Td isNumeric>
-                    {tx.price_eur ? formatEur(tx.price_eur) : "—"}
+                    {tx.total_eur ? (
+                      <Box>
+                        <Text>{formatEur(tx.total_eur)}</Text>
+                        {tx.price_eur &&
+                          parseFloat(tx.quantity) > 1 &&
+                          tx.transaction_type === "buy" && (
+                            <Text fontSize="xs" color="ink.faint">
+                              {formatEur(tx.price_eur)} / st.
+                            </Text>
+                          )}
+                      </Box>
+                    ) : tx.price_eur ? (
+                      formatEur(tx.price_eur)
+                    ) : (
+                      "—"
+                    )}
                   </Td>
                 </Tr>
               ))}

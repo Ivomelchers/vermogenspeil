@@ -9,6 +9,7 @@ from apps.portfolio.services.returns import compute_return_summary
 from apps.portfolio.services.valuation import (
     asset_type_label,
     fetch_live_prices_for_positions,
+    position_cost_value_eur,
     position_value_eur,
 )
 from apps.portfolio.services.value_history import compute_hero_delta_30d, compute_value_history
@@ -80,6 +81,7 @@ def build_dashboard_summary(user) -> dict:
         label = asset_type_label(position.asset.asset_type)
         category_totals[label] = category_totals.get(label, Decimal(0)) + value
 
+        cost_basis = position_cost_value_eur(position).quantize(Decimal("0.01"))
         row = {
             "id": position.id,
             "asset_id": position.asset_id,
@@ -90,8 +92,11 @@ def build_dashboard_summary(user) -> dict:
             "category_label": label,
             "quantity": _decimal_str(position.quantity),
             "value_eur": _decimal_str(value),
+            "cost_basis_eur": _decimal_str(cost_basis),
             "valuation_source": source,
         }
+        if position.average_cost_eur and position.average_cost_eur > 0:
+            row["average_cost_eur"] = _decimal_str(position.average_cost_eur)
         symbol_key = position.asset.symbol.upper()
         if symbol_key in live_prices:
             row["unit_price_eur"] = _decimal_str(live_prices[symbol_key].price_eur)
@@ -191,6 +196,8 @@ def build_dashboard_summary(user) -> dict:
         "total_value_eur": _decimal_str(total),
         "returns": {
             "invested_eur": _decimal_str(returns["invested_eur"]),
+            "cost_basis_eur": _decimal_str(returns["cost_basis_eur"]),
+            "total_buy_outflow_eur": _decimal_str(returns["total_buy_outflow_eur"]),
             "unrealized_return_eur": _decimal_str(returns["unrealized_return_eur"]),
             "unrealized_return_percent": _decimal_str(returns["unrealized_return_percent"]),
             "method": returns["method"],

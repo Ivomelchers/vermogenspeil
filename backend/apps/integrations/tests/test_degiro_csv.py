@@ -44,6 +44,14 @@ class DegiroParserTests(TestCase):
         self.assertEqual(result.rows[1].transaction_type, TransactionType.SELL)
         self.assertEqual(result.rows[0].external_id, "degiro-order-ord-1001")
 
+    def test_english_export_prefers_total_over_value_column(self):
+        """Engelse export: Total (-710) i.p.v. Value (-708) bij koop."""
+        content = load_text_fixture("degiro", "all-transaction-types.csv")
+        buy = next(
+            r for r in parse_degiro_csv(content).rows if r.transaction_type == TransactionType.BUY
+        )
+        self.assertEqual(buy.total_eur, Decimal("710.00"))
+
     def test_parse_all_transaction_types_fixture(self):
         content = load_text_fixture("degiro", "all-transaction-types.csv")
         result = parse_degiro_csv(content)

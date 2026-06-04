@@ -177,7 +177,7 @@ export default function DashboardPage() {
                     Vermogensontwikkeling <Text as="em">over tijd</Text>
                   </>
                 }
-                kicker="waarde versus cost basis · 12 maanden"
+                kicker="marktwaarde versus kostprijs · 12 maanden"
               />
               <FiscalCard elevated p={{ base: 4, md: 6 }}>
                 <PortfolioTrendChart

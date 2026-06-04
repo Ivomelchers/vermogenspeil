@@ -1,12 +1,10 @@
-import { Box, Flex, Text } from "@chakra-ui/react";
+import { Box, Flex, Text, Tooltip } from "@chakra-ui/react";
 
 import type { DashboardPosition } from "../../api/portfolio";
-import type { Position } from "../../api/portfolio";
 import { formatEur } from "../../utils/formatMoney";
 
 interface PositionPnLTableProps {
   dashboardPositions: DashboardPosition[];
-  detailPositions: Position[];
 }
 
 function parseNum(v: string | null | undefined): number {
@@ -17,18 +15,11 @@ function parseNum(v: string | null | undefined): number {
 
 export default function PositionPnLTable({
   dashboardPositions,
-  detailPositions,
 }: PositionPnLTableProps) {
-  const costByAssetId = new Map(
-    detailPositions.map((p) => [p.asset.id, parseNum(p.average_cost_eur)]),
-  );
-
   const rows = dashboardPositions
     .map((pos) => {
-      const qty = parseNum(pos.quantity);
       const value = parseNum(pos.value_eur);
-      const avgCost = pos.asset_id != null ? costByAssetId.get(pos.asset_id) ?? 0 : 0;
-      const invested = qty * avgCost;
+      const invested = parseNum(pos.cost_basis_eur);
       const pnl = value - invested;
       const pct = invested > 0 ? (pnl / invested) * 100 : 0;
       return { pos, invested, value, pnl, pct, hasCost: invested > 0 };
@@ -58,10 +49,19 @@ export default function PositionPnLTable({
           color="ink.faint"
           fontWeight={600}
           gap={2}
+          align="center"
         >
           <Box flex={2}>Asset</Box>
           <Box flex={1} textAlign="right">
-            Inleg
+            <Tooltip
+              label="Aantal × gemiddelde aankoopprijs per stuk (incl. kosten uit uw import)."
+              placement="top"
+              hasArrow
+            >
+              <Box as="span" borderBottom="1px dotted" borderColor="ink.faint" cursor="help">
+                Kostprijs
+              </Box>
+            </Tooltip>
           </Box>
           <Box flex={1} textAlign="right">
             Huidige waarde

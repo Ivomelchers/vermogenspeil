@@ -56,12 +56,13 @@ class DashboardInvestedAfterImportTests(TestCase):
         import_degiro_csv_for_user(self.user, content)
 
         summary = build_dashboard_summary(self.user)
-        invested = Decimal(summary["returns"]["invested_eur"])
-        self.assertGreater(invested, Decimal("100"))
+        cost_basis = Decimal(summary["returns"]["cost_basis_eur"])
+        self.assertGreater(cost_basis, Decimal("100"))
 
+        outflow = Decimal(summary["returns"]["total_buy_outflow_eur"])
         buys = Transaction.objects.filter(
             portfolio__user=self.user,
             transaction_type=TransactionType.BUY,
         )
         manual_sum = sum(transaction_buy_cash_outflow(tx) for tx in buys)
-        self.assertEqual(invested, manual_sum.quantize(Decimal("0.01")))
+        self.assertEqual(outflow, manual_sum.quantize(Decimal("0.01")))

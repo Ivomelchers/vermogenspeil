@@ -17,7 +17,7 @@ from apps.integrations.degiro.classification import (
     classify_degiro_row,
     is_cash_row,
 )
-from apps.integrations.degiro.column_prefs import prefer_totaal_in_resolver
+from apps.integrations.degiro.column_prefs import prefer_settlement_total_column
 from apps.integrations.degiro.column_schema import DEGIRO_SCHEMA
 from apps.integrations.degiro.fingerprint import degiro_fingerprint_score, degiro_missing_required
 from apps.portfolio.models import TransactionType
@@ -135,7 +135,7 @@ def parse_degiro_csv(
 
     if column_mapping:
         columns = build_resolver_from_mapping(DEGIRO_SCHEMA, header_map, column_mapping)
-        columns = prefer_totaal_in_resolver(columns, header_map)
+        columns = prefer_settlement_total_column(columns, header_map)
         if not columns.get("date") or not columns.get("total"):
             raise CsvParseError(
                 "Kolommapping mist verplichte velden (datum of totaal). "
@@ -150,7 +150,7 @@ def parse_degiro_csv(
                 f"Ontbrekende kolommen: {', '.join(missing) or 'onbekend format'}. "
                 "Download het bestand 'Transactions' uit uw DEGIRO-account."
             )
-        columns = prefer_totaal_in_resolver(
+        columns = prefer_settlement_total_column(
             build_column_resolver(DEGIRO_SCHEMA, header_map),
             header_map,
         )

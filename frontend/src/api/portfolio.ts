@@ -66,6 +66,8 @@ export interface DashboardPosition {
   category_label: string;
   quantity: string;
   value_eur: string;
+  cost_basis_eur?: string;
+  average_cost_eur?: string;
   valuation_source?: "market" | "cost_basis";
   unit_price_eur?: string;
   price_source?: string;
@@ -104,6 +106,8 @@ export interface DashboardMetricsTrust {
 
 export interface DashboardReturns {
   invested_eur: string;
+  cost_basis_eur?: string;
+  total_buy_outflow_eur?: string;
   unrealized_return_eur: string;
   unrealized_return_percent: string;
   method: string;

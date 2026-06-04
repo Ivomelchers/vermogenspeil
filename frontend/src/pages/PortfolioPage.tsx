@@ -187,10 +187,10 @@ export default function PortfolioPage() {
               <SectionHeader
                 title={
                   <>
-                    Waarde <Text as="em">vs. inleg</Text>
+                    Waarde <Text as="em">vs. kostprijs</Text>
                   </>
                 }
-                kicker="afgelopen 12 maanden · portefeuille tegenover cost basis"
+                kicker="afgelopen 12 maanden · marktwaarde tegenover kostprijs"
               />
               <FiscalCard elevated p={{ base: 4, md: 6 }}>
                 <PortfolioTrendChart
@@ -208,13 +208,10 @@ export default function PortfolioPage() {
                   Winst & verlies <Text as="em">per positie</Text>
                 </>
               }
-              kicker="gesorteerd op absolute P&L"
+              kicker="kostprijs vs. marktwaarde · gesorteerd op winst/verlies"
             />
             <FiscalCard elevated p={5}>
-              <PositionPnLTable
-                dashboardPositions={summary.positions}
-                detailPositions={detailPositions}
-              />
+              <PositionPnLTable dashboardPositions={summary.positions} />
             </FiscalCard>
           </MotionSection>
 

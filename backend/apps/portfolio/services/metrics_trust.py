@@ -93,7 +93,7 @@ def build_metrics_trust(
         sample = ", ".join(sorted(set(problem_buys))[:5])
         warnings.append(
             f"Koopregels zonder bedrag voor: {sample}. "
-            "‘Totaal ingelegd’ kan te laag zijn — draai backfill of import opnieuw."
+            "Kostprijs en rendement kunnen te laag zijn — import opnieuw of backfill."
         )
 
     return {

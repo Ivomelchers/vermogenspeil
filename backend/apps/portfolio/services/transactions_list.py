@@ -9,6 +9,7 @@ ALLOWED_SORT_FIELDS = {
     "source_platform": "source_platform",
     "quantity": "quantity",
     "price_eur": "price_eur",
+    "total_eur": "total_eur",
 }
 
 DEFAULT_PAGE_SIZE = 25
