@@ -117,6 +117,19 @@ def import_csv_for_user(
     }
     report.update(import_result)
 
+    from apps.pricing.services.instrument_service import resolve_after_csv_import
+
+    instrument_resolve = resolve_after_csv_import(parse_result)
+    report["instrument_resolve"] = {
+        "requested": instrument_resolve.requested,
+        "resolved": instrument_resolve.resolved,
+        "already_known": instrument_resolve.already_known,
+        "failed": instrument_resolve.failed,
+        "isins_failed": instrument_resolve.isins_failed[:10],
+    }
+    if instrument_resolve.failed:
+        report["has_import_gaps"] = True
+
     schema_analysis = None
     schema = get_column_schema(resolved_platform)
     if schema:

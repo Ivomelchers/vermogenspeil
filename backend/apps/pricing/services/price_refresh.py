@@ -7,6 +7,10 @@ from apps.pricing.services.symbol_registry import collect_live_price_items
 
 
 def refresh_all_live_prices(*, force: bool = True) -> dict:
+    from apps.pricing.services.instrument_service import resolve_unmapped_portfolio_isins
+
+    resolve_unmapped_portfolio_isins(max_calls=25)
+
     items = collect_live_price_items()
     if not items:
         return {"symbols_requested": 0, "symbols_priced": 0, "as_of": timezone.now().isoformat()}

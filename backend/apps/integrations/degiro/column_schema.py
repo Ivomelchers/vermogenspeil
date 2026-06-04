@@ -18,6 +18,13 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
         ColumnField("product", "Product", frozenset({"product", "security", "name"})),
         ColumnField("isin", "ISIN", frozenset({"isin", "symbol", "ticker"})),
         ColumnField(
+            "mic",
+            "MIC",
+            frozenset({"uitvoeringsplaats", "mic", "exchange", "exchange code"}),
+            required=False,
+            fingerprint=False,
+        ),
+        ColumnField(
             "description",
             "Description",
             frozenset(

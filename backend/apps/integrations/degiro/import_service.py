@@ -19,6 +19,8 @@ from apps.portfolio.models import (
 )
 from apps.portfolio.services import get_or_create_default_portfolio
 from apps.portfolio.services.position_costs import recompute_position_average_costs
+from apps.pricing.isin import looks_like_isin
+from apps.pricing.services.instrument_service import asset_type_for_isin
 
 
 def _asset_type_for_symbol(symbol: str, transaction_type: str) -> str:
@@ -27,8 +29,11 @@ def _asset_type_for_symbol(symbol: str, transaction_type: str) -> str:
         TransactionType.WITHDRAWAL,
     ):
         return AssetType.CASH
-    if len(symbol) == 12 and symbol.isalnum():
-        return AssetType.ETF if symbol.startswith("IE") else AssetType.STOCK
+    if looks_like_isin(symbol):
+        hinted = asset_type_for_isin(symbol)
+        if hinted:
+            return hinted
+        return AssetType.ETF if symbol.upper().startswith("IE") else AssetType.STOCK
     return AssetType.STOCK
 
 
@@ -75,7 +80,7 @@ def import_degiro_csv_for_user(
 
     for row in rows:
         asset_type = _asset_type_for_symbol(row.symbol, row.transaction_type)
-        asset, _ = Asset.objects.get_or_create(
+        asset, created = Asset.objects.get_or_create(
             user=user,
             symbol=row.symbol,
             defaults={
@@ -84,6 +89,9 @@ def import_degiro_csv_for_user(
                 "category": _category_for_asset_type(asset_type),
             },
         )
+        if not created and asset.asset_type == AssetType.OTHER and asset_type != AssetType.OTHER:
+            asset.asset_type = asset_type
+            asset.save(update_fields=["asset_type", "updated_at"])
 
         _, created = Transaction.objects.get_or_create(
             portfolio=portfolio,

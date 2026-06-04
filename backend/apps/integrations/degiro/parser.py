@@ -38,6 +38,7 @@ class DegiroRow:
     total_eur: Decimal
     occurred_at: datetime
     transaction_hash: str
+    mic: str = ""
 
 
 def _parse_decimal(value: str) -> Decimal:
@@ -158,6 +159,7 @@ def parse_degiro_csv(
     time_col = columns.get("time")
     product_col = columns.get("product")
     isin_col = columns.get("isin")
+    mic_col = columns.get("mic")
     desc_col = columns.get("description")
     qty_col = columns.get("quantity")
     price_col = columns.get("price")
@@ -186,6 +188,7 @@ def parse_degiro_csv(
 
         product = (raw.get(product_col) or "").strip() if product_col else ""
         isin = (raw.get(isin_col) or "").strip() if isin_col else ""
+        mic = _normalize_mic(raw.get(mic_col) or "") if mic_col else ""
         transaction_type = classify_degiro_row(
             description=description,
             quantity=quantity_raw,
@@ -257,6 +260,7 @@ def parse_degiro_csv(
                 total_eur=total_eur,
                 occurred_at=occurred_at,
                 transaction_hash=tx_hash,
+                mic=mic,
             )
         )
 
@@ -265,3 +269,10 @@ def parse_degiro_csv(
 
 def _normalize_header(name: str) -> str:
     return normalize_header(name)
+
+
+def _normalize_mic(value: str) -> str:
+    raw = (value or "").strip().upper()
+    if len(raw) == 4 and raw.isalpha():
+        return raw
+    return raw[:12]
