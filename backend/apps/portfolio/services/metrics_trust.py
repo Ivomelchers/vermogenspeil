@@ -52,14 +52,15 @@ def build_metrics_trust(
     )
 
     if missing_price_symbols and not significant_missing_prices:
+        symbols = ", ".join(missing_price_symbols[:5])
         warnings.append(
-            f"Geen live koers voor {', '.join(missing_price_symbols)} — "
-            "alleen kostprijs voor die positie(s)."
+            f"Voor {symbols} tonen we de aankooprijs (geen live koers beschikbaar)."
         )
     elif significant_missing_prices:
+        symbols = ", ".join(missing_price_symbols[:5])
         warnings.append(
-            f"Actuele koersen ontbreken voor {', '.join(missing_price_symbols)} "
-            f"({int(missing_share * 100)}% van portefeuillewaarde op kostprijs)."
+            f"Koersen ontbreken voor {symbols} "
+            f"({int(missing_share * 100)}% van de waarde op aankooprijs)."
         )
 
     ytd_trusted = True
@@ -69,14 +70,12 @@ def build_metrics_trust(
         if significant_missing_prices and current_method != "market":
             ytd_trusted = False
             warnings.append(
-                "Rendement dit jaar is indicatief: een groot deel van de waarde "
-                "heeft geen marktprijs."
+                "Rendement dit jaar is een schatting: een groot deel heeft geen live koers."
             )
         elif start_method == "peildatum_snapshot" and current_method == "cost_basis":
             ytd_trusted = False
             warnings.append(
-                "Rendement dit jaar vergelijkt peildatum-snapshot met louter kostprijs — "
-                "kan afwijken tot koersen beschikbaar zijn."
+                "Rendement dit jaar kan afwijken tot alle koersen beschikbaar zijn."
             )
 
     problem_buys: list[str] = []
@@ -92,8 +91,8 @@ def build_metrics_trust(
     if problem_buys:
         sample = ", ".join(sorted(set(problem_buys))[:5])
         warnings.append(
-            f"Koopregels zonder bedrag voor: {sample}. "
-            "Kostprijs en rendement kunnen te laag zijn — import opnieuw of backfill."
+            f"Sommige aankopen missen een bedrag ({sample}). "
+            "Importeer opnieuw of neem contact op met support."
         )
 
     return {

@@ -165,7 +165,7 @@ export default function DashboardPage() {
                     Portefeuille <Text as="em">inzichten</Text>
                   </>
                 }
-                kicker="all-time · alle platformen"
+                kicker="overzicht · alle platformen"
               />
               <InsightGrid summary={summary} />
             </Box>

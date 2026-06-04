@@ -148,7 +148,7 @@ export default function PortfolioPage() {
                   Portefeuille <Text as="em">inzichten</Text>
                 </>
               }
-              kicker="all-time · alle platformen"
+              kicker="overzicht · alle platformen"
             />
             <InsightGrid summary={summary} />
           </MotionSection>

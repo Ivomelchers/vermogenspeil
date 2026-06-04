@@ -31,13 +31,13 @@ def compute_return_summary(portfolio, live_prices: dict[str, PriceQuote] | None 
 
     if market_positions == total_positions and total_positions > 0:
         method = "market"
-        note = "Winst/verlies t.o.v. kostprijs van uw huidige posities (live koersen)."
+        note = "Winst op wat u nu nog bezit (live koersen)."
     elif market_positions > 0:
         method = "mixed"
-        note = "Deels marktwaarde, deels kostprijs voor posities zonder koers."
+        note = "Deels live koers, deels aankooprijs."
     else:
         method = "cost_basis"
-        note = "Waarde en kostprijs op basis van transacties — geen live koersen."
+        note = "Geen live koersen — waarde op aankooprijs."
 
     return {
         "invested_eur": cost_basis.quantize(Decimal("0.01")),

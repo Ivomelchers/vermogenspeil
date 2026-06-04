@@ -54,12 +54,12 @@ export default function PositionPnLTable({
           <Box flex={2}>Asset</Box>
           <Box flex={1} textAlign="right">
             <Tooltip
-              label="Aantal × gemiddelde aankoopprijs per stuk (incl. kosten uit uw import)."
+              label="Wat deze positie u nu kost (aantal × aankoopprijs). Kan lager zijn dan alle aankopen als u al verkocht heeft."
               placement="top"
               hasArrow
             >
               <Box as="span" borderBottom="1px dotted" borderColor="ink.faint" cursor="help">
-                Kostprijs
+                Ingelegd
               </Box>
             </Tooltip>
           </Box>
