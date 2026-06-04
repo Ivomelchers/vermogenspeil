@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from apps.portfolio.models import AssetType
 from apps.pricing.exceptions import PriceFetchError
+from apps.pricing.instrument_resolver import resolve_yahoo_ticker
 from apps.pricing.providers.base import LivePriceQuote
 
 logger = logging.getLogger(__name__)
@@ -14,20 +15,6 @@ EQUITY_ASSET_TYPES = frozenset(
         AssetType.FUND,
     }
 )
-
-# Nederlandse/Euronext-noteringen voor demo- en CSV-symbolen
-YAHOO_TICKER_ALIASES: dict[str, str] = {
-    "IWDA": "IWDA.AS",
-    "IWDA.L": "IWDA.AS",
-    "ASML": "ASML.AS",
-    "SHELL": "SHELL.AS",
-    "INGA": "INGA.AS",
-}
-
-
-def yahoo_ticker_for_symbol(symbol: str) -> str:
-    upper = symbol.upper().strip()
-    return YAHOO_TICKER_ALIASES.get(upper, upper)
 
 
 class YahooEquitiesProvider:
@@ -47,7 +34,7 @@ class YahooEquitiesProvider:
         except ImportError as exc:
             raise PriceFetchError("yfinance niet geïnstalleerd") from exc
 
-        ticker_map = {symbol.upper(): yahoo_ticker_for_symbol(symbol) for symbol in symbols}
+        ticker_map = {symbol.upper(): resolve_yahoo_ticker(symbol) for symbol in symbols}
         yahoo_symbols = list(dict.fromkeys(ticker_map.values()))
 
         from apps.pricing.yfinance_utils import suppress_yfinance_noise

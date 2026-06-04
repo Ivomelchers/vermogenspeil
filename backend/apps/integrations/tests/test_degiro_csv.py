@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -22,6 +24,12 @@ class DegiroParserTests(TestCase):
         self.assertTrue(
             all(r.transaction_type == TransactionType.BUY for r in result.rows),
         )
+
+    def test_total_column_prefers_totaal_eur_over_waarde_eur(self):
+        """NL-export met beide kolommen: parser moet Totaal EUR gebruiken (niet Waarde EUR)."""
+        content = load_text_fixture("degiro", "nl-export-waarde-and-totaal.csv")
+        row = parse_degiro_csv(content).rows[0]
+        self.assertEqual(row.total_eur, Decimal("125.20"))
 
     def test_parse_dutch_nl_export_without_description_column(self):
         """Bètatester-export (NL UI): geen Description-kolom, wel Datum/Totaal EUR/Order ID."""
@@ -120,8 +128,8 @@ class DegiroCsvUploadAPITests(APITestCase):
         )
 
         response = self.client.post(
-            "/api/v1/integrations/connections/degiro/import/",
-            {"file": upload},
+            "/api/v1/integrations/csv/import/",
+            {"file": upload, "platform": "degiro"},
             format="multipart",
         )
 

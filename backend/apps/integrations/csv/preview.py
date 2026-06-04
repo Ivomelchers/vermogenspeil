@@ -7,6 +7,7 @@ from apps.integrations.csv.detection import detect_csv_platform, resolve_platfor
 from apps.integrations.csv.headers import read_csv_headers
 from apps.integrations.csv.column_schema import analyze_column_schema, schema_analysis_to_dict
 from apps.integrations.csv.diagnostics import record_csv_diagnostic
+from apps.integrations.csv.parse_pipeline import column_mapping_payload, parse_csv_with_resolution
 from apps.integrations.csv.registry import get_csv_parser, list_csv_platforms
 from apps.integrations.csv.schema_registry import get_column_schema
 from apps.integrations.models import CsvImportEvent
@@ -66,6 +67,7 @@ def _rejection(
         "can_confirm_import": False,
         "column_schema": None,
         "has_schema_warnings": False,
+        "column_mapping": column_mapping_payload(None),
     }
 
 
@@ -151,7 +153,11 @@ def preview_csv_for_user(
     schema_analysis = _analyze_schema(resolved_platform, normalized, original_headers)
 
     try:
-        parse_result = entry.parse(content)
+        parse_result, mapping_resolution = parse_csv_with_resolution(
+            entry,
+            content,
+            original_headers=original_headers,
+        )
     except CsvParseError as exc:
         return _rejection(
             failure_reason=FAILURE_PARSE,
@@ -255,6 +261,7 @@ def preview_csv_for_user(
         ),
         "column_schema": schema_payload,
         "has_schema_warnings": has_schema_warnings,
+        "column_mapping": column_mapping_payload(mapping_resolution),
     }
 
 

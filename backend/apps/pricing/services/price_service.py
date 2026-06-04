@@ -9,7 +9,11 @@ from django.utils import timezone
 
 from apps.portfolio.models import AssetType
 from apps.pricing.exceptions import PriceFetchError
-from apps.pricing.providers import BitvavoCryptoProvider, YahooEquitiesProvider
+from apps.pricing.providers import (
+    BitvavoCryptoProvider,
+    CoinGeckoCryptoProvider,
+    YahooEquitiesProvider,
+)
 from apps.pricing.providers.base import LivePriceProvider, LivePriceQuote
 from apps.pricing.services.cache_keys import historical_price_cache_key, live_price_cache_key
 
@@ -32,10 +36,7 @@ class PriceService:
     """Centrale koerslaag met Redis/locmem-cache en fallback per asset-type."""
 
     def __init__(self, providers: list[LivePriceProvider] | None = None):
-        self.providers = providers or [
-            BitvavoCryptoProvider(),
-            YahooEquitiesProvider(),
-        ]
+        self.providers = providers or default_live_price_providers()
 
     def get_live_price_eur(self, symbol: str, asset_type: str) -> PriceQuote | None:
         quotes = self.get_live_prices([(symbol, asset_type)])
@@ -44,6 +45,8 @@ class PriceService:
     def get_live_prices(
         self,
         items: list[tuple[str, str]],
+        *,
+        force_refresh: bool = False,
     ) -> dict[str, PriceQuote]:
         if not items:
             return {}
@@ -54,7 +57,7 @@ class PriceService:
 
         for symbol, asset_type in normalized:
             cache_key = live_price_cache_key(symbol, asset_type)
-            cached = cache.get(cache_key)
+            cached = None if force_refresh else cache.get(cache_key)
             if cached is not None:
                 result[symbol] = PriceQuote(
                     symbol=symbol,
@@ -113,32 +116,50 @@ class PriceService:
         self,
         items: list[tuple[str, str]],
     ) -> dict[str, LivePriceQuote]:
-        by_provider: dict[LivePriceProvider, list[str]] = {}
-        asset_type_by_symbol = {symbol: asset_type for symbol, asset_type in items}
-
+        """Per asset-type: probeer providers op volgorde tot elk symbool een koers heeft."""
+        by_type: dict[str, list[str]] = {}
         for symbol, asset_type in items:
-            provider = self._provider_for(asset_type)
-            if provider is None:
-                continue
-            by_provider.setdefault(provider, []).append(symbol)
+            by_type.setdefault(asset_type, []).append(symbol)
 
         merged: dict[str, LivePriceQuote] = {}
-        for provider, symbols in by_provider.items():
-            unique_symbols = list(dict.fromkeys(symbols))
-            try:
-                quotes = provider.fetch_live_prices(unique_symbols)
-            except PriceFetchError as exc:
-                logger.warning("Koersprovider %s mislukt: %s", provider.__class__.__name__, exc)
+        for asset_type, symbols in by_type.items():
+            providers = self._providers_for(asset_type)
+            if not providers:
                 continue
-            merged.update(quotes)
+            pending = list(dict.fromkeys(s.upper() for s in symbols))
+            for provider in providers:
+                if not pending:
+                    break
+                try:
+                    quotes = provider.fetch_live_prices(pending)
+                except PriceFetchError as exc:
+                    logger.warning(
+                        "Koersprovider %s mislukt (%s): %s",
+                        provider.__class__.__name__,
+                        asset_type,
+                        exc,
+                    )
+                    continue
+                merged.update(quotes)
+                pending = [s for s in pending if s not in quotes]
 
         return merged
 
-    def _provider_for(self, asset_type: str) -> LivePriceProvider | None:
-        for provider in self.providers:
-            if provider.supports_asset_type(asset_type):
-                return provider
-        return None
+    def _providers_for(self, asset_type: str) -> list[LivePriceProvider]:
+        return [p for p in self.providers if p.supports_asset_type(asset_type)]
+
+
+def default_live_price_providers() -> list[LivePriceProvider]:
+    """
+    Gratis stack (beste beschikbaar zonder betaalde feed):
+    - Crypto: Bitvavo publiek → CoinGecko (batch, optioneel Demo-key)
+    - ETF/aandelen/fondsen: Yahoo Finance (yfinance)
+    """
+    return [
+        BitvavoCryptoProvider(),
+        CoinGeckoCryptoProvider(),
+        YahooEquitiesProvider(),
+    ]
 
 
 def get_price_service() -> PriceService:

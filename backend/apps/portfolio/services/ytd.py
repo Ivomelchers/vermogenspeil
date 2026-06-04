@@ -28,9 +28,27 @@ def compute_ytd_summary(portfolio: Portfolio, user, *, year: int | None = None) 
     live_prices = fetch_live_prices_for_positions(positions)
 
     current = Decimal(0)
+    market_positions = 0
+    valued_positions = 0
     for position in positions:
-        value, _ = position_value_eur(position, live_prices=live_prices)
+        if position.quantity <= 0:
+            continue
+        value, source = position_value_eur(position, live_prices=live_prices)
+        if value <= 0:
+            continue
+        valued_positions += 1
         current += value
+        if source == "market":
+            market_positions += 1
+
+    if valued_positions == 0:
+        current_method = "cost_basis"
+    elif market_positions == valued_positions:
+        current_method = "market"
+    elif market_positions > 0:
+        current_method = "mixed"
+    else:
+        current_method = "cost_basis"
 
     snapshot = PeilDatumSnapshot.objects.filter(user=user, year=year).first()
     if snapshot and snapshot.data.get("has_portfolio"):
@@ -52,17 +70,25 @@ def compute_ytd_summary(portfolio: Portfolio, user, *, year: int | None = None) 
 
     gain = current - start
     pct = (gain / start * Decimal(100)) if start > 0 else Decimal(0)
+    trusted = True
+    if current_method == "cost_basis" and current > 0:
+        trusted = False
+    if current_method == "mixed" and market_positions == 0:
+        trusted = False
+    if start_method == "peildatum_snapshot" and current_method == "cost_basis":
+        trusted = False
 
     return {
         "year": year,
         "available": True,
+        "trusted": trusted,
         "start_value_eur": _decimal_str(start),
         "current_value_eur": _decimal_str(current),
         "ytd_return_eur": _decimal_str(gain),
         "ytd_return_percent": _decimal_str(pct),
         "start_method": start_method,
         "start_as_of": start_label,
-        "current_method": "market" if live_prices else "cost_basis",
+        "current_method": current_method,
         "note": (
             "YTD: verschil tussen huidige waarde en startwaarde dit jaar "
             "(peildatum-snapshot of koersen op 1 januari)."

@@ -12,6 +12,7 @@ from apps.portfolio.services.valuation import (
     position_value_eur,
 )
 from apps.portfolio.services.value_history import compute_hero_delta_30d, compute_value_history
+from apps.portfolio.services.metrics_trust import build_metrics_trust
 from apps.portfolio.services.ytd import compute_ytd_summary
 
 
@@ -31,7 +32,7 @@ def _resolve_valuation_method(market_count: int, total_positions: int) -> str:
 
 def _valuation_note(method: str) -> str:
     notes = {
-        "market": "Waarde op basis van live marktprijzen (cache 15 min).",
+        "market": "Waarde op basis van live marktprijzen (cache 5 min, achtergrond refresh).",
         "mixed": "Deels marktwaarde, deels kostprijs waar geen koers beschikbaar is.",
         "cost_basis": "Waarde op basis van kostprijs — geen live koersen beschikbaar.",
     }
@@ -151,6 +152,12 @@ def build_dashboard_summary(user) -> dict:
     from apps.portfolio.services.movers import compute_all_top_movers
 
     movers = compute_all_top_movers(portfolio)
+    metrics_trust = build_metrics_trust(
+        portfolio,
+        live_prices=live_prices,
+        valuation_method=valuation_method,
+        ytd=ytd,
+    )
 
     recent_activity = []
     for tx in (
@@ -190,6 +197,7 @@ def build_dashboard_summary(user) -> dict:
             "note": returns["note"],
         },
         "ytd": ytd,
+        "metrics_trust": metrics_trust,
         "positions": position_rows,
         "by_category": by_category,
         "platforms": platforms,

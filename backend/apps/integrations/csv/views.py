@@ -1,4 +1,4 @@
-"""CSV-detectie en -import (alle ondersteunde brokers)."""
+"""CSV-detectie, preview en import (alle brokers)."""
 
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -6,60 +6,37 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.accounts.utils.responses import api_error, api_response
+from apps.integrations.api_helpers import linked_user_or_error, require_verified_email
 from apps.integrations.csv.base import CsvParseError
 from apps.integrations.csv.detection import detect_csv_platform
 from apps.integrations.csv.import_service import import_csv_for_user
 from apps.integrations.csv.preview import preview_csv_for_user
 from apps.integrations.csv.registry import list_csv_platforms
-from apps.integrations.views import _linked_user_or_error, _require_verified_email
-
-
-def _read_csv_upload(request):
-    upload = request.FILES.get("file")
-    if not upload:
-        return None, api_error(
-            message="Geen bestand ontvangen. Upload veld: file",
-            error="missing_file",
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    try:
-        return upload.read().decode("utf-8-sig"), None
-    except UnicodeDecodeError:
-        return None, api_error(
-            message="CSV moet UTF-8 tekst zijn.",
-            error="invalid_encoding",
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+from apps.integrations.csv.upload_io import read_csv_upload
 
 
 class CsvPlatformsListView(APIView):
-    """Platforms met CSV-import (voor UI)."""
-
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
         return api_response(data={"platforms": list_csv_platforms()})
 
 
 class CsvDetectView(APIView):
-    """Herken platform uit kolomkoppen — vóór import."""
-
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
+        if err := require_verified_email(user):
+            return err
 
-        verified_error = _require_verified_email(user)
-        if verified_error:
-            return verified_error
-
-        content, read_error = _read_csv_upload(request)
+        content, read_error = read_csv_upload(request)
         if read_error:
             return read_error
 
@@ -90,21 +67,17 @@ class CsvDetectView(APIView):
 
 
 class CsvPreviewView(APIView):
-    """Dry-run: toon wat geïmporteerd zou worden, zonder database-write."""
-
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
+        if err := require_verified_email(user):
+            return err
 
-        verified_error = _require_verified_email(user)
-        if verified_error:
-            return verified_error
-
-        content, read_error = _read_csv_upload(request)
+        content, read_error = read_csv_upload(request)
         if read_error:
             return read_error
 
@@ -112,11 +85,7 @@ class CsvPreviewView(APIView):
         result = preview_csv_for_user(user, content, platform=platform)
 
         if result["status"] == "rejected":
-            return api_response(
-                data=result,
-                message=result["message"],
-                status=status.HTTP_200_OK,
-            )
+            return api_response(data=result, message=result["message"])
 
         return api_response(
             data=result,
@@ -128,21 +97,19 @@ class CsvPreviewView(APIView):
 
 
 class CsvImportView(APIView):
-    """Importeer transactie-CSV met detectie of expliciet platform."""
+    """Enige import-endpoint voor CSV (DEGIRO en toekomstige brokers)."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
+        if err := require_verified_email(user):
+            return err
 
-        verified_error = _require_verified_email(user)
-        if verified_error:
-            return verified_error
-
-        content, read_error = _read_csv_upload(request)
+        content, read_error = read_csv_upload(request)
         if read_error:
             return read_error
 

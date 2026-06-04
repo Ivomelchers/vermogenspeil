@@ -171,9 +171,12 @@ CACHES = {
     }
 }
 
-# Koers-cache (TRAP 8)
-PRICE_CACHE_TTL_LIVE_SECONDS = 15 * 60
+# Koers-cache: live 5 min (env override); historisch 24 uur
+PRICE_CACHE_TTL_LIVE_SECONDS = int(
+    os.environ.get("PRICE_CACHE_TTL_LIVE_SECONDS", str(5 * 60))
+)
 PRICE_CACHE_TTL_HISTORICAL_SECONDS = 24 * 60 * 60
+COINGECKO_API_KEY = os.environ.get("COINGECKO_API_KEY", "")
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -184,6 +187,10 @@ CELERY_BEAT_SCHEDULE = {
     "annual-peildatum-snapshot": {
         "task": "apps.snapshots.tasks.run_annual_peildatum_snapshots",
         "schedule": crontab(minute=0, hour=0, day_of_month=1, month_of_year=1),
+    },
+    "refresh-live-prices": {
+        "task": "apps.pricing.tasks.refresh_live_prices",
+        "schedule": crontab(minute="*/5"),
     },
 }
 
@@ -206,6 +213,16 @@ PREMIUM_UNLOCKED_FOR_ALL = os.environ.get("PREMIUM_UNLOCKED_FOR_ALL", "true").lo
     "1",
     "yes",
 )
+
+# CSV-kolommapping: fallback als vaste aliases/fuzzy niet volstaan.
+# Standaard AAN wanneer OPENAI_API_KEY gezet is; uitzetten met CSV_AI_COLUMN_MAPPING=false
+_csv_ai_flag = os.environ.get("CSV_AI_COLUMN_MAPPING", "").strip().lower()
+if _csv_ai_flag:
+    CSV_AI_COLUMN_MAPPING = _csv_ai_flag in ("true", "1", "yes")
+else:
+    CSV_AI_COLUMN_MAPPING = bool(os.environ.get("OPENAI_API_KEY", ""))
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+CSV_AI_COLUMN_MODEL = os.environ.get("CSV_AI_COLUMN_MODEL", "gpt-4o-mini")
 
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "")

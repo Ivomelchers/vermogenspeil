@@ -833,13 +833,18 @@
                   "key": "file",
                   "type": "file",
                   "src": "backend/fixtures/degiro/sample-transactions.csv"
+                },
+                {
+                  "key": "platform",
+                  "value": "degiro",
+                  "type": "text"
                 }
               ]
             },
             "url": {
-              "raw": "{{baseUrl}}/integrations/connections/degiro/import/",
+              "raw": "{{baseUrl}}/integrations/csv/import/",
               "host": ["{{baseUrl}}"],
-              "path": ["integrations", "connections", "degiro", "import", ""]
+              "path": ["integrations", "csv", "import", ""]
             },
             "description": "Upload voorbeeld-CSV uit repo. Postman: kies bestand via file-picker (pad relatief t.o.v. collection werkt niet overal)."
           },

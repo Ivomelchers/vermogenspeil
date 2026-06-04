@@ -18,6 +18,7 @@ from apps.portfolio.models import (
     VermogensCategorie,
 )
 from apps.portfolio.services import get_or_create_default_portfolio
+from apps.portfolio.services.position_costs import recompute_position_average_costs
 
 
 def _asset_type_for_symbol(symbol: str, transaction_type: str) -> str:
@@ -107,6 +108,7 @@ def import_degiro_csv_for_user(
             skipped += 1
 
     _rebuild_positions_from_transactions(portfolio)
+    recompute_position_average_costs(portfolio)
 
     if new_occurred_times:
         from apps.snapshots.services.recalculate import maybe_recalculate_peildatum_snapshots

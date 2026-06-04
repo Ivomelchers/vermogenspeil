@@ -31,21 +31,9 @@ def quantity_on_date(portfolio: Portfolio, asset_id: int, on_date: date) -> Deci
 
 
 def _average_cost_eur(portfolio: Portfolio, asset_id: int) -> Decimal | None:
-    buys = portfolio.transactions.filter(
-        asset_id=asset_id,
-        transaction_type=TransactionType.BUY,
-    )
-    total_qty = Decimal(0)
-    total_cost = Decimal(0)
-    for tx in buys:
-        total_qty += tx.quantity
-        if tx.total_eur is not None:
-            total_cost += Decimal(tx.total_eur)
-        elif tx.price_eur is not None:
-            total_cost += tx.quantity * Decimal(tx.price_eur)
-    if total_qty <= 0:
-        return None
-    return (total_cost / total_qty).quantize(Decimal("0.000001"))
+    from apps.portfolio.services.transaction_amounts import average_buy_unit_cost_eur
+
+    return average_buy_unit_cost_eur(portfolio, asset_id)
 
 
 def position_value_on_peildatum(

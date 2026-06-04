@@ -165,6 +165,15 @@ def analyze_column_schema(
                 }
             )
 
+    if schema.platform == "degiro":
+        from apps.integrations.degiro.column_prefs import prefer_totaal_eur_column
+
+        mapped_columns = prefer_totaal_eur_column(mapped_columns, norm_to_original)
+        if mapped_columns.get("total") == norm_to_original.get("totaal eur"):
+            consumed_normalized.discard("waarde eur")
+            consumed_normalized.add("totaal eur")
+            unmapped_normalized = normalized_headers - consumed_normalized
+
     _check_amount_column_drift(
         schema,
         mapped_columns,
@@ -172,6 +181,11 @@ def analyze_column_schema(
         norm_to_original,
         schema_warnings,
     )
+
+    unmapped_headers = [
+        norm_to_original.get(n, n)
+        for n in sorted(normalized_headers - consumed_normalized)
+    ]
 
     for unmapped in unmapped_headers:
         if any(s["file_header"] == unmapped for s in suggested_aliases):

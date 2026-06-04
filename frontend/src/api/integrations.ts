@@ -113,8 +113,6 @@ export interface CsvImportResult {
 }
 
 /** @deprecated Gebruik CsvImportResult */
-export type DegiroCsvImportResult = CsvImportResult;
-
 export interface CsvDetectionMatch {
   platform: string;
   platform_display: string;
@@ -188,6 +186,18 @@ export interface CsvColumnSchemaReport {
   has_warnings: boolean;
 }
 
+/** Hoe kolommen gekoppeld zijn: schema (normaal), fuzzy, of AI-fallback. */
+export interface CsvColumnMappingReport {
+  source: string;
+  mapped_columns: Record<string, string>;
+  missing_required: string[];
+  suggested_aliases: CsvSuggestedAlias[];
+  maintenance_snippets: string[];
+  ai_used: boolean;
+  parser_ready: boolean;
+  ai_available: boolean;
+}
+
 export interface CsvPreviewResult {
   status: "ok" | "rejected";
   failure_reason: CsvPreviewFailureReason | null;
@@ -205,6 +215,7 @@ export interface CsvPreviewResult {
   has_import_gaps: boolean;
   has_schema_warnings?: boolean;
   column_schema?: CsvColumnSchemaReport | null;
+  column_mapping?: CsvColumnMappingReport;
   can_confirm_import: boolean;
   confirm_hint: string;
 }
@@ -261,13 +272,6 @@ export async function importPlatformCsv(
     },
   );
   return response.data.data;
-}
-
-export async function importDegiroCsv(
-  file: File,
-  label?: string,
-): Promise<CsvImportResult> {
-  return importPlatformCsv(file, { platform: "degiro", label });
 }
 
 export async function pollSyncJob(

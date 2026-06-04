@@ -84,12 +84,22 @@ export interface DashboardPlatform {
 export interface DashboardYtd {
   year: number;
   available: boolean;
+  trusted?: boolean;
   start_value_eur?: string;
   current_value_eur?: string;
   ytd_return_eur?: string;
   ytd_return_percent?: string;
   start_method?: string;
+  current_method?: string;
   note?: string;
+}
+
+export interface DashboardMetricsTrust {
+  invested_trusted: boolean;
+  ytd_trusted: boolean;
+  has_warnings: boolean;
+  warnings: string[];
+  missing_price_symbols: string[];
 }
 
 export interface DashboardReturns {
@@ -159,6 +169,7 @@ export interface DashboardSummary {
   total_value_eur: string;
   returns?: DashboardReturns;
   ytd?: DashboardYtd;
+  metrics_trust?: DashboardMetricsTrust;
   positions: DashboardPosition[];
   by_category: DashboardCategory[];
   platforms: DashboardPlatform[];

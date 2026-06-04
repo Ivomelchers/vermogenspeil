@@ -1,4 +1,4 @@
-import { SimpleGrid } from "@chakra-ui/react";
+import { Box, SimpleGrid, Text } from "@chakra-ui/react";
 
 import type { DashboardSummary } from "../../api/portfolio";
 import InsightCard from "../common/InsightCard";
@@ -19,13 +19,44 @@ export default function InsightGrid({ summary }: InsightGridProps) {
     return null;
   }
 
+  const trust = summary.metrics_trust;
+  const showInvested = invested > 0 && (trust?.invested_trusted ?? true);
+  const ytdTrusted = summary.ytd?.trusted !== false && (trust?.ytd_trusted ?? true);
+
   return (
+    <Box>
+      {trust?.has_warnings && (
+        <Box
+          mb={4}
+          p={3}
+          borderRadius="base"
+          border="1px solid"
+          borderColor="ochre.200"
+          bg="ochre.50"
+        >
+          {trust.warnings.map((w) => (
+            <Text
+              key={w}
+              fontSize="sm"
+              color="ink.primary"
+              mb={trust.warnings.length > 1 ? 1 : 0}
+            >
+              {w}
+            </Text>
+          ))}
+          {trust.missing_price_symbols && trust.missing_price_symbols.length > 0 && (
+            <Text fontSize="xs" color="ink.faint" mt={1}>
+              Symbolen zonder live koers: {trust.missing_price_symbols.join(", ")}
+            </Text>
+          )}
+        </Box>
+      )}
     <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={4}>
-      {invested > 0 && (
+      {showInvested && (
         <InsightCard
           label="Totaal ingelegd"
           value={formatEur(returns!.invested_eur)}
-          delta="cost basis · alle aankopen"
+          delta="alle kooptransacties (incl. kosten)"
           accent="ochre"
         />
       )}
@@ -48,14 +79,19 @@ export default function InsightGrid({ summary }: InsightGridProps) {
       )}
       {summary.ytd?.available && (
         <InsightCard
-          label={`Rendement YTD ${summary.ytd.year}`}
+          label={`Rendement YTD ${summary.ytd.year}${ytdTrusted ? "" : " (indicatief)"}`}
           value={`${parseFloat(summary.ytd.ytd_return_eur ?? "0") >= 0 ? "+" : ""}${formatEur(summary.ytd.ytd_return_eur ?? "0")}`}
-          delta={`${summary.ytd.ytd_return_percent}% t.o.v. peildatum`}
+          delta={
+            ytdTrusted
+              ? `${summary.ytd.ytd_return_percent}% t.o.v. start dit jaar`
+              : "wacht op betrouwbare koersen"
+          }
           tone={
             parseFloat(summary.ytd.ytd_return_eur ?? "0") >= 0 ? "positive" : "negative"
           }
         />
       )}
     </SimpleGrid>
+    </Box>
   );
 }

@@ -214,6 +214,39 @@ export default function CsvImportWizard({
                 </Text>
               </Flex>
 
+              {preview.column_mapping?.ai_used && (
+                <Box
+                  p={4}
+                  border="1px solid"
+                  borderColor="azure.200"
+                  borderRadius="base"
+                  bg="azure.50"
+                >
+                  <Text fontSize="sm" fontWeight={600} mb={2}>
+                    Kolommen via AI gekoppeld (eenmalig)
+                  </Text>
+                  <Text fontSize="sm" color="ink.dim" mb={2}>
+                    De vaste parser herkende deze export niet. We hebben alleen de kolomkoppen
+                    laten koppelen; transacties worden nog steeds door onze eigen logica verwerkt.
+                    Voeg onderstaande aliases toe in de code zodat volgende imports zonder AI
+                    kunnen.
+                  </Text>
+                  {preview.column_mapping.maintenance_snippets.map((line) => (
+                    <Text
+                      key={line}
+                      as="code"
+                      display="block"
+                      fontSize="xs"
+                      whiteSpace="pre-wrap"
+                      color="ink.faint"
+                      mb={1}
+                    >
+                      {line}
+                    </Text>
+                  ))}
+                </Box>
+              )}
+
               {preview.has_schema_warnings && preview.column_schema && (
                 <Box
                   p={4}

@@ -8,7 +8,8 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from apps.portfolio.models import AssetType
-from apps.pricing.providers.yahoo_equities import EQUITY_ASSET_TYPES, yahoo_ticker_for_symbol
+from apps.pricing.instrument_resolver import resolve_yahoo_ticker
+from apps.pricing.providers.yahoo_equities import EQUITY_ASSET_TYPES
 from apps.pricing.services.cache_keys import historical_price_cache_key
 from apps.pricing.yfinance_utils import suppress_yfinance_noise
 
@@ -99,8 +100,20 @@ def _fetch_coingecko_history(symbol: str, on_date: date) -> tuple[Decimal | None
 
     date_str = on_date.strftime("%d-%m-%Y")
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/history"
+    headers: dict[str, str] = {}
+    from django.conf import settings
+
+    key = getattr(settings, "COINGECKO_API_KEY", "") or ""
+    if key:
+        headers["x-cg-demo-api-key"] = key
+
     try:
-        response = requests.get(url, params={"date": date_str, "localization": "false"}, timeout=15)
+        response = requests.get(
+            url,
+            params={"date": date_str, "localization": "false"},
+            headers=headers,
+            timeout=15,
+        )
         response.raise_for_status()
         payload = response.json()
         price_eur = payload.get("market_data", {}).get("current_price", {}).get("eur")
@@ -138,7 +151,7 @@ def _fetch_yahoo_history(symbol: str, on_date: date) -> tuple[Decimal | None, st
     except ImportError:
         return None, ""
 
-    ticker_symbol = yahoo_ticker_for_symbol(symbol)
+    ticker_symbol = resolve_yahoo_ticker(symbol)
     start = on_date - timedelta(days=7)
     end = on_date + timedelta(days=1)
 
@@ -172,7 +185,7 @@ def _yahoo_batch_for_date(symbols: list[str], on_date: date) -> dict[str, Decima
     except ImportError:
         return {}
 
-    ticker_map = {symbol.upper(): yahoo_ticker_for_symbol(symbol) for symbol in symbols}
+    ticker_map = {symbol.upper(): resolve_yahoo_ticker(symbol) for symbol in symbols}
     yahoo_symbols = list(dict.fromkeys(ticker_map.values()))
     start = on_date - timedelta(days=7)
     end = on_date + timedelta(days=1)

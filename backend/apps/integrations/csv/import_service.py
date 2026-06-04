@@ -5,6 +5,7 @@ from apps.integrations.csv.column_schema import analyze_column_schema, schema_an
 from apps.integrations.csv.detection import resolve_platform_for_import
 from apps.integrations.csv.diagnostics import record_csv_diagnostic
 from apps.integrations.csv.headers import read_csv_headers
+from apps.integrations.csv.parse_pipeline import column_mapping_payload, parse_csv_with_resolution
 from apps.integrations.csv.registry import get_csv_parser
 from apps.integrations.csv.schema_registry import get_column_schema
 from apps.integrations.models import CsvImportEvent
@@ -49,7 +50,16 @@ def import_csv_for_user(
     resolved_platform, detection = resolve_platform_for_import(content, platform=platform)
     entry = get_csv_parser(resolved_platform)
 
-    parse_result = entry.parse(content)
+    try:
+        _, _, original_headers = read_csv_headers(content)
+    except ValueError as exc:
+        raise CsvParseError(str(exc)) from exc
+
+    parse_result, mapping_resolution = parse_csv_with_resolution(
+        entry,
+        content,
+        original_headers=original_headers,
+    )
     if parse_result.rows_recognized == 0:
         unknown = parse_result.unknown_descriptions[:8]
         hint = f" Onbekende omschrijvingen: {', '.join(unknown)}." if unknown else ""
@@ -103,6 +113,7 @@ def import_csv_for_user(
             skipped_other=skipped_other,
         ),
         "has_import_gaps": bool(skipped_unrecognized or skipped_other),
+        "column_mapping": column_mapping_payload(mapping_resolution),
     }
     report.update(import_result)
 

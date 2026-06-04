@@ -85,11 +85,10 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
                     "mutation",
                     "mutatie",
                     "change",
-                    "waarde",
-                    "waarde eur",
                     "nettowaarde",
                 }
             ),
+            # NL-export heeft óók "Waarde EUR" — dat is géén afschrijfbedrag (zie local_value).
         ),
         ColumnField(
             "order_id",

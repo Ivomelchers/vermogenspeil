@@ -3,7 +3,8 @@ from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.integrations.degiro.import_service import import_degiro_csv_for_user
+from apps.integrations.csv.import_service import import_csv_for_user
+from apps.integrations.models import PlatformType
 
 User = get_user_model()
 
@@ -34,7 +35,12 @@ class Command(BaseCommand):
             raise CommandError(f"Bestand niet gevonden: {path}")
 
         content = path.read_text(encoding="utf-8-sig")
-        result = import_degiro_csv_for_user(user, content, label="DEGIRO (CSV fixture)")
+        result = import_csv_for_user(
+            user,
+            content,
+            platform=PlatformType.DEGIRO,
+            label="DEGIRO (CSV fixture)",
+        )
 
         self.stdout.write(
             self.style.SUCCESS(

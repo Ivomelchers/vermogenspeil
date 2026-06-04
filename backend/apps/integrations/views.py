@@ -1,9 +1,7 @@
 from rest_framework import status
-from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
-from apps.accounts.authentication import UnlinkedAuth0User
 from apps.accounts.utils.responses import api_error, api_response, first_validation_message
 from apps.integrations.base import PlatformAdapterError
 from apps.integrations.bitvavo.adapter import BitvavoPlatformAdapter
@@ -20,39 +18,17 @@ from apps.integrations.serializers import (
     SyncJobSerializer,
 )
 from apps.integrations.services.credentials import store_api_credentials
-from apps.integrations.csv.base import CsvParseError
-from apps.integrations.csv.import_service import import_csv_for_user
+from apps.integrations.api_helpers import linked_user_or_error, require_verified_email
 from apps.integrations.services.demo_seed import demo_features_enabled, seed_demo_for_user
 from apps.integrations.tasks import sync_platform_connection
 from apps.portfolio.services import get_or_create_default_portfolio
-
-
-def _linked_user_or_error(request):
-    user = request.user
-    if isinstance(user, UnlinkedAuth0User):
-        return None, api_error(
-            message="Account niet gekoppeld. Neem contact op met support.",
-            error="account_not_linked",
-            status=status.HTTP_403_FORBIDDEN,
-        )
-    return user, None
-
-
-def _require_verified_email(user):
-    if not user.email_verified:
-        return api_error(
-            message="Bevestig eerst uw e-mailadres voordat u een platform koppelt.",
-            error="email_not_verified",
-            status=status.HTTP_403_FORBIDDEN,
-        )
-    return None
 
 
 class PlatformConnectionListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
 
@@ -67,11 +43,11 @@ class BitvavoConnectView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
 
-        verified_error = _require_verified_email(user)
+        verified_error = require_verified_email(user)
         if verified_error:
             return verified_error
 
@@ -148,7 +124,7 @@ class PlatformConnectionDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, connection_id):
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
 
@@ -178,11 +154,11 @@ class PlatformSyncView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, connection_id):
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
 
-        verified_error = _require_verified_email(user)
+        verified_error = require_verified_email(user)
         if verified_error:
             return verified_error
 
@@ -213,7 +189,7 @@ class SyncJobDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, job_id):
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
 
@@ -252,7 +228,7 @@ class DemoSeedView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        user, error = _linked_user_or_error(request)
+        user, error = linked_user_or_error(request)
         if error:
             return error
 
@@ -271,60 +247,4 @@ class DemoSeedView(APIView):
                 "Voorbeelddata geladen: Bitvavo en DEGIRO (demo). "
                 "Geen echte broker-accounts nodig."
             ),
-        )
-
-
-class DegiroCsvImportView(APIView):
-    """Upload DEGIRO Transactions-CSV (legacy URL → generieke CSV-pipeline)."""
-
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
-    def post(self, request):
-        user, error = _linked_user_or_error(request)
-        if error:
-            return error
-
-        verified_error = _require_verified_email(user)
-        if verified_error:
-            return verified_error
-
-        upload = request.FILES.get("file")
-        if not upload:
-            return api_error(
-                message="Geen bestand ontvangen. Upload veld: file",
-                error="missing_file",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            content = upload.read().decode("utf-8-sig")
-        except UnicodeDecodeError:
-            return api_error(
-                message="CSV moet UTF-8 tekst zijn.",
-                error="invalid_encoding",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        label = request.data.get("label", "DEGIRO (CSV)")
-
-        try:
-            result = import_csv_for_user(
-                user,
-                content,
-                platform=PlatformType.DEGIRO,
-                label=label,
-            )
-        except CsvParseError as exc:
-            return api_error(
-                message=str(exc),
-                error="degiro_csv_invalid",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        message = result.get("trust_summary") or "DEGIRO CSV geïmporteerd."
-        return api_response(
-            data=result,
-            message=message,
-            status=status.HTTP_201_CREATED,
         )

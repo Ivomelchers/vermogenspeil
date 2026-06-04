@@ -65,6 +65,14 @@ def validate_csv_for_platform(content: str, platform: str) -> CsvDetectionMatch:
     )
 
     if score < MIN_EXPECTED_PLATFORM_SCORE:
+        if _platform_parseable_via_column_resolution(content, platform):
+            return CsvDetectionMatch(
+                platform=entry.platform,
+                platform_display=entry.platform_display,
+                confidence=round(max(score, MIN_EXPECTED_PLATFORM_SCORE), 4),
+                missing_headers=[],
+            )
+
         others = [
             m
             for m in detect_csv_platform(content)
@@ -83,6 +91,28 @@ def validate_csv_for_platform(content: str, platform: str) -> CsvDetectionMatch:
         )
 
     return match
+
+
+def _platform_parseable_via_column_resolution(content: str, platform: str) -> bool:
+    """Of fuzzy/AI-kolommapping voldoende is om te parsen (zonder live AI in tests)."""
+    from apps.integrations.csv.column_resolution import resolve_column_mapping
+    from apps.integrations.csv.headers import read_csv_headers
+    from apps.integrations.csv.schema_registry import get_column_schema
+
+    schema = get_column_schema(platform)
+    if not schema:
+        return False
+    try:
+        _, _, original_headers = read_csv_headers(content)
+    except ValueError:
+        return False
+    resolution = resolve_column_mapping(
+        schema,
+        original_headers=original_headers,
+        content=content,
+        use_ai=True,
+    )
+    return resolution.parser_ready
 
 
 def resolve_platform_for_import(

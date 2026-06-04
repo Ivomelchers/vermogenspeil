@@ -9,6 +9,7 @@ from decimal import Decimal, InvalidOperation
 from django.utils import timezone
 
 from apps.integrations.csv.base import CsvParseError, CsvParseResult, CsvSkippedRow
+from apps.integrations.csv.column_resolution import build_resolver_from_mapping
 from apps.integrations.csv.column_schema import build_column_resolver
 from apps.integrations.csv.headers import detect_delimiter, normalize_header
 from apps.integrations.degiro.classification import (
@@ -16,6 +17,7 @@ from apps.integrations.degiro.classification import (
     classify_degiro_row,
     is_cash_row,
 )
+from apps.integrations.degiro.column_prefs import prefer_totaal_in_resolver
 from apps.integrations.degiro.column_schema import DEGIRO_SCHEMA
 from apps.integrations.degiro.fingerprint import degiro_fingerprint_score, degiro_missing_required
 from apps.portfolio.models import TransactionType
@@ -97,7 +99,14 @@ def _amounts_for_row(
         return None
     total = abs(total)
     quantity = abs(quantity_raw) if quantity_raw > 0 else Decimal(1)
-    return quantity, None, total
+
+    price_eur: Decimal | None = None
+    if price_raw > 0:
+        price_eur = price_raw
+    elif quantity > 0 and total > 0:
+        price_eur = (total / quantity).quantize(Decimal("0.000001"))
+
+    return quantity, price_eur, total
 
 
 def _row_preview(raw: dict, max_len: int = 120) -> str:
@@ -106,7 +115,11 @@ def _row_preview(raw: dict, max_len: int = 120) -> str:
     return text[:max_len] + ("…" if len(text) > max_len else "")
 
 
-def parse_degiro_csv(content: str) -> CsvParseResult:
+def parse_degiro_csv(
+    content: str,
+    *,
+    column_mapping: dict[str, str] | None = None,
+) -> CsvParseResult:
     """Parse DEGIRO Transactions-export (komma of puntkomma)."""
     if not content.strip():
         raise CsvParseError("CSV-bestand is leeg.")
@@ -119,16 +132,28 @@ def parse_degiro_csv(content: str) -> CsvParseResult:
     header_map = {_normalize_header(name): name for name in reader.fieldnames if name}
     normalized_headers = set(header_map.keys())
 
-    score = degiro_fingerprint_score(normalized_headers)
-    if score < 0.85:
-        missing = degiro_missing_required(normalized_headers)
-        raise CsvParseError(
-            "Dit is geen herkende DEGIRO-transactie-export. "
-            f"Ontbrekende kolommen: {', '.join(missing) or 'onbekend format'}. "
-            "Download het bestand 'Transactions' uit uw DEGIRO-account."
+    if column_mapping:
+        columns = build_resolver_from_mapping(DEGIRO_SCHEMA, header_map, column_mapping)
+        columns = prefer_totaal_in_resolver(columns, header_map)
+        if not columns.get("date") or not columns.get("total"):
+            raise CsvParseError(
+                "Kolommapping mist verplichte velden (datum of totaal). "
+                "Controleer de export of meld nieuwe kolomnamen."
+            )
+    else:
+        score = degiro_fingerprint_score(normalized_headers)
+        if score < 0.85:
+            missing = degiro_missing_required(normalized_headers)
+            raise CsvParseError(
+                "Dit is geen herkende DEGIRO-transactie-export. "
+                f"Ontbrekende kolommen: {', '.join(missing) or 'onbekend format'}. "
+                "Download het bestand 'Transactions' uit uw DEGIRO-account."
+            )
+        columns = prefer_totaal_in_resolver(
+            build_column_resolver(DEGIRO_SCHEMA, header_map),
+            header_map,
         )
 
-    columns = build_column_resolver(DEGIRO_SCHEMA, header_map)
     date_col = columns.get("date")
     time_col = columns.get("time")
     product_col = columns.get("product")

@@ -8,7 +8,6 @@ from apps.integrations.csv.views import (
 )
 from apps.integrations.views import (
     BitvavoConnectView,
-    DegiroCsvImportView,
     DemoFeaturesStatusView,
     DemoSeedView,
     PlatformConnectionDeleteView,
@@ -33,7 +32,6 @@ urlpatterns = [
     path("sync-jobs/<int:job_id>/", SyncJobDetailView.as_view(), name="sync-job-detail"),
     path("demo/status/", DemoFeaturesStatusView.as_view(), name="demo-status"),
     path("demo/seed/", DemoSeedView.as_view(), name="demo-seed"),
-    path("connections/degiro/import/", DegiroCsvImportView.as_view(), name="degiro-csv-import"),
     path("csv/platforms/", CsvPlatformsListView.as_view(), name="csv-platforms"),
     path("csv/detect/", CsvDetectView.as_view(), name="csv-detect"),
     path("csv/preview/", CsvPreviewView.as_view(), name="csv-preview"),
