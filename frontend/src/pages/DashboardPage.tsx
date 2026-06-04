@@ -26,7 +26,7 @@ import { relevantTaxYear } from "../utils/taxYear";
 import AllocationChart from "../components/dashboard/AllocationChart";
 import DashboardHero from "../components/dashboard/DashboardHero";
 import DashboardPositionsTable from "../components/dashboard/DashboardPositionsTable";
-import InsightGrid from "../components/dashboard/InsightGrid";
+import PlatformFeesPlaceholder from "../components/dashboard/PlatformFeesPlaceholder";
 import PlatformStrip from "../components/dashboard/PlatformStrip";
 import PortfolioTrendChart from "../components/dashboard/PortfolioTrendChart";
 import RecentActivityFeed from "../components/dashboard/RecentActivityFeed";
@@ -162,18 +162,6 @@ export default function DashboardPage() {
               <SectionHeader
                 title={
                   <>
-                    Portefeuille <Text as="em">inzichten</Text>
-                  </>
-                }
-                kicker="overzicht · alle platformen"
-              />
-              <InsightGrid summary={summary} />
-            </Box>
-
-            <Box>
-              <SectionHeader
-                title={
-                  <>
                     Vermogensontwikkeling <Text as="em">over tijd</Text>
                   </>
                 }
@@ -182,7 +170,6 @@ export default function DashboardPage() {
               <FiscalCard elevated p={{ base: 4, md: 6 }}>
                 <PortfolioTrendChart
                   points={summary.value_history ?? []}
-                  valuationNote={summary.valuation_note}
                 />
               </FiscalCard>
             </Box>
@@ -285,6 +272,10 @@ export default function DashboardPage() {
               </Box>
             </Grid>
 
+            <Box>
+              <PlatformFeesPlaceholder />
+            </Box>
+
             <Text
               fontSize="xs"
               color="ink.faint"
@@ -293,7 +284,7 @@ export default function DashboardPage() {
               fontStyle="italic"
               pt={4}
             >
-              Fiscaal inzicht — geen fiscaal advies · MijnVermogen ©{" "}
+              Fiscaal inzicht — geen fiscaal advies · Verbox ©{" "}
               {new Date().getFullYear()}
             </Text>
           </VStack>

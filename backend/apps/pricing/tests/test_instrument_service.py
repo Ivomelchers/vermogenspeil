@@ -17,6 +17,16 @@ class InstrumentServiceTests(TestCase):
         self.assertTrue(InstrumentMapping.objects.filter(isin="IE00B4L5Y983").exists())
         self.assertEqual(resolve_yahoo_ticker("IE00B4L5Y983"), "IWDA.AS")
 
+    def test_sync_seed_fixes_openfigi_ticker(self):
+        row = InstrumentMapping.objects.get(isin="IE00BFMXXD54")
+        row.yahoo_ticker = "VUAA.L"
+        row.source = MappingSource.OPENFIGI
+        row.save(update_fields=["yahoo_ticker", "source", "updated_at"])
+        sync_seed_mappings()
+        row = InstrumentMapping.objects.get(isin="IE00BFMXXD54")
+        self.assertEqual(row.yahoo_ticker, "VUAA.AS")
+        self.assertEqual(row.source, MappingSource.SEED_JSON)
+
     @override_settings(OPENFIGI_ENABLED=True)
     @patch("apps.pricing.services.instrument_service.fetch_isin_match")
     def test_openfigi_creates_mapping(self, mock_fetch):

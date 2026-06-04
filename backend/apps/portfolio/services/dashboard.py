@@ -31,15 +31,6 @@ def _resolve_valuation_method(market_count: int, total_positions: int) -> str:
     return "cost_basis"
 
 
-def _valuation_note(method: str) -> str:
-    notes = {
-        "market": "Waarde op basis van live marktprijzen (cache 5 min, achtergrond refresh).",
-        "mixed": "Deels marktwaarde, deels kostprijs waar geen koers beschikbaar is.",
-        "cost_basis": "Waarde op basis van kostprijs — geen live koersen beschikbaar.",
-    }
-    return notes.get(method, notes["cost_basis"])
-
-
 def build_dashboard_summary(user) -> dict:
     portfolio = (
         Portfolio.objects.for_user(user).filter(is_default=True).first()
@@ -190,7 +181,6 @@ def build_dashboard_summary(user) -> dict:
         "portfolio_id": portfolio.id,
         "portfolio_name": portfolio.name,
         "valuation_method": valuation_method,
-        "valuation_note": _valuation_note(valuation_method),
         "prices_cached": bool(live_prices),
         "as_of": timezone.now().date().isoformat(),
         "total_value_eur": _decimal_str(total),
@@ -201,7 +191,6 @@ def build_dashboard_summary(user) -> dict:
             "unrealized_return_eur": _decimal_str(returns["unrealized_return_eur"]),
             "unrealized_return_percent": _decimal_str(returns["unrealized_return_percent"]),
             "method": returns["method"],
-            "note": returns["note"],
         },
         "ytd": ytd,
         "metrics_trust": metrics_trust,

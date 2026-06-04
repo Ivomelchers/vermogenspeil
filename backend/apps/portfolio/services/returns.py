@@ -31,13 +31,10 @@ def compute_return_summary(portfolio, live_prices: dict[str, PriceQuote] | None 
 
     if market_positions == total_positions and total_positions > 0:
         method = "market"
-        note = "Winst op wat u nu nog bezit (live koersen)."
     elif market_positions > 0:
         method = "mixed"
-        note = "Deels live koers, deels aankooprijs."
     else:
         method = "cost_basis"
-        note = "Geen live koersen — waarde op aankooprijs."
 
     return {
         "invested_eur": cost_basis.quantize(Decimal("0.01")),
@@ -47,5 +44,4 @@ def compute_return_summary(portfolio, live_prices: dict[str, PriceQuote] | None 
         "unrealized_return_eur": gain.quantize(Decimal("0.01")),
         "unrealized_return_percent": pct.quantize(Decimal("0.01")),
         "method": method,
-        "note": note,
     }

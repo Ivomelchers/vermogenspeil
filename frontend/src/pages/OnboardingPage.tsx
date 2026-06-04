@@ -20,7 +20,7 @@ import { getApiErrorMessage } from "../utils/apiError";
 
 const STEPS = [
   {
-    title: "Welkom bij Vermogenspeil",
+    title: "Welkom bij Verbox",
     body: [
       "U ziet hier uw vermogen en een voorbereiding op Box 3 — forfaitair en (met Premium) werkelijk rendement.",
       "Dit is een hulpmiddel voor uw aangifte, geen officieel Belastingdienst-kanaal. Controleer altijd de definitieve cijfers.",
@@ -38,7 +38,7 @@ const STEPS = [
   {
     title: "Belastingjaar & peildatum",
     body: [
-      "Leg de peildatum vast op 1 januari — daarna berekent Vermogenspeil uw forfaitaire Box 3.",
+      "Leg de peildatum vast op 1 januari — daarna berekent Verbox uw forfaitaire Box 3.",
       "Vul op /belasting eventueel banktegoeden, schulden en vastgoed aan en download een PDF-rapport.",
     ],
     cta: { label: "Naar belasting", to: "/belasting" },

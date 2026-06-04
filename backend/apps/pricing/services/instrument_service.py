@@ -40,16 +40,23 @@ def load_seed_json() -> dict[str, str]:
     return {str(k).upper(): str(v) for k, v in raw.items()}
 
 
-def sync_seed_mappings() -> int:
+def sync_seed_mappings() -> tuple[int, int]:
+    """Returns (created, updated). Overschrijft ook OpenFIGI-tickers in de seed."""
     created = 0
+    updated = 0
     for isin, ticker in load_seed_json().items():
-        _, was_created = InstrumentMapping.objects.update_or_create(
+        row, was_created = InstrumentMapping.objects.update_or_create(
             isin=isin,
             defaults={"yahoo_ticker": ticker, "source": MappingSource.SEED_JSON},
         )
         if was_created:
             created += 1
-    return created
+        elif row.yahoo_ticker != ticker or row.source != MappingSource.SEED_JSON:
+            row.yahoo_ticker = ticker
+            row.source = MappingSource.SEED_JSON
+            row.save(update_fields=["yahoo_ticker", "source", "updated_at"])
+            updated += 1
+    return created, updated
 
 
 def get_mapping(isin: str) -> InstrumentMapping | None:
@@ -77,7 +84,15 @@ def ensure_instrument_mapping(
 
     existing = InstrumentMapping.objects.filter(isin=upper).first()
     if existing:
-        if mic_hint and not existing.mic:
+        seed = load_seed_json()
+        if upper in seed and (
+            existing.yahoo_ticker != seed[upper]
+            or existing.source == MappingSource.OPENFIGI
+        ):
+            existing.yahoo_ticker = seed[upper]
+            existing.source = MappingSource.SEED_JSON
+            existing.save(update_fields=["yahoo_ticker", "source", "updated_at"])
+        elif mic_hint and not existing.mic:
             existing.mic = mic_hint.upper()
             existing.save(update_fields=["mic", "updated_at"])
         return existing

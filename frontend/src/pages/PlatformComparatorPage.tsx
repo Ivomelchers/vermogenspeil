@@ -16,6 +16,7 @@ import {
   type PlatformCategory,
 } from "../data/platformCatalog";
 import FiscalDisclaimer from "../components/common/FiscalDisclaimer";
+import { fiscalScrollbarSx } from "../styles/scrollbar";
 import ComparatorPlatformCard from "../components/platforms/ComparatorPlatformCard";
 import PlatformComparatorQuiz from "../components/platforms/PlatformComparatorQuiz";
 import PlatformDetailModal from "../components/platforms/PlatformDetailModal";
@@ -75,7 +76,7 @@ export default function PlatformComparatorPage() {
 
       <MotionSection>
         <FiscalDisclaimer>
-          <strong>Let op:</strong> gebaseerd op openbare gegevens. MijnVermogen biedt geen
+          <strong>Let op:</strong> gebaseerd op openbare gegevens. Verbox biedt geen
           beleggingsadvies. Alleen Bitvavo (API) en DEGIRO (CSV) zijn nu live koppelbaar; overige
           platformen staan in de catalogus.
         </FiscalDisclaimer>
@@ -143,13 +144,7 @@ export default function PlatformComparatorPage() {
                 <Box
                   overflowX="auto"
                   pb={2}
-                  sx={{
-                    "&::-webkit-scrollbar": { height: "6px" },
-                    "&::-webkit-scrollbar-thumb": {
-                      background: "var(--chakra-colors-line-DEFAULT)",
-                      borderRadius: "3px",
-                    },
-                  }}
+                  sx={fiscalScrollbarSx("horizontal")}
                 >
                   <Flex gap={4} py={1}>
                     {grouped[cat]!.map((platform) => (

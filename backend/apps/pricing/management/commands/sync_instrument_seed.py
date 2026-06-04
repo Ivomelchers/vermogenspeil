@@ -8,10 +8,11 @@ class Command(BaseCommand):
     help = "Synchroniseer euronext_isin_tickers.json naar InstrumentMapping (DB)"
 
     def handle(self, *args, **options):
-        created = sync_seed_mappings()
+        created, updated = sync_seed_mappings()
         total = InstrumentMapping.objects.count()
         self.stdout.write(
             self.style.SUCCESS(
-                f"Seed gesynchroniseerd ({created} nieuw). Totaal in DB: {total}."
+                f"Seed gesynchroniseerd ({created} nieuw, {updated} bijgewerkt). "
+                f"Totaal in DB: {total}."
             )
         )

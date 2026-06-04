@@ -3,7 +3,7 @@ Symbol/ISIN → Yahoo Finance ticker (platform-onafhankelijk).
 
 Laag 1: korte tickers (aliases)
 Laag 2: database InstrumentMapping
-Laag 3: seed JSON
+Laag 3: seed JSON (curated Euronext .AS — wint vóór OpenFIGI-fouten zoals VUAA.L)
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from apps.pricing.isin import looks_like_isin
+from apps.pricing.models import MappingSource
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,8 @@ SYMBOL_ALIASES: dict[str, str] = {
     "INGA": "INGA.AS",
     "VWCE": "VWCE.AS",
     "VUSA": "VUSA.AS",
+    "VUAA": "VUAA.AS",
+    "VUAA.L": "VUAA.AS",
 }
 
 
@@ -42,11 +45,22 @@ def _seed_map() -> dict[str, str]:
     return {str(k).upper(): str(v) for k, v in raw.items()}
 
 
-def _db_ticker(isin: str) -> str | None:
+def _db_mapping(isin: str):
     from apps.pricing.models import InstrumentMapping
 
-    row = InstrumentMapping.objects.filter(isin=isin.upper()).first()
-    return row.yahoo_ticker if row else None
+    return InstrumentMapping.objects.filter(isin=isin.upper()).first()
+
+
+def _effective_ticker_for_isin(isin: str) -> str | None:
+    """DB-ticker, tenzij seed een betere Euronext-ticker heeft dan OpenFIGI."""
+    upper = isin.upper()
+    row = _db_mapping(upper)
+    seed = _seed_map().get(upper)
+    if not row:
+        return seed
+    if seed and row.source == MappingSource.OPENFIGI and row.yahoo_ticker != seed:
+        return seed
+    return row.yahoo_ticker
 
 
 def resolve_yahoo_ticker(symbol: str) -> str:
@@ -54,8 +68,8 @@ def resolve_yahoo_ticker(symbol: str) -> str:
     if upper in SYMBOL_ALIASES:
         return SYMBOL_ALIASES[upper]
     if looks_like_isin(upper):
-        mapped = _db_ticker(upper) or _seed_map().get(upper)
-        return mapped if mapped else upper
+        ticker = _effective_ticker_for_isin(upper)
+        return ticker if ticker else upper
     return upper
 
 

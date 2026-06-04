@@ -1,0 +1,5 @@
+<svg width="360" height="120" viewBox="0 0 360 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Verbox — grip op je vermogen en box 3">
+  <g transform="translate(8,12) scale(0.8)"><path d="M32 60 L50 80" stroke="#fafaf7" stroke-width="12" stroke-linecap="round"/><path d="M50 80 L90 32" stroke="#b8934e" stroke-width="12" stroke-linecap="round"/></g>
+  <text x="116" y="64" font-family="'Source Serif 4', Georgia, serif" font-weight="600" font-size="52" letter-spacing="0.5" fill="#fafaf7">Ver<tspan fill="#b8934e">box</tspan></text>
+  <text x="118" y="89" font-family="'Inter', system-ui, sans-serif" font-weight="400" font-size="14.5" letter-spacing="0.2" fill="#aab4c9">grip op je vermogen en box 3</text>
+</svg>

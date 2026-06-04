@@ -49,3 +49,57 @@ def prefer_totaal_in_resolver(
 ) -> dict[str, str | None]:
     """Parser-resolver: canonical → CSV-kolomnaam."""
     return prefer_settlement_total_column(columns, header_map)
+
+
+def degiro_diagnostic_column_notes(
+    mapped_columns: dict[str, str],
+    norm_to_original: dict[str, str],
+) -> tuple[set[str], list[dict]]:
+    """
+    Kolommen die niet als 'unmapped' getoond worden + duidelijke info voor admin/preview.
+    """
+    exclude_normalized: set[str] = set()
+    notes: list[dict] = []
+
+    for subtotal_key, settlement_key in _SETTLEMENT_TOTAL_PAIRS:
+        if settlement_key not in norm_to_original:
+            continue
+        if mapped_columns.get("total") != norm_to_original.get(settlement_key):
+            continue
+        if subtotal_key in norm_to_original:
+            exclude_normalized.add(subtotal_key)
+            notes.append(
+                {
+                    "code": "column_by_design",
+                    "severity": "info",
+                    "message": (
+                        f"Kolom '{norm_to_original[subtotal_key]}' wordt bewust overgeslagen — "
+                        f"'{norm_to_original[settlement_key]}' is het transactiebedrag (incl. kosten)."
+                    ),
+                    "file_header": norm_to_original[subtotal_key],
+                }
+            )
+        break
+
+    optional_info = {
+        "beurs": (
+            "Kolom 'Beurs' is niet nodig voor de import; de beurs staat in 'Uitvoeringsplaats' (MIC)."
+        ),
+        "autofx kosten": (
+            "Kolom 'AutoFX Kosten' is optioneel; wisselkosten zitten meestal al in 'Totaal EUR'."
+        ),
+    }
+    for norm_key, message in optional_info.items():
+        if norm_key not in norm_to_original:
+            continue
+        exclude_normalized.add(norm_key)
+        notes.append(
+            {
+                "code": "column_optional",
+                "severity": "info",
+                "message": message,
+                "file_header": norm_to_original[norm_key],
+            }
+        )
+
+    return exclude_normalized, notes

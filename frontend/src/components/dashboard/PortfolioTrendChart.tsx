@@ -16,7 +16,6 @@ import { CHART_AXIS, CHART_GRID } from "./chartTheme";
 
 interface PortfolioTrendChartProps {
   points: DashboardValuePoint[];
-  valuationNote?: string;
 }
 
 function shortMonthLabel(isoDate: string): string {
@@ -68,10 +67,7 @@ function TrendTooltip({
   );
 }
 
-export default function PortfolioTrendChart({
-  points,
-  valuationNote,
-}: PortfolioTrendChartProps) {
+export default function PortfolioTrendChart({ points }: PortfolioTrendChartProps) {
   if (points.length === 0) {
     return (
       <Text fontSize="sm" color="ink.dim" lineHeight={1.6}>
@@ -140,12 +136,6 @@ export default function PortfolioTrendChart({
           </LineChart>
         </ResponsiveContainer>
       </Box>
-      {valuationNote && (
-        <Text fontSize="xs" color="taupe.500" mt={2} lineHeight={1.5}>
-          Historische punten op peildatum-koersen/kostprijs; laatste punt:{" "}
-          {valuationNote.toLowerCase()}
-        </Text>
-      )}
     </Box>
   );
 }

@@ -59,7 +59,7 @@ export default function PositionPnLTable({
               hasArrow
             >
               <Box as="span" borderBottom="1px dotted" borderColor="ink.faint" cursor="help">
-                Ingelegd
+                Totale inleg
               </Box>
             </Tooltip>
           </Box>

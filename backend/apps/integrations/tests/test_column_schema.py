@@ -44,6 +44,21 @@ class ColumnSchemaAnalysisTests(TestCase):
         self.assertEqual(len(result.rows), 1)
         self.assertEqual(result.rows[0].total_eur, Decimal("101.00"))
 
+    def test_nl_export_waarde_eur_not_listed_as_unmapped(self):
+        content = load_text_fixture("degiro", "nl-transactions-export.csv")
+        from apps.integrations.csv.headers import read_csv_headers
+
+        normalized, _, original = read_csv_headers(content)
+        analysis = analyze_column_schema(
+            DEGIRO_SCHEMA,
+            normalized_headers=normalized,
+            original_headers=original,
+        )
+        self.assertEqual(analysis.mapped_columns.get("total"), "Totaal EUR")
+        self.assertNotIn("Waarde EUR", analysis.unmapped_headers)
+        codes = {w["code"] for w in analysis.schema_warnings}
+        self.assertIn("column_by_design", codes)
+
     def test_buy_negative_total_in_official_export_is_positive(self):
         content = load_text_fixture("degiro", "sample-transactions.csv")
         from apps.integrations.degiro.parser import parse_degiro_csv

@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import AnimatedOutlet from "../layout/AnimatedOutlet";
 import { relevantTaxYear } from "../../utils/taxYear";
+import { hideScrollbarSx } from "../../styles/scrollbar";
 import Kicker from "./Kicker";
 import Sidebar from "./Sidebar";
 
@@ -45,11 +46,19 @@ export default function AppLayout() {
   const taxYear = relevantTaxYear();
 
   return (
-    <Box className="app-shell">
-      <Flex minH="100vh" position="relative" zIndex={2}>
+    <Box className="app-shell" h="100vh" overflow="hidden">
+      <Flex h="100vh" position="relative" zIndex={2}>
         <Sidebar />
 
-        <Box as="main" flex={1} minW={0}>
+        <Box
+          as="main"
+          flex={1}
+          minW={0}
+          h="100vh"
+          overflowY="auto"
+          ml={{ base: 0, lg: "260px" }}
+          sx={hideScrollbarSx()}
+        >
           <Flex
             px={{ base: 6, md: 12 }}
             py={6}
@@ -116,7 +125,6 @@ export default function AppLayout() {
           <Box
             px={{ base: 6, md: 12 }}
             py={isDashboard ? { base: 0, md: 0 } : { base: 8, md: 10 }}
-            overflow="hidden"
           >
             <AnimatedOutlet />
           </Box>

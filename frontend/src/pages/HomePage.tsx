@@ -12,7 +12,7 @@ export default function HomePage() {
   return (
     <Grid templateColumns={{ base: "1fr", lg: "1.3fr 1fr" }} gap={12} alignItems="center">
       <VStack align="start" spacing={6}>
-        <Kicker>MijnVermogen · Fiscaal instrument</Kicker>
+        <Kicker>Verbox · Fiscaal instrument</Kicker>
         <Heading as="h1" size="2xl" maxW="2xl" lineHeight={1.15} letterSpacing="-0.02em">
           Uw vermogen, helder en fiscaal correct
         </Heading>

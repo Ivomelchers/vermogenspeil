@@ -167,7 +167,6 @@ export interface DashboardSummary {
   portfolio_id?: number;
   portfolio_name?: string;
   valuation_method: "market" | "mixed" | "cost_basis";
-  valuation_note?: string;
   prices_cached?: boolean;
   as_of: string;
   total_value_eur: string;

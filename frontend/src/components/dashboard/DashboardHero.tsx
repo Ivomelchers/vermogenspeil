@@ -99,10 +99,6 @@ export default function DashboardHero({
           <>
             <DisplayMoney amount={summary?.total_value_eur ?? "0"} size="hero" />
             {summary?.hero_delta_30d && <HeroDelta delta={summary.hero_delta_30d} />}
-            <Text fontSize="sm" color="taupe.500" mt={3} maxW="lg" lineHeight={1.6}>
-              {summary?.valuation_note ??
-                "Waarde op basis van kostprijs — geen live koersen beschikbaar."}
-            </Text>
           </>
         )}
       </Box>

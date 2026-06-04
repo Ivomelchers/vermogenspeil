@@ -14,6 +14,7 @@ import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { resendVerificationEmail } from "../api/auth";
 import AuthAlert from "../components/auth/AuthAlert";
 import AuthFormField from "../components/auth/AuthFormField";
+import BrandMark from "../components/common/BrandMark";
 import FiscalCard from "../components/common/FiscalCard";
 import Kicker from "../components/common/Kicker";
 import { useUser } from "../contexts/UserContext";
@@ -74,6 +75,7 @@ export default function LoginPage() {
     <Flex justify="center" align="center" minH={{ base: "auto", md: "50vh" }}>
       <FiscalCard p={{ base: 6, md: 10 }} w="full" maxW="md">
         <VStack as="form" align="stretch" spacing={6} onSubmit={handleSubmit}>
+          <BrandMark to="/" variant="stacked" height={72} />
           <Box>
             <Kicker mb={2}>Account</Kicker>
             <Heading size="lg">Inloggen</Heading>

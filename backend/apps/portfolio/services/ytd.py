@@ -65,7 +65,6 @@ def compute_ytd_summary(portfolio: Portfolio, user, *, year: int | None = None) 
         return {
             "year": year,
             "available": False,
-            "note": "Geen posities om YTD-rendement te berekenen.",
         }
 
     gain = current - start
@@ -89,8 +88,4 @@ def compute_ytd_summary(portfolio: Portfolio, user, *, year: int | None = None) 
         "start_method": start_method,
         "start_as_of": start_label,
         "current_method": current_method,
-        "note": (
-            "YTD: verschil tussen huidige waarde en startwaarde dit jaar "
-            "(peildatum-snapshot of koersen op 1 januari)."
-        ),
     }

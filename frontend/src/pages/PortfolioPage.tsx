@@ -185,7 +185,6 @@ export default function PortfolioPage() {
               <FiscalCard elevated p={{ base: 4, md: 6 }}>
                 <PortfolioTrendChart
                   points={summary.value_history ?? []}
-                  valuationNote={summary.valuation_note}
                 />
               </FiscalCard>
             </MotionSection>
@@ -272,22 +271,6 @@ export default function PortfolioPage() {
             </FiscalTable>
           </MotionSection>
 
-          <MotionSection>
-            <SectionHeader
-              title={
-                <>
-                  Betaalde fees <Text as="em">per platform</Text>
-                </>
-              }
-              kicker="premium · YTD (binnenkort)"
-            />
-            <FiscalCard elevated p={5}>
-              <Text fontSize="sm" color="ink.dim" lineHeight={1.7}>
-                Fee-tracking per platform wordt binnenkort toegevoegd. U ziet dan transactie- en
-                beheerkosten uitgesplitst zoals in het premium prototype.
-              </Text>
-            </FiscalCard>
-          </MotionSection>
         </>
       )}
     </PageShell>

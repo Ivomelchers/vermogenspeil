@@ -3,8 +3,9 @@ import { motion } from "framer-motion";
 import { NavLink, useLocation } from "react-router-dom";
 
 import { useUser } from "../../contexts/UserContext";
-import BrandMark from "./BrandMark";
+import { fiscalScrollbarSx } from "../../styles/scrollbar";
 import Kicker from "./Kicker";
+import SidebarBrand from "./SidebarBrand";
 
 interface NavItem {
   label: string;
@@ -70,23 +71,13 @@ function NavButton({ item }: { item: NavItem }) {
         w="full"
         color={isActive ? "ink.primary" : "ink.dim"}
         bg={isActive ? "backgroundHover" : "transparent"}
+        fontWeight={isActive ? 500 : 400}
         transition="background 0.2s ease, color 0.2s ease"
-        _before={
-          isActive
-            ? {
-                content: '""',
-                position: "absolute",
-                left: "-16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                w: "2px",
-                h: "18px",
-                bg: "azure.500",
-              }
-            : undefined
-        }
+        borderLeft="2px solid"
+        borderLeftColor={isActive ? "azure.500" : "transparent"}
+        borderRadius="base"
+        pl={3}
       >
-        <Box as="span" w="6px" h="6px" borderRadius="full" bg="currentColor" opacity={0.4} />
         {item.label}
       </Button>
     </motion.div>
@@ -118,23 +109,40 @@ export default function Sidebar() {
       bg="backgroundCard"
       borderRight="1px solid"
       borderColor="line.DEFAULT"
-      w="240px"
-      minH="100vh"
-      position="sticky"
+      w="260px"
+      h="100dvh"
+      maxH="100vh"
+      position="fixed"
       top={0}
+      left={0}
+      zIndex={20}
       display={{ base: "none", lg: "flex" }}
       flexDirection="column"
-      py={8}
+      overflow="hidden"
     >
-      <Box px={7} pb={7} borderBottom="1px solid" borderColor="line.soft">
-        <BrandMark to="/dashboard" />
-        <Kicker mt={2} color="azure.500">
-          Box 3 · Forfaitair
-        </Kicker>
+      <Box
+        px={5}
+        h="96px"
+        flexShrink={0}
+        display="flex"
+        alignItems="center"
+        borderBottom="1px solid"
+        borderColor="line.soft"
+      >
+        <SidebarBrand />
       </Box>
 
       {!permissions.isPremium && (
-        <Box mx={4} mb={2} p={4} bg="gold.50" border="1px solid" borderColor="gold.500" borderRadius="base">
+        <Box
+          mx={4}
+          mt={3}
+          p={4}
+          bg="gold.50"
+          border="1px solid"
+          borderColor="gold.500"
+          borderRadius="base"
+          flexShrink={0}
+        >
           <Badge variant="premium" mb={2}>
             Premium
           </Badge>
@@ -147,23 +155,40 @@ export default function Sidebar() {
         </Box>
       )}
 
-      <VStack align="stretch" spacing={0} px={4} py={6} flex={1}>
-        {navSections.map((section) => (
-          <Box key={section.label} mb={4}>
-            <Kicker px={3} pb={2} pt={section.label === "Overzicht" ? 0 : 4}>
-              {section.label}
-            </Kicker>
-            <VStack align="stretch" spacing={0.5}>
-              {section.items.map((item) => (
-                <NavButton key={`${section.label}-${item.label}`} item={item} />
-              ))}
-            </VStack>
-          </Box>
-        ))}
+      <Box
+        flex={1}
+        minH={0}
+        overflowY="auto"
+        overscrollBehavior="contain"
+        px={4}
+        py={4}
+        pr={3}
+        sx={fiscalScrollbarSx("vertical")}
+      >
+        <VStack align="stretch" spacing={0}>
+          {navSections.map((section) => (
+            <Box key={section.label} mb={4}>
+              <Kicker px={3} pb={2} pt={section.label === "Overzicht" ? 0 : 4}>
+                {section.label}
+              </Kicker>
+              <VStack align="stretch" spacing={0.5}>
+                {section.items.map((item) => (
+                  <NavButton key={`${section.label}-${item.label}`} item={item} />
+                ))}
+              </VStack>
+            </Box>
+          ))}
+        </VStack>
+      </Box>
 
-      </VStack>
-
-      <Box px={7} pt={5} borderTop="1px solid" borderColor="line.soft">
+      <Box
+        px={5}
+        py={4}
+        borderTop="1px solid"
+        borderColor="line.soft"
+        flexShrink={0}
+        bg="backgroundCard"
+      >
         <Flex align="center" gap={3} p={2.5} borderRadius="base" bg="backgroundHover">
           <Flex
             w={8}

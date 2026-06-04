@@ -51,32 +51,14 @@ def build_metrics_trust(
         and missing_share >= MISSING_PRICE_VALUE_SHARE_THRESHOLD
     )
 
-    if missing_price_symbols and not significant_missing_prices:
-        symbols = ", ".join(missing_price_symbols[:5])
-        warnings.append(
-            f"Voor {symbols} tonen we de aankooprijs (geen live koers beschikbaar)."
-        )
-    elif significant_missing_prices:
-        symbols = ", ".join(missing_price_symbols[:5])
-        warnings.append(
-            f"Koersen ontbreken voor {symbols} "
-            f"({int(missing_share * 100)}% van de waarde op aankooprijs)."
-        )
-
     ytd_trusted = True
     if ytd.get("available"):
         start_method = ytd.get("start_method", "")
         current_method = ytd.get("current_method", valuation_method)
         if significant_missing_prices and current_method != "market":
             ytd_trusted = False
-            warnings.append(
-                "Rendement dit jaar is een schatting: een groot deel heeft geen live koers."
-            )
         elif start_method == "peildatum_snapshot" and current_method == "cost_basis":
             ytd_trusted = False
-            warnings.append(
-                "Rendement dit jaar kan afwijken tot alle koersen beschikbaar zijn."
-            )
 
     problem_buys: list[str] = []
     for tx in portfolio.transactions.filter(transaction_type=TransactionType.BUY).select_related(

@@ -196,6 +196,8 @@ const theme = extendTheme({
         },
         ghostNav: {
           justifyContent: "flex-start",
+          display: "flex",
+          alignItems: "center",
           w: "full",
           h: "auto",
           py: 2.5,

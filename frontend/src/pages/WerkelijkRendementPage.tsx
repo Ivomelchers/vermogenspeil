@@ -95,7 +95,7 @@ export default function WerkelijkRendementPage() {
       <MotionSection>
         <FiscalDisclaimer>
           <strong>Let op:</strong> de definitieve keuze tussen forfait en werkelijk rendement maakt u pas bij de
-          aangifte, nadat het boekjaar is afgelopen. MijnVermogen biedt geen fiscaal advies.
+          aangifte, nadat het boekjaar is afgelopen. Verbox biedt geen fiscaal advies.
         </FiscalDisclaimer>
       </MotionSection>
 
