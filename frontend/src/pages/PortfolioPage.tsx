@@ -13,7 +13,6 @@ import { Link as RouterLink } from "react-router-dom";
 
 import {
   getDashboardSummary,
-  getPortfolio,
   listPortfolios,
   updateAssetCategory,
   type DashboardSummary,
@@ -65,21 +64,12 @@ export default function PortfolioPage() {
       ]);
       setPortfolios(portfolioRows);
       setSummary(summaryData);
-      const defaultP = portfolioRows.find((p) => p.is_default) ?? portfolioRows[0];
-      if (defaultP) {
-        const detail = await getPortfolio(defaultP.id);
-        setDetailPositions(detail.positions);
-      }
     } catch (loadError) {
       setError(getApiErrorMessage(loadError, "Portefeuille laden mislukt."));
     } finally {
       setLoading(false);
     }
   }
-
-  const [detailPositions, setDetailPositions] = useState<
-    Awaited<ReturnType<typeof getPortfolio>>["positions"]
-  >([]);
 
   async function handleCategoryChange(assetId: number, category: string) {
     setCategoryBusyId(assetId);
