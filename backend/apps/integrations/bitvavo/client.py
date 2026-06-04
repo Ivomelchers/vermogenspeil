@@ -11,6 +11,8 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_ACCESS_WINDOW_MS = 10_000
+
 
 class BitvavoAPIError(Exception):
     def __init__(self, message: str, status_code: int | None = None):
@@ -19,27 +21,29 @@ class BitvavoAPIError(Exception):
 
 
 class BitvavoClient:
-    """Bitvavo REST API v2 client met HMAC-authenticatie."""
+    """Bitvavo REST API v2 client met HMAC-authenticatie (zelfde signing als officiële SDK)."""
 
     def __init__(self, api_key: str, api_secret: str, base_url: str | None = None):
-        self.api_key = api_key
-        self.api_secret = api_secret
+        self.api_key = api_key.strip()
+        self.api_secret = api_secret.strip()
         self.base_url = (base_url or settings.BITVAVO_API_URL).rstrip("/")
+        self.access_window = int(
+            getattr(settings, "BITVAVO_ACCESS_WINDOW", DEFAULT_ACCESS_WINDOW_MS)
+        )
 
-    def _sign(self, timestamp: int, method: str, path: str, body: str = "") -> str:
-        payload = f"{timestamp}{method}{path}{body}"
+    @staticmethod
+    def build_signing_path(path: str, query: str = "") -> str:
+        """timestamp + method + '/v2' + endpoint + query + body (SDK-formaat)."""
+        endpoint = "/" + path.lstrip("/")
+        return f"/v2{endpoint}{query}"
+
+    def _sign(self, timestamp: int, method: str, signing_path: str, body: str = "") -> str:
+        payload = f"{timestamp}{method}{signing_path}{body}"
         return hmac.new(
             self.api_secret.encode("utf-8"),
             payload.encode("utf-8"),
             hashlib.sha256,
         ).hexdigest()
-
-    def _signing_path(self, path: str) -> str:
-        normalized = path.lstrip("/")
-        base = self.base_url.rstrip("/")
-        if base.endswith("/v2"):
-            return f"/v2/{normalized}"
-        return f"/{normalized}"
 
     def _request(
         self,
@@ -52,16 +56,22 @@ class BitvavoClient:
         query = ""
         if params:
             query = "?" + urlencode(params)
-        resource_path = self._signing_path(path)
+
+        signing_path = self.build_signing_path(path, query)
         url = f"{self.base_url}/{path.lstrip('/')}{query}"
-        body_str = json.dumps(body) if body else ""
+
+        body_str = ""
+        if body:
+            body_str = json.dumps(body, separators=(",", ":"))
+
         timestamp = int(time.time() * 1000)
-        signature = self._sign(timestamp, method.upper(), resource_path, body_str)
+        signature = self._sign(timestamp, method.upper(), signing_path, body_str)
 
         headers = {
-            "BITVAVO-ACCESS-KEY": self.api_key,
-            "BITVAVO-ACCESS-SIGNATURE": signature,
-            "BITVAVO-ACCESS-TIMESTAMP": str(timestamp),
+            "Bitvavo-Access-Key": self.api_key,
+            "Bitvavo-Access-Signature": signature,
+            "Bitvavo-Access-Timestamp": str(timestamp),
+            "Bitvavo-Access-Window": str(self.access_window),
             "Content-Type": "application/json",
         }
 

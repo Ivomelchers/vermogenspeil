@@ -236,6 +236,7 @@ CSV_AI_COLUMN_MODEL = os.environ.get("CSV_AI_COLUMN_MODEL", "gpt-4o-mini")
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "")
 BITVAVO_API_URL = os.environ.get("BITVAVO_API_URL", "https://api.bitvavo.com/v2")
+BITVAVO_ACCESS_WINDOW = int(os.environ.get("BITVAVO_ACCESS_WINDOW", "10000"))
 PRICE_API_KEY = os.environ.get("PRICE_API_KEY", "")
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")

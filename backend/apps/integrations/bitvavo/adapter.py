@@ -28,7 +28,14 @@ class BitvavoPlatformAdapter(PlatformAdapter):
             self._client().get_balance()
             return True
         except BitvavoAPIError as exc:
-            raise PlatformAdapterError(str(exc)) from exc
+            message = str(exc)
+            if "signature is invalid" in message.lower():
+                message = (
+                    "Bitvavo weigert de API-handtekening. Controleer API-key en secret "
+                    "(geen spaties), IP-whitelist op Bitvavo, en of Celery dezelfde "
+                    "ENCRYPTION_KEY gebruikt als de webserver."
+                )
+            raise PlatformAdapterError(message) from exc
 
     def fetch_balances(self) -> list[BalanceHolding]:
         client = self._client()
