@@ -70,15 +70,17 @@ class AiDescriptionParserTests(SimpleTestCase):
         }
         mock_post.return_value.raise_for_status = lambda: None
 
-        from pathlib import Path
-
         content = (
-            Path(__file__).resolve().parents[3]
-            / "fixtures"
-            / "csv"
-            / "scenarios"
-            / "05-partial-import-unknown-rows.csv"
-        ).read_text(encoding="utf-8")
+            "Date;Time;Product;ISIN;Description;Currency;Quantity;Price;"
+            "Local value;Value;Exchange rate;Transaction costs;Total\n"
+            "15-01-2024;09:30:00;iShares Core MSCI World UCITS ETF;IE00B4L5Y983;"
+            "Koop;EUR;1;100,00;-100,00;-100,00;;1,00;-101,00\n"
+            "16-01-2024;10:00:00;;;Onbekende regel uit toekomstige export;EUR;"
+            "1;10,00;10,00;10,00;;0,00;10,00\n"
+            "17-01-2024;11:00:00;iShares Core MSCI World UCITS ETF;IE00B4L5Y983;"
+            "Dividend;EUR;0;0;4,00;4,00;;0,00;4,00\n"
+            "18-01-2024;12:00:00;;;Degiro Fee;EUR;0;0;,-1,00;-1,00;;0,00;-1,00\n"
+        )
         result = parse_degiro_csv(content)
         self.assertEqual(result.rows_recognized, 4)
         self.assertEqual(len(result.skipped), 0)

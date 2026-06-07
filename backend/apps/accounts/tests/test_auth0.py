@@ -11,6 +11,13 @@ from apps.accounts.services.auth0_login import Auth0LoginError
 
 User = get_user_model()
 
+# Minimale JWT (3 segmenten) voor login-tests — auth0_sub_from_id_token decodeert payload.sub
+FAKE_ID_TOKEN = (
+    "eyJhbGciOiJub25lIn0."
+    "eyJzdWIiOiJhdXRoMHx0ZXN0LXVzZXIifQ."
+    "signed"
+)
+
 
 def make_user(**kwargs):
     defaults = {
@@ -156,7 +163,7 @@ class Auth0LoginViewTests(APITestCase):
     @patch("apps.accounts.views.exchange_password")
     def test_login_returns_tokens(self, mock_exchange):
         mock_exchange.return_value = {
-            "id_token": "id-token",
+            "id_token": FAKE_ID_TOKEN,
             "access_token": "access-token",
             "refresh_token": "refresh-token",
         }
@@ -167,7 +174,7 @@ class Auth0LoginViewTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["data"]["id_token"], "id-token")
+        self.assertEqual(response.data["data"]["id_token"], FAKE_ID_TOKEN)
 
     def test_login_blocks_unverified_user(self):
         self.user.email_verified = False
@@ -187,7 +194,7 @@ class Auth0LoginViewTests(APITestCase):
         self.user.totp_secret_encrypted = "encrypted-placeholder"
         self.user.save(update_fields=["is_2fa_enabled", "totp_secret_encrypted"])
         mock_exchange.return_value = {
-            "id_token": "id-token",
+            "id_token": FAKE_ID_TOKEN,
             "access_token": "access-token",
             "refresh_token": "refresh-token",
         }
@@ -210,7 +217,7 @@ class Auth0LoginViewTests(APITestCase):
         self.user.auth_0_id = "auth0|old-sub"
         self.user.save(update_fields=["auth_0_id"])
         mock_exchange.return_value = {
-            "id_token": "id-token",
+            "id_token": FAKE_ID_TOKEN,
             "access_token": "access-token",
             "refresh_token": "refresh-token",
         }
@@ -224,7 +231,7 @@ class Auth0LoginViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
         self.assertEqual(self.user.auth_0_id, "auth0|new-sub")
-        mock_sub.assert_called_once_with("id-token")
+        mock_sub.assert_called_once_with(FAKE_ID_TOKEN)
 
     @patch("apps.accounts.views.exchange_password")
     def test_login_rejects_auth0_mfa_conflict(self, mock_exchange):

@@ -139,6 +139,7 @@ class CsvImportTransparencyTests(TestCase):
             first_name="Jan",
         )
 
+    @override_settings(CSV_AI_DESCRIPTION_CLASSIFICATION=False, OPENAI_API_KEY="")
     def test_partial_import_reports_skipped_rows(self):
         content = load_text_fixture("degiro", "partial-with-unknown-row.csv")
         result = import_csv_for_user(self.user, content, platform=PlatformType.DEGIRO)
