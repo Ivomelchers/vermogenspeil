@@ -42,6 +42,8 @@ def import_csv_for_user(
     *,
     platform: str | None = None,
     label: str | None = None,
+    source_filename: str = "",
+    column_mapping: dict[str, str] | None = None,
 ) -> dict:
     """
     Importeer CSV met platform-detectie of -validatie.
@@ -59,6 +61,8 @@ def import_csv_for_user(
         entry,
         content,
         original_headers=original_headers,
+        column_mapping_override=column_mapping,
+        user=user,
     )
     if parse_result.rows_recognized == 0:
         unknown = parse_result.unknown_descriptions[:8]
@@ -69,11 +73,15 @@ def import_csv_for_user(
         )
 
     default_label = f"{entry.platform_display} (CSV)"
+    mapping_payload = column_mapping_payload(mapping_resolution)
     import_result = entry.import_for_user(
         user,
         content,
         label=label or default_label,
         parse_result=parse_result,
+        source_filename=source_filename,
+        column_mapping=mapping_payload.get("mapped_columns") or column_mapping,
+        ai_used=bool(mapping_payload.get("ai_used")),
     )  # type: ignore[call-arg]
 
     skipped = parse_result.skipped
@@ -113,7 +121,7 @@ def import_csv_for_user(
             skipped_other=skipped_other,
         ),
         "has_import_gaps": bool(skipped_unrecognized or skipped_other),
-        "column_mapping": column_mapping_payload(mapping_resolution),
+        "column_mapping": mapping_payload,
     }
     report.update(import_result)
 

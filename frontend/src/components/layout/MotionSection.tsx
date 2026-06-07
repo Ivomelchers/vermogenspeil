@@ -1,8 +1,6 @@
-import { motion, type HTMLMotionProps } from "framer-motion";
+import { Box, type BoxProps } from "@chakra-ui/react";
 
-import { staggerItem } from "./motion";
-
-/** Gestaggerde sectie binnen een pagina. */
-export default function MotionSection(props: HTMLMotionProps<"div">) {
-  return <motion.div variants={staggerItem} {...props} />;
+/** Sectie-wrapper (voorheen gestaggerd; animatie alleen via route-fade). */
+export default function MotionSection(props: BoxProps) {
+  return <Box {...props} />;
 }

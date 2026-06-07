@@ -187,6 +187,13 @@ class Transaction(models.Model):
         db_index=True,
     )
     source_platform = models.CharField(max_length=32, blank=True, default="")
+    import_batch = models.ForeignKey(
+        "integrations.PlatformImportBatch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+    )
     notes = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -13,6 +13,8 @@ export interface LivePriceQuote {
   source: string;
   fetched_at: string;
   from_cache: boolean;
+  market_ticker?: string;
+  market_label?: string;
 }
 
 export async function getLiveQuotes(

@@ -1,9 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from unittest.mock import patch
+
+from apps.integrations.csv.ai_column_mapping import AiColumnMappingResult
 
 from apps.integrations.csv.base import CsvParseError
 from apps.integrations.csv.detection import detect_csv_platform, validate_csv_for_platform
@@ -56,6 +58,63 @@ class CsvPreviewTests(TestCase):
         self.assertEqual(second["summary"]["new"], 0)
         self.assertEqual(second["summary"]["duplicate"], 3)
         self.assertFalse(second["can_confirm_import"])
+
+    @patch("apps.integrations.csv.column_resolution.suggest_column_mapping_with_ai")
+    @override_settings(CSV_AI_COLUMN_MAPPING=True, OPENAI_API_KEY="test-key")
+    def test_drifted_degiro_headers_parse_via_schema_without_ai(self, mock_ai):
+        content = load_text_fixture("degiro", "requires-ai-mapping-v1.csv")
+
+        result = preview_csv_for_user(self.user, content, platform=PlatformType.DEGIRO)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["summary"]["new"], 1)
+        self.assertFalse(result["column_mapping"]["ai_used"])
+        self.assertEqual(result["column_mapping"]["source"], "schema")
+        self.assertTrue(result["can_confirm_import"])
+        mock_ai.assert_not_called()
+
+    @patch("apps.integrations.csv.column_resolution.suggest_column_mapping_with_ai")
+    @override_settings(CSV_AI_COLUMN_MAPPING=True, OPENAI_API_KEY="test-key")
+    def test_v2_degiro_headers_parse_via_schema_without_ai(self, mock_ai):
+        content = load_text_fixture("degiro", "requires-ai-mapping-v2.csv")
+
+        result = preview_csv_for_user(self.user, content, platform=PlatformType.DEGIRO)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["summary"]["new"], 1)
+        self.assertFalse(result["column_mapping"]["ai_used"])
+        self.assertTrue(result["can_confirm_import"])
+        mock_ai.assert_not_called()
+
+    @patch("apps.integrations.csv.column_resolution.suggest_column_mapping_with_ai")
+    @override_settings(CSV_AI_COLUMN_MAPPING=True, OPENAI_API_KEY="test-key")
+    def test_preview_allows_confirm_when_ai_resolved_columns(self, mock_ai):
+        content = (
+            "Tx date;Tx time;Asset title;ID code;Seg;Floor;Qty units;Px unit;"
+            "Amt loc;Val eur;Ccy pair;Conv fee;Brk fee;Net pay;Tkt\n"
+            "20-02-2024;14:15:00;ASML Holding NV;NL0010273215;EAM;XAMS;2;850,00;"
+            "-1700,00;-1700,00;;0,00;1,50;-1701,50;tkt-8842\n"
+        )
+        mock_ai.return_value = AiColumnMappingResult(
+            mapped_columns={
+                "date": "Tx date",
+                "time": "Tx time",
+                "product": "Asset title",
+                "isin": "ID code",
+                "quantity": "Qty units",
+                "price": "Px unit",
+                "fee": "Brk fee",
+                "total": "Net pay",
+                "order_id": "Tkt",
+            },
+            confidence=0.9,
+            reasoning="test",
+            raw_response="{}",
+        )
+
+        result = preview_csv_for_user(self.user, content, platform=PlatformType.DEGIRO)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["summary"]["new"], 1)
+        self.assertTrue(result["column_mapping"]["ai_used"])
+        self.assertTrue(result["can_confirm_import"])
 
     def test_coinbase_like_csv_rejected_unsupported(self):
         content = load_text_fixture("csv", "coinbase-like-headers.csv")

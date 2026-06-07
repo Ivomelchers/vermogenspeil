@@ -26,6 +26,15 @@ from apps.portfolio.services.transactions_list import (
 )
 
 
+def _parse_import_batch_id(raw: str | None) -> int | None:
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def _linked_user_or_error(request):
     user = request.user
     if isinstance(user, UnlinkedAuth0User):
@@ -108,6 +117,7 @@ class PortfolioTransactionsExportView(APIView):
             symbol=request.query_params.get("symbol"),
             date_from=request.query_params.get("date_from"),
             date_to=request.query_params.get("date_to"),
+            import_batch_id=_parse_import_batch_id(request.query_params.get("import_batch_id")),
         )
         filename = f"transacties-{portfolio.id}.csv"
         response = HttpResponse(csv_body, content_type="text/csv; charset=utf-8")
@@ -144,6 +154,7 @@ class PortfolioTransactionsView(APIView):
             symbol=request.query_params.get("symbol"),
             date_from=request.query_params.get("date_from"),
             date_to=request.query_params.get("date_to"),
+            import_batch_id=_parse_import_batch_id(request.query_params.get("import_batch_id")),
         )
         serializer = TransactionSerializer(result["items"], many=True)
         filters = transaction_filter_options(portfolio)

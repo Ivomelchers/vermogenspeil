@@ -6,21 +6,69 @@ from apps.integrations.csv.column_schema import ColumnField, PlatformColumnSchem
 # andere tools (PP/Ghostfolio). Uitbreiden na report_csv_drift of echte bètatester-export.
 DEGIRO_SCHEMA = PlatformColumnSchema(
     platform="degiro",
-    schema_version="degiro-transactions-v3",
+    schema_version="degiro-transactions-v4",
     fields=(
         ColumnField(
             "date",
             "Date",
-            frozenset({"date", "datum", "trade date", "tradedate", "boekdatum"}),
+            frozenset(
+                {
+                    "date",
+                    "datum",
+                    "trade date",
+                    "tradedate",
+                    "boekdatum",
+                    "booking date now",
+                    "when traded",
+                    "trade day",
+                    "settlement date",
+                }
+            ),
             required=True,
         ),
-        ColumnField("time", "Time", frozenset({"time", "tijd", "hour"})),
-        ColumnField("product", "Product", frozenset({"product", "security", "name"})),
-        ColumnField("isin", "ISIN", frozenset({"isin", "symbol", "ticker"})),
+        ColumnField(
+            "time",
+            "Time",
+            frozenset(
+                {"time", "tijd", "hour", "clock", "clock time", "execution time"}
+            ),
+        ),
+        ColumnField(
+            "product",
+            "Product",
+            frozenset(
+                {
+                    "product",
+                    "security",
+                    "name",
+                    "instrument",
+                    "inst",
+                    "inst name",
+                    "security label",
+                }
+            ),
+        ),
+        ColumnField(
+            "isin",
+            "ISIN",
+            frozenset(
+                {"isin", "symbol", "ticker", "isin id", "isin code", "identifier isin"}
+            ),
+        ),
         ColumnField(
             "mic",
             "MIC",
-            frozenset({"uitvoeringsplaats", "mic", "exchange", "exchange code"}),
+            frozenset(
+                {
+                    "uitvoeringsplaats",
+                    "mic",
+                    "exchange",
+                    "exchange code",
+                    "exec venue",
+                    "market",
+                    "trading floor",
+                }
+            ),
             required=False,
             fingerprint=False,
         ),
@@ -43,17 +91,40 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
         ColumnField(
             "currency",
             "Currency",
-            frozenset({"currency", "ccy", "munt", "fx"}),
+            frozenset({"currency", "ccy", "munt", "fx", "fx ccy", "currency pair"}),
         ),
         ColumnField(
             "quantity",
             "Quantity",
-            frozenset({"quantity", "aantal", "qty", "amount shares", "stuks"}),
+            frozenset(
+                {
+                    "quantity",
+                    "aantal",
+                    "qty",
+                    "amount shares",
+                    "stuks",
+                    "shares",
+                    "qty shares",
+                    "share qty",
+                    "units held",
+                }
+            ),
         ),
         ColumnField(
             "price",
             "Price",
-            frozenset({"price", "koers", "unit price", "share price", "prijs"}),
+            frozenset(
+                {
+                    "price",
+                    "koers",
+                    "unit price",
+                    "share price",
+                    "prijs",
+                    "px",
+                    "unit px",
+                    "price per unit",
+                }
+            ),
         ),
         ColumnField(
             "fee",
@@ -70,6 +141,11 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
                     "provisie",
                     "charges",
                     "autofx kosten",
+                    "costs eur",
+                    "costs",
+                    "fee costs",
+                    "broker fee",
+                    "conversion charge",
                 }
             ),
         ),
@@ -81,6 +157,10 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
                     "total",
                     "totaal",
                     "totaal eur",
+                    "sum eur",
+                    "net sum",
+                    "settle total",
+                    "net settlement",
                     "value",
                     "subtotal",
                     "sub total",
@@ -100,14 +180,27 @@ DEGIRO_SCHEMA = PlatformColumnSchema(
         ColumnField(
             "order_id",
             "Order ID",
-            frozenset({"order id", "orderid", "order-id", "order nr"}),
+            frozenset(
+                {
+                    "order id",
+                    "orderid",
+                    "order-id",
+                    "order nr",
+                    "ref",
+                    "ref no",
+                    "order ref",
+                    "ticket id",
+                }
+            ),
             fingerprint=False,
             required=False,
         ),
         ColumnField(
             "local_value",
             "Local value",
-            frozenset({"local value", "lokale waarde", "value local"}),
+            frozenset(
+                {"local value", "lokale waarde", "value local", "local val", "amount local"}
+            ),
             fingerprint=False,
         ),
         ColumnField(

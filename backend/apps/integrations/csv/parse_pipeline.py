@@ -18,11 +18,35 @@ def parse_csv_with_resolution(
     content: str,
     *,
     original_headers: list[str],
+    column_mapping_override: dict[str, str] | None = None,
+    user=None,
 ) -> tuple[CsvParseResult, ColumnMappingResolution | None]:
     """
     1. Normale parser (schema/aliases) — geen AI
     2. Bij CsvParseError: resolve_column_mapping (fuzzy, optioneel AI) en retry
+
+    column_mapping_override: mapping uit preview — voorkomt tweede AI-call bij import.
     """
+    if column_mapping_override:
+        schema = get_column_schema(entry.platform)
+        if schema and entry.platform == PlatformType.DEGIRO:
+            mapped = {
+                k: v
+                for k, v in column_mapping_override.items()
+                if isinstance(k, str) and isinstance(v, str) and v.strip()
+            }
+            if mapped.get("date") and mapped.get("total"):
+                from apps.integrations.degiro.parser import parse_degiro_csv
+
+                result = parse_degiro_csv(content, column_mapping=mapped)
+                resolution = ColumnMappingResolution(
+                    source="preview",
+                    mapped_columns=mapped,
+                    missing_required=[],
+                    ai_used=False,
+                )
+                return result, resolution
+
     try:
         return entry.parse(content), None
     except CsvParseError as first_exc:
@@ -37,6 +61,7 @@ def parse_csv_with_resolution(
         original_headers=original_headers,
         content=content,
         use_ai=True,
+        user=user,
     )
     if not resolution.parser_ready:
         missing = resolution.missing_required

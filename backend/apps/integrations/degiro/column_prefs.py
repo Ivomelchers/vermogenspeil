@@ -27,20 +27,29 @@ def prefer_settlement_total_column(
     return columns
 
 
+def prefer_settlement_total_mapped(
+    mapped_columns: dict[str, str],
+    norm_to_original: dict[str, str],
+) -> dict[str, str]:
+    """Schema-analyse: Value/Waarde → Total/Totaal EUR wanneer beide aanwezig."""
+    as_resolver: dict[str, str | None] = dict(mapped_columns)
+    fixed = prefer_settlement_total_column(as_resolver, norm_to_original)
+    return {k: v for k, v in fixed.items() if v}
+
+
 def prefer_totaal_eur_column(
     mapped_columns: dict[str, str],
     header_map: dict[str, str],
 ) -> dict[str, str]:
-    """Schema-analyse: zelfde logica als parser-resolver."""
+    """Schema-analyse: NL Waarde EUR → Totaal EUR."""
+    result = prefer_settlement_total_mapped(mapped_columns, header_map)
     totaal = header_map.get("totaal eur")
     waarde = header_map.get("waarde eur")
-    if not totaal or not waarde:
-        return mapped_columns
-    if mapped_columns.get("total") != waarde:
-        return mapped_columns
-    updated = dict(mapped_columns)
-    updated["total"] = totaal
-    return updated
+    if totaal and waarde and result.get("total") == waarde:
+        updated = dict(result)
+        updated["total"] = totaal
+        return updated
+    return result
 
 
 def prefer_totaal_in_resolver(

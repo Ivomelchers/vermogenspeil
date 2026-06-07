@@ -29,6 +29,7 @@ def build_transactions_csv(
     symbol: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    import_batch_id: int | None = None,
 ) -> str:
     queryset = portfolio.transactions.select_related("asset")
     queryset = filter_transactions(
@@ -38,6 +39,7 @@ def build_transactions_csv(
         symbol=symbol,
         date_from=date_from,
         date_to=date_to,
+        import_batch_id=import_batch_id,
     )
     queryset = sort_transactions(queryset, sort=sort, order=order)
 

@@ -12,6 +12,9 @@ from apps.integrations.views import (
     DemoSeedView,
     PlatformConnectionDeleteView,
     PlatformConnectionListView,
+    PlatformConnectionPurgeDataView,
+    PlatformImportBatchListView,
+    PlatformImportBatchPurgeView,
     PlatformSyncView,
     SyncJobDetailView,
 )
@@ -23,6 +26,21 @@ urlpatterns = [
         "connections/<int:connection_id>/",
         PlatformConnectionDeleteView.as_view(),
         name="connection-delete",
+    ),
+    path(
+        "connections/<int:connection_id>/purge-data/",
+        PlatformConnectionPurgeDataView.as_view(),
+        name="connection-purge-data",
+    ),
+    path(
+        "connections/<int:connection_id>/import-batches/",
+        PlatformImportBatchListView.as_view(),
+        name="connection-import-batches",
+    ),
+    path(
+        "import-batches/<int:batch_id>/purge/",
+        PlatformImportBatchPurgeView.as_view(),
+        name="import-batch-purge",
     ),
     path(
         "connections/<int:connection_id>/sync/",

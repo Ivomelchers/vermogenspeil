@@ -3,6 +3,7 @@ import {
   Badge,
   Box,
   Button,
+  Divider,
   Flex,
   Modal,
   ModalBody,
@@ -11,6 +12,7 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
+  SimpleGrid,
   Table,
   Tbody,
   Td,
@@ -43,9 +45,9 @@ const TYPE_LABELS: Record<string, string> = {
   other: "Overig",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  new: "moss",
-  duplicate: "gray",
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  new: { label: "Nieuw", color: "moss" },
+  duplicate: { label: "Al in portefeuille", color: "taupe" },
 };
 
 type FilterKey = "all" | "new" | "duplicate" | "issues";
@@ -63,6 +65,54 @@ function formatPreviewMessage(result: CsvImportResult): string {
   if (!result.has_import_gaps) return base;
   const unknown = result.unknown_descriptions.slice(0, 3).join(", ");
   return `${base}${unknown ? ` Niet herkend: ${unknown}.` : ""}`;
+}
+
+function formatAssetLabel(tx: CsvPreviewTransaction): { title: string; subtitle: string | null } {
+  const isCash = tx.symbol === "EUR" || (!tx.name && tx.symbol === "EUR");
+  if (isCash) {
+    return { title: "Cash (EUR)", subtitle: null };
+  }
+  if (tx.name && tx.name !== tx.symbol) {
+    return { title: tx.name, subtitle: tx.symbol.length >= 10 ? tx.symbol : null };
+  }
+  return { title: tx.symbol || "Onbekend", subtitle: null };
+}
+
+function SummaryCard({
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  label: string;
+  value: number | string;
+  hint?: string;
+  accent?: string;
+}) {
+  return (
+    <Box
+      p={4}
+      bg="paper"
+      border="1px solid"
+      borderColor="line.soft"
+      borderRadius="base"
+      boxShadow="sm"
+      borderTopWidth="3px"
+      borderTopColor={accent ?? "azure.500"}
+    >
+      <Text fontSize="xs" color="ink.faint" textTransform="uppercase" letterSpacing="0.06em" mb={1}>
+        {label}
+      </Text>
+      <Text fontFamily="heading" fontSize="2xl" fontWeight={500} color="ink.primary" lineHeight={1.1}>
+        {value}
+      </Text>
+      {hint && (
+        <Text fontSize="xs" color="ink.dim" mt={1}>
+          {hint}
+        </Text>
+      )}
+    </Box>
+  );
 }
 
 export default function CsvImportWizard({
@@ -88,7 +138,7 @@ export default function CsvImportWizard({
       setStep(data.status === "rejected" ? "rejected" : "preview");
       setFilter(data.status === "ok" && data.summary && data.summary.new > 0 ? "new" : "all");
     } catch (err) {
-      setError(getApiErrorMessage(err, "Preview mislukt."));
+      setError(getApiErrorMessage(err, "We konden het bestand niet lezen."));
       setStep("rejected");
     }
   };
@@ -114,6 +164,11 @@ export default function CsvImportWizard({
     return preview.transactions;
   }, [preview, filter]);
 
+  const skippedCount = useMemo(() => {
+    if (!preview?.summary) return 0;
+    return preview.summary.skipped_unrecognized + preview.summary.skipped_other;
+  }, [preview]);
+
   async function handleConfirm() {
     if (!file || !preview || preview.status !== "ok") return;
     setStep("importing");
@@ -121,6 +176,7 @@ export default function CsvImportWizard({
     try {
       const result = await importPlatformCsv(file, {
         platform: preview.platform,
+        columnMapping: preview.column_mapping?.mapped_columns,
       });
       onComplete(result);
       onClose();
@@ -131,31 +187,59 @@ export default function CsvImportWizard({
   }
 
   function renderTransactionRow(tx: CsvPreviewTransaction) {
+    const asset = formatAssetLabel(tx);
+    const status = STATUS_LABELS[tx.status] ?? { label: tx.status, color: "gray" };
+    const timeShort = tx.time?.slice(0, 5) ?? "";
+
     return (
-      <Tr key={tx.transaction_hash}>
-        <Td fontSize="xs" whiteSpace="nowrap">
+      <Tr key={tx.transaction_hash} _hover={{ bg: "azure.50" }}>
+        <Td fontSize="xs" whiteSpace="nowrap" color="ink.dim">
+          {tx.line_number ? (
+            <Text as="span" color="ink.faint" mr={2}>
+              #{tx.line_number}
+            </Text>
+          ) : null}
           {tx.date}
+          {timeShort ? ` · ${timeShort}` : ""}
         </Td>
-        <Td fontSize="xs">{TYPE_LABELS[tx.transaction_type] ?? tx.transaction_type}</Td>
-        <Td fontSize="xs">
-          <Text fontWeight={500}>{tx.symbol}</Text>
-          <Text color="ink.faint" fontSize="10px" noOfLines={1}>
-            {tx.name}
+        <Td fontSize="xs" maxW="180px">
+          <Text color="ink.primary" noOfLines={2} title={tx.description}>
+            {tx.description?.trim() || "—"}
           </Text>
         </Td>
-        <Td fontSize="xs" isNumeric>
-          {tx.quantity}
+        <Td fontSize="xs">
+          <Badge variant="subtle" colorScheme="azure" fontWeight={500} fontSize="10px">
+            {TYPE_LABELS[tx.transaction_type] ?? tx.transaction_type}
+          </Badge>
         </Td>
-        <Td fontSize="xs" isNumeric>
+        <Td fontSize="xs" maxW="200px">
+          <Text fontWeight={500} color="ink.primary" noOfLines={2}>
+            {asset.title}
+          </Text>
+          {asset.subtitle && (
+            <Text color="ink.faint" fontSize="10px" noOfLines={1}>
+              {asset.subtitle}
+            </Text>
+          )}
+        </Td>
+        <Td fontSize="xs" color="ink.dim">
+          {tx.currency && tx.currency !== "EUR" ? tx.currency : "EUR"}
+        </Td>
+        <Td fontSize="xs" isNumeric color="ink.dim">
+          {tx.quantity ?? "—"}
+        </Td>
+        <Td fontSize="xs" isNumeric color="ink.dim">
+          {tx.price_eur ? formatEur(tx.price_eur) : "—"}
+        </Td>
+        <Td fontSize="xs" isNumeric color="ink.dim">
+          {tx.fee_eur && tx.fee_eur !== "0.00" ? formatEur(tx.fee_eur) : "—"}
+        </Td>
+        <Td fontSize="xs" isNumeric fontWeight={500}>
           {tx.total_eur ? formatEur(tx.total_eur) : "—"}
         </Td>
         <Td>
-          <Badge
-            colorScheme={STATUS_COLORS[tx.status] ?? "gray"}
-            fontSize="9px"
-            textTransform="uppercase"
-          >
-            {tx.status === "new" ? "Nieuw" : "Dubbel"}
+          <Badge colorScheme={status.color} fontSize="9px" variant="subtle">
+            {status.label}
           </Badge>
         </Td>
       </Tr>
@@ -163,14 +247,19 @@ export default function CsvImportWizard({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader fontFamily="heading" fontWeight={500}>
-          CSV controleren vóór import
+    <Modal isOpen={isOpen} onClose={onClose} size="6xl" scrollBehavior="inside">
+      <ModalOverlay bg="blackAlpha.400" />
+      <ModalContent maxW="960px" bg="background">
+        <ModalHeader fontFamily="heading" fontWeight={500} pb={2}>
+          Import controleren
+          {file && (
+            <Text fontSize="sm" fontWeight={400} color="ink.dim" mt={1}>
+              {file.name}
+            </Text>
+          )}
         </ModalHeader>
         <ModalCloseButton />
-        <ModalBody>
+        <ModalBody pt={2}>
           {error && (
             <Box mb={4}>
               <AuthAlert tone="error">{error}</AuthAlert>
@@ -178,130 +267,132 @@ export default function CsvImportWizard({
           )}
 
           {step === "loading" && (
-            <Text fontSize="sm" color="ink.dim">
-              Bestand analyseren…
-            </Text>
+            <Box py={8} textAlign="center">
+              <Text fontSize="sm" color="ink.dim">
+                Uw export wordt gelezen…
+              </Text>
+            </Box>
           )}
 
           {step === "rejected" && preview?.status === "rejected" && (
             <VStack align="stretch" spacing={4}>
-              <AuthAlert tone="info">{preview.message}</AuthAlert>
-              <Box>
-                <Text fontSize="xs" color="ink.faint" mb={1}>
-                  Reden: {preview.failure_reason}
-                </Text>
-                {preview.file_headers.length > 0 && (
-                  <Text fontSize="sm" color="ink.dim">
-                    Kolommen in uw bestand: {preview.file_headers.join(", ")}
-                  </Text>
-                )}
-              </Box>
+              <AuthAlert tone="info">
+                {preview.message ??
+                  "Dit bestand kunnen we niet importeren. Gebruik de officiële transactie-export van uw broker."}
+              </AuthAlert>
               <Text fontSize="sm" color="ink.dim">
-                Ondersteunde CSV-platformen:{" "}
-                {preview.supported_platforms.map((p) => p.display_name).join(", ") || "geen"}
+                Tip: download in DEGIRO het bestand <strong>Transactions</strong> (CSV) en upload dat
+                opnieuw.
               </Text>
             </VStack>
           )}
 
           {step === "preview" && preview?.status === "ok" && preview.summary && (
-            <VStack align="stretch" spacing={4}>
-              <Flex gap={3} flexWrap="wrap">
-                <Badge colorScheme="azure">{preview.platform_display}</Badge>
+            <VStack align="stretch" spacing={5}>
+              <Flex align="center" gap={2} flexWrap="wrap">
+                <Badge colorScheme="azure" px={2} py={1} fontSize="xs">
+                  {preview.platform_display}
+                </Badge>
                 <Text fontSize="sm" color="ink.dim">
-                  {preview.summary.new} nieuw · {preview.summary.duplicate} al in portefeuille ·{" "}
-                  {preview.summary.skipped_unrecognized + preview.summary.skipped_other} niet
-                  verwerkt
+                  {preview.summary.rows_in_file} regel(s) in bestand ·{" "}
+                  {preview.summary.rows_recognized} herkend als transactie
                 </Text>
               </Flex>
 
+              <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
+                <SummaryCard
+                  label="Nieuw"
+                  value={preview.summary.new}
+                  hint="Worden toegevoegd"
+                  accent="moss.500"
+                />
+                <SummaryCard
+                  label="Al bekend"
+                  value={preview.summary.duplicate}
+                  hint="Staat al in portefeuille"
+                  accent="taupe.500"
+                />
+                <SummaryCard
+                  label="Overgeslagen"
+                  value={skippedCount}
+                  hint="Komen niet in import"
+                  accent={skippedCount > 0 ? "rust.500" : "line.DEFAULT"}
+                />
+                <SummaryCard
+                  label="Totaal herkend"
+                  value={preview.summary.rows_recognized}
+                  hint={`Van ${preview.summary.rows_in_file} regels`}
+                  accent="azure.500"
+                />
+              </SimpleGrid>
+
               {preview.column_mapping?.ai_used && (
                 <Box
-                  p={4}
-                  border="1px solid"
-                  borderColor="azure.200"
+                  px={4}
+                  py={3}
                   borderRadius="base"
                   bg="azure.50"
-                >
-                  <Text fontSize="sm" fontWeight={600} mb={2}>
-                    Kolommen via AI gekoppeld (eenmalig)
-                  </Text>
-                  <Text fontSize="sm" color="ink.dim" mb={2}>
-                    De vaste parser herkende deze export niet. We hebben alleen de kolomkoppen
-                    laten koppelen; transacties worden nog steeds door onze eigen logica verwerkt.
-                    Voeg onderstaande aliases toe in de code zodat volgende imports zonder AI
-                    kunnen.
-                  </Text>
-                  {preview.column_mapping.maintenance_snippets.map((line) => (
-                    <Text
-                      key={line}
-                      as="code"
-                      display="block"
-                      fontSize="xs"
-                      whiteSpace="pre-wrap"
-                      color="ink.faint"
-                      mb={1}
-                    >
-                      {line}
-                    </Text>
-                  ))}
-                </Box>
-              )}
-
-              {preview.has_schema_warnings && preview.column_schema && (
-                <Box
-                  p={4}
                   border="1px solid"
-                  borderColor="ochre.200"
-                  borderRadius="base"
-                  bg="ochre.50"
+                  borderColor="azure.200"
                 >
-                  <Text fontSize="sm" fontWeight={600} mb={2}>
-                    Kolomschema ({preview.column_schema.schema_version})
+                  <Text fontSize="sm" color="ink.primary">
+                    Dit exportformaat zagen we nog niet. We hebben de kolommen automatisch gekoppeld
+                    — controleer of bedragen en datums kloppen.
                   </Text>
-                  {preview.column_schema.mapped_columns && (
-                    <Text fontSize="xs" color="ink.dim" mb={2}>
-                      Gekoppeld:{" "}
-                      {Object.entries(preview.column_schema.mapped_columns)
-                        .map(([k, v]) => `${k} ← ${v}`)
-                        .join(" · ")}
-                    </Text>
-                  )}
-                  {preview.column_schema.schema_warnings
-                    .filter((w) => w.severity === "warning")
-                    .map((w) => (
-                      <Text key={`${w.code}-${w.file_header}`} fontSize="sm" color="ink.primary" mb={1}>
-                        {w.message}
-                      </Text>
-                    ))}
-                  {preview.column_schema.suggested_aliases.map((s) => (
-                    <Text key={s.file_header} fontSize="xs" color="ink.faint">
-                      Suggestie voor team: &quot;{s.file_header}&quot; ≈ {s.canonical_label} (
-                      {Math.round(s.confidence * 100)}%)
-                    </Text>
-                  ))}
                 </Box>
               )}
 
-              {preview.has_import_gaps && (
+              {(preview.column_mapping?.learned_user || preview.column_mapping?.learned_shared) &&
+                !preview.column_mapping?.ai_used && (
+                  <Box px={4} py={3} borderRadius="base" bg="moss.50" border="1px solid" borderColor="moss.50">
+                    <Text fontSize="sm" color="ink.primary">
+                      We herkennen dit type export van een eerdere import.
+                    </Text>
+                  </Box>
+                )}
+
+              {preview.has_instrument_gaps && preview.instrument_preview && (
+                <Box
+                  px={4}
+                  py={3}
+                  borderRadius="base"
+                  bg="gold.50"
+                  border="1px solid"
+                  borderColor="line.soft"
+                >
+                  <Text fontSize="sm" fontWeight={500} color="ink.primary" mb={1}>
+                    Koers mogelijk later beschikbaar
+                  </Text>
+                  <Text fontSize="sm" color="ink.dim">
+                    Voor {preview.instrument_preview.unmapped_count} belegging(en) zoeken we na
+                    import automatisch een koers op. Uw transacties worden wel opgeslagen.
+                  </Text>
+                </Box>
+              )}
+
+              {(preview.has_row_gaps ?? preview.has_import_gaps) && skippedCount > 0 && (
                 <AuthAlert tone="info">
-                  Niet alle regels uit het bestand zijn herkend. Controleer de problemen hieronder
-                  vóór u bevestigt.
+                  {skippedCount === 1
+                    ? "1 regel uit uw bestand nemen we niet mee. Bekijk het tabblad Problemen."
+                    : `${skippedCount} regels uit uw bestand nemen we niet mee. Bekijk het tabblad Problemen.`}
                 </AuthAlert>
               )}
+
+              <Divider borderColor="line.soft" />
 
               <Flex gap={2} flexWrap="wrap">
                 {(
                   [
                     ["new", `Nieuw (${preview.summary.new})`],
-                    ["duplicate", `Dubbel (${preview.summary.duplicate})`],
-                    ["all", "Alles"],
+                    ["duplicate", `Al bekend (${preview.summary.duplicate})`],
+                    ["all", `Alles (${preview.transactions.length})`],
                     ["issues", `Problemen (${preview.issues.length})`],
                   ] as const
                 ).map(([key, label]) => (
                   <Button
                     key={key}
-                    size="xs"
-                    variant={filter === key ? "solid" : "outline"}
+                    size="sm"
+                    variant={filter === key ? "solid" : "ghost"}
                     colorScheme={filter === key ? "blue" : "gray"}
                     onClick={() => setFilter(key)}
                   >
@@ -311,58 +402,127 @@ export default function CsvImportWizard({
               </Flex>
 
               {filter === "issues" ? (
-                <Box fontSize="sm">
+                <VStack align="stretch" spacing={0} divider={<Divider borderColor="line.soft" />}>
                   {preview.issues.length === 0 ? (
-                    <Text color="ink.dim">Geen problemen.</Text>
+                    <Text fontSize="sm" color="ink.dim" py={4}>
+                      Geen overgeslagen regels — alles uit dit bestand is verwerkt.
+                    </Text>
                   ) : (
                     preview.issues.map((issue) => (
-                      <Box
-                        key={`${issue.line_number}-${issue.reason}`}
-                        py={2}
-                        borderBottom="1px solid"
-                        borderColor="line.soft"
-                      >
-                        <Text fontWeight={500}>
-                          Regel {issue.line_number}: {issue.description || issue.reason}
-                        </Text>
-                        <Text color="ink.faint" fontSize="xs">
+                      <Box key={`${issue.line_number}-${issue.reason}`} py={4}>
+                        <Flex gap={2} align="center" mb={1} flexWrap="wrap">
+                          <Badge colorScheme="rust" fontSize="10px">
+                            Regel {issue.line_number}
+                          </Badge>
+                          <Badge variant="outline" colorScheme="gray" fontSize="10px">
+                            {issue.reason_label ?? issue.reason}
+                          </Badge>
+                        </Flex>
+                        {issue.description && (
+                          <Text fontWeight={500} fontSize="sm" color="ink.primary" mb={1}>
+                            {issue.description}
+                          </Text>
+                        )}
+                        <Text color="ink.dim" fontSize="sm">
                           {issue.suggestion}
                         </Text>
                       </Box>
                     ))
                   )}
-                </Box>
+                </VStack>
               ) : (
-                <Box overflowX="auto" maxH="320px">
+                <Box
+                  overflowX="auto"
+                  border="1px solid"
+                  borderColor="line.soft"
+                  borderRadius="base"
+                  bg="paper"
+                >
                   <Table size="sm" variant="simple">
-                    <Thead position="sticky" top={0} bg="backgroundCard" zIndex={1}>
-                      <Tr>
-                        <Th>Datum</Th>
-                        <Th>Type</Th>
-                        <Th>Asset</Th>
-                        <Th isNumeric>Aantal</Th>
-                        <Th isNumeric>Totaal</Th>
-                        <Th>Status</Th>
+                    <Thead>
+                      <Tr bg="backgroundCard">
+                        <Th fontSize="10px" textTransform="uppercase" letterSpacing="0.05em">
+                          Datum
+                        </Th>
+                        <Th fontSize="10px" textTransform="uppercase" letterSpacing="0.05em">
+                          Omschrijving
+                        </Th>
+                        <Th fontSize="10px" textTransform="uppercase" letterSpacing="0.05em">
+                          Type
+                        </Th>
+                        <Th fontSize="10px" textTransform="uppercase" letterSpacing="0.05em">
+                          Belegging
+                        </Th>
+                        <Th fontSize="10px" textTransform="uppercase" letterSpacing="0.05em">
+                          Valuta
+                        </Th>
+                        <Th
+                          fontSize="10px"
+                          textTransform="uppercase"
+                          letterSpacing="0.05em"
+                          isNumeric
+                        >
+                          Aantal
+                        </Th>
+                        <Th
+                          fontSize="10px"
+                          textTransform="uppercase"
+                          letterSpacing="0.05em"
+                          isNumeric
+                        >
+                          Koers
+                        </Th>
+                        <Th
+                          fontSize="10px"
+                          textTransform="uppercase"
+                          letterSpacing="0.05em"
+                          isNumeric
+                        >
+                          Kosten
+                        </Th>
+                        <Th
+                          fontSize="10px"
+                          textTransform="uppercase"
+                          letterSpacing="0.05em"
+                          isNumeric
+                        >
+                          Totaal
+                        </Th>
+                        <Th fontSize="10px" textTransform="uppercase" letterSpacing="0.05em">
+                          Status
+                        </Th>
                       </Tr>
                     </Thead>
-                    <Tbody>{filteredTransactions.map(renderTransactionRow)}</Tbody>
+                    <Tbody>
+                      {filteredTransactions.length === 0 ? (
+                        <Tr>
+                          <Td colSpan={10} py={8} textAlign="center" color="ink.dim" fontSize="sm">
+                            Geen transacties in deze weergave.
+                          </Td>
+                        </Tr>
+                      ) : (
+                        filteredTransactions.map(renderTransactionRow)
+                      )}
+                    </Tbody>
                   </Table>
                   {preview.summary.transactions_truncated && (
-                    <Text fontSize="xs" color="ink.faint" mt={2}>
-                      Eerste {preview.transactions.length} van{" "}
-                      {preview.summary.transactions_total} transacties getoond.
+                    <Text fontSize="xs" color="ink.faint" p={3} borderTop="1px solid" borderColor="line.soft">
+                      Eerste {preview.transactions.length} van {preview.summary.transactions_total}{" "}
+                      transacties getoond.
                     </Text>
                   )}
                 </Box>
               )}
 
-              <Text fontSize="xs" color="ink.faint">
-                {preview.confirm_hint}
-              </Text>
+              {preview.confirm_hint && (
+                <Text fontSize="sm" color="ink.dim" lineHeight="tall">
+                  {preview.confirm_hint}
+                </Text>
+              )}
             </VStack>
           )}
         </ModalBody>
-        <ModalFooter gap={2}>
+        <ModalFooter gap={2} borderTop="1px solid" borderColor="line.soft" bg="paper">
           <Button variant="ghost" onClick={onClose}>
             Annuleren
           </Button>
@@ -374,13 +534,18 @@ export default function CsvImportWizard({
               onClick={() => void handleConfirm()}
             >
               {preview.summary?.new
-                ? `Importeer ${preview.summary.new} transactie(s)`
+                ? `${preview.summary.new} transactie${preview.summary.new === 1 ? "" : "s"} importeren`
                 : "Niets nieuws te importeren"}
             </Button>
           )}
           {preview?.status === "rejected" && (
-            <Button as={RouterLink} to="/platforms/add?method=csv" variant="fiscalOutline" onClick={onClose}>
-              Ander platform
+            <Button
+              as={RouterLink}
+              to="/platforms/add?method=csv"
+              variant="fiscalOutline"
+              onClick={onClose}
+            >
+              Opnieuw proberen
             </Button>
           )}
         </ModalFooter>

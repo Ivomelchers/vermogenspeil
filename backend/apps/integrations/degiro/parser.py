@@ -12,6 +12,11 @@ from apps.integrations.csv.base import CsvParseError, CsvParseResult, CsvSkipped
 from apps.integrations.csv.column_resolution import build_resolver_from_mapping
 from apps.integrations.csv.column_schema import build_column_resolver
 from apps.integrations.csv.headers import detect_delimiter, normalize_header
+from apps.integrations.degiro.ai_description import (
+    DescriptionRowContext,
+    ai_description_classification_enabled,
+    classify_unknown_descriptions_with_ai,
+)
 from apps.integrations.degiro.classification import (
     CASH_SYMBOL,
     classify_degiro_row,
@@ -39,6 +44,9 @@ class DegiroRow:
     occurred_at: datetime
     transaction_hash: str
     mic: str = ""
+    description: str = ""
+    currency: str = ""
+    line_number: int = 0
 
 
 def _parse_decimal(value: str) -> Decimal:
@@ -99,7 +107,13 @@ def _amounts_for_row(
     if total == 0:
         return None
     total = abs(total)
-    quantity = abs(quantity_raw) if quantity_raw > 0 else Decimal(1)
+    needs_shares = transaction_type in (TransactionType.BUY, TransactionType.SELL)
+    if quantity_raw != 0:
+        quantity = abs(quantity_raw)
+    elif needs_shares:
+        quantity = Decimal(1)
+    else:
+        quantity = Decimal(0)
 
     price_eur: Decimal | None = None
     if price_raw > 0:
@@ -166,16 +180,56 @@ def parse_degiro_csv(
     fee_col = columns.get("fee")
     total_col = columns.get("total")
     order_col = columns.get("order_id")
+    currency_col = columns.get("currency")
 
     rows: list[DegiroRow] = []
     skipped: list[CsvSkippedRow] = []
     data_row_count = 0
 
+    raw_rows: list[tuple[int, dict]] = []
     for index, raw in enumerate(reader, start=2):
         if not any((v or "").strip() for v in raw.values()):
             continue
+        raw_rows.append((index, raw))
         data_row_count += 1
 
+    ai_type_by_description: dict[str, str] = {}
+    if ai_description_classification_enabled():
+        unknown_contexts: list[DescriptionRowContext] = []
+        for index, raw in raw_rows:
+            description = raw.get(desc_col or "", "") if desc_col else ""
+            try:
+                quantity_raw = _parse_decimal(raw[qty_col]) if qty_col else Decimal(0)
+                total_raw = _parse_decimal(raw[total_col]) if total_col else Decimal(0)
+                fee = abs(_parse_decimal(raw[fee_col])) if fee_col else Decimal(0)
+            except CsvParseError:
+                continue
+            if total_raw == 0:
+                continue
+            product = (raw.get(product_col) or "").strip() if product_col else ""
+            isin = (raw.get(isin_col) or "").strip() if isin_col else ""
+            tx_type = classify_degiro_row(
+                description=description,
+                quantity=quantity_raw,
+                total=total_raw,
+                product=product,
+                isin=isin,
+                fee=fee,
+            )
+            if not tx_type and (description or "").strip():
+                unknown_contexts.append(
+                    DescriptionRowContext(
+                        description=description.strip(),
+                        quantity=quantity_raw,
+                        total=total_raw,
+                        fee=fee,
+                        has_product=bool(product),
+                        has_isin=bool(isin),
+                    )
+                )
+        ai_type_by_description = classify_unknown_descriptions_with_ai(unknown_contexts)
+
+    for index, raw in raw_rows:
         description = raw.get(desc_col or "", "") if desc_col else ""
 
         try:
@@ -189,13 +243,29 @@ def parse_degiro_csv(
         product = (raw.get(product_col) or "").strip() if product_col else ""
         isin = (raw.get(isin_col) or "").strip() if isin_col else ""
         mic = _normalize_mic(raw.get(mic_col) or "") if mic_col else ""
+        currency = (raw.get(currency_col) or "").strip() if currency_col else ""
+
+        if total_raw == 0:
+            skipped.append(
+                CsvSkippedRow(
+                    line_number=index,
+                    reason="zero_amount",
+                    description=description.strip(),
+                    preview=_row_preview(raw),
+                )
+            )
+            continue
+
         transaction_type = classify_degiro_row(
             description=description,
             quantity=quantity_raw,
             total=total_raw,
             product=product,
             isin=isin,
+            fee=fee,
         )
+        if not transaction_type and description.strip():
+            transaction_type = ai_type_by_description.get(description.strip())
         if not transaction_type:
             skipped.append(
                 CsvSkippedRow(
@@ -261,6 +331,9 @@ def parse_degiro_csv(
                 occurred_at=occurred_at,
                 transaction_hash=tx_hash,
                 mic=mic,
+                description=description.strip(),
+                currency=currency.upper() if currency else "EUR",
+                line_number=index,
             )
         )
 

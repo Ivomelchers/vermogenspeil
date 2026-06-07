@@ -1,5 +1,7 @@
 """CSV-detectie, preview en import (alle brokers)."""
 
+import json
+
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -13,6 +15,27 @@ from apps.integrations.csv.import_service import import_csv_for_user
 from apps.integrations.csv.preview import preview_csv_for_user
 from apps.integrations.csv.registry import list_csv_platforms
 from apps.integrations.csv.upload_io import read_csv_upload
+
+
+def _parse_column_mapping_payload(raw) -> dict[str, str] | None:
+    if not raw:
+        return None
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    elif isinstance(raw, dict):
+        parsed = raw
+    else:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return {
+        str(k): str(v)
+        for k, v in parsed.items()
+        if isinstance(k, str) and isinstance(v, str) and v.strip()
+    }
 
 
 class CsvPlatformsListView(APIView):
@@ -115,6 +138,9 @@ class CsvImportView(APIView):
 
         platform = (request.data.get("platform") or "").strip() or None
         label = request.data.get("label")
+        column_mapping = _parse_column_mapping_payload(request.data.get("column_mapping"))
+        upload = request.FILES.get("file")
+        source_filename = (upload.name if upload else "")[:255]
 
         try:
             result = import_csv_for_user(
@@ -122,6 +148,8 @@ class CsvImportView(APIView):
                 content,
                 platform=platform,
                 label=label,
+                source_filename=source_filename,
+                column_mapping=column_mapping,
             )
         except CsvParseError as exc:
             return api_error(

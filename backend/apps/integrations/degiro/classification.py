@@ -71,6 +71,7 @@ def classify_degiro_row(
     total: Decimal,
     product: str,
     isin: str,
+    fee: Decimal = Decimal(0),
 ) -> str | None:
     """
     Engelse export: Description-kolom (Koop/Verkoop/Dividend).
@@ -79,24 +80,43 @@ def classify_degiro_row(
     from_description = classify_degiro_description(description)
     if from_description:
         return from_description
-    if (description or "").strip():
-        return None
 
+    desc_stripped = (description or "").strip()
     product_clean = (product or "").strip()
     isin_clean = (isin or "").strip()
-    if not product_clean and not isin_clean:
-        if total > 0:
-            return TransactionType.DEPOSIT
-        if total < 0:
-            return TransactionType.WITHDRAWAL
+
+    # NL-export zonder Description-kolom: lege omschrijving.
+    if not desc_stripped:
+        if not product_clean and not isin_clean:
+            if total > 0:
+                return TransactionType.DEPOSIT
+            if total < 0:
+                return TransactionType.WITHDRAWAL
+            return None
+        if quantity == 0:
+            if fee > 0 or (total < 0 and abs(total) <= fee + Decimal("0.01")):
+                return TransactionType.FEE
+            if total > 0 and isin_clean:
+                return TransactionType.DIVIDEND
+            if total < 0 and isin_clean:
+                return TransactionType.FEE
+        if quantity < 0:
+            return TransactionType.SELL
+        if quantity > 0:
+            return TransactionType.BUY
+        if total != 0 and not product_clean:
+            return TransactionType.FEE
         return None
 
-    if quantity < 0:
-        return TransactionType.SELL
-    if quantity > 0:
-        return TransactionType.BUY
-    if total != 0 and not product_clean:
-        return TransactionType.FEE
+    # Onbekende omschrijving mét product/ISIN (bv. AI koppelde venue/MIC aan Description).
+    if product_clean or isin_clean:
+        if quantity < 0:
+            return TransactionType.SELL
+        if quantity > 0:
+            return TransactionType.BUY
+        if total != 0:
+            return TransactionType.FEE
+
     return None
 
 

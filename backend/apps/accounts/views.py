@@ -192,8 +192,9 @@ class LoginView(APIView):
                 status=exc.status_code,
             )
 
-        if not user.auth_0_id:
-            user.auth_0_id = auth0_sub_from_id_token(tokens["id_token"])
+        token_sub = auth0_sub_from_id_token(tokens["id_token"])
+        if user.auth_0_id != token_sub:
+            user.auth_0_id = token_sub
             user.save(update_fields=["auth_0_id"])
 
         if user.is_2fa_enabled:

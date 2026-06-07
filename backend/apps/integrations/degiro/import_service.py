@@ -2,17 +2,20 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
-
-from apps.integrations.degiro.classification import CASH_SYMBOL
 from apps.integrations.csv.base import CsvParseError, CsvParseResult
 from apps.integrations.degiro.parser import parse_degiro_csv
 
 DegiroParseError = CsvParseError
 from apps.integrations.models import ConnectionMethod, PlatformConnection, PlatformType, SyncStatus
+from apps.integrations.degiro.classification import CASH_SYMBOL
+from apps.integrations.services.import_batches import (
+    create_import_batch,
+    finalize_import_batch,
+    rebuild_portfolio_positions,
+)
 from apps.portfolio.models import (
     Asset,
     AssetType,
-    Position,
     Transaction,
     TransactionType,
     VermogensCategorie,
@@ -50,8 +53,14 @@ def import_degiro_csv_for_user(
     *,
     label: str = "DEGIRO (CSV)",
     parse_result: CsvParseResult | None = None,
+    source_filename: str = "",
+    column_mapping: dict | None = None,
+    ai_used: bool = False,
 ) -> dict:
-    result = parse_result or parse_degiro_csv(file_content)
+    result = parse_result or parse_degiro_csv(
+        file_content,
+        column_mapping=column_mapping or None,
+    )
     rows = result.rows
     portfolio = get_or_create_default_portfolio(user)
 
@@ -72,6 +81,16 @@ def import_degiro_csv_for_user(
     connection.is_demo = False
     connection.last_error = ""
     connection.save()
+
+    import_batch = create_import_batch(
+        connection,
+        source_label=label,
+        source_filename=source_filename,
+        ai_used=ai_used,
+        column_mapping=column_mapping or {},
+        rows_in_file=result.rows_in_file,
+        rows_recognized=len(rows),
+    )
 
     imported = 0
     skipped = 0
@@ -106,6 +125,7 @@ def import_degiro_csv_for_user(
                 "occurred_at": row.occurred_at,
                 "external_id": row.external_id,
                 "source_platform": PlatformType.DEGIRO,
+                "import_batch": import_batch,
             },
         )
         if created:
@@ -115,7 +135,20 @@ def import_degiro_csv_for_user(
         else:
             skipped += 1
 
-    _rebuild_positions_from_transactions(portfolio)
+    finalize_import_batch(
+        import_batch,
+        transactions_imported=imported,
+        transactions_skipped=skipped,
+    )
+
+    if ai_used and imported > 0 and column_mapping:
+        import_batch.column_mapping = column_mapping
+        import_batch.save(update_fields=["column_mapping", "updated_at"])
+        from apps.integrations.services.learned_aliases import record_learned_aliases_from_import
+
+        record_learned_aliases_from_import(import_batch)
+
+    rebuild_portfolio_positions(portfolio)
     recompute_position_average_costs(portfolio)
 
     if new_occurred_times:
@@ -131,38 +164,10 @@ def import_degiro_csv_for_user(
 
     return {
         "connection_id": connection.id,
+        "import_batch_id": import_batch.id,
         "rows_parsed": len(rows),
         "transactions_imported": imported,
         "transactions_skipped": skipped,
         "by_type": by_type,
         "parser_skipped_count": result.rows_skipped,
     }
-
-
-def _rebuild_positions_from_transactions(portfolio) -> None:
-    """Hertel posities: effecten via koop/verkoop, cash via stortingen/opnames."""
-    Position.objects.filter(portfolio=portfolio).delete()
-
-    totals: dict[int, Decimal] = {}
-    for tx in portfolio.transactions.select_related("asset").order_by("occurred_at"):
-        if tx.transaction_type in (TransactionType.BUY, TransactionType.SELL):
-            qty = tx.quantity if tx.transaction_type != TransactionType.SELL else -tx.quantity
-            totals[tx.asset_id] = totals.get(tx.asset_id, Decimal(0)) + qty
-        elif tx.transaction_type == TransactionType.DEPOSIT and tx.asset.asset_type == AssetType.CASH:
-            amount = tx.total_eur or Decimal(0)
-            totals[tx.asset_id] = totals.get(tx.asset_id, Decimal(0)) + amount
-        elif tx.transaction_type == TransactionType.WITHDRAWAL and tx.asset.asset_type == AssetType.CASH:
-            amount = tx.total_eur or Decimal(0)
-            totals[tx.asset_id] = totals.get(tx.asset_id, Decimal(0)) + amount
-        elif tx.transaction_type == TransactionType.FEE and tx.asset.asset_type == AssetType.CASH:
-            amount = tx.total_eur or Decimal(0)
-            totals[tx.asset_id] = totals.get(tx.asset_id, Decimal(0)) + amount
-
-    for asset_id, quantity in totals.items():
-        if quantity <= 0:
-            continue
-        Position.objects.create(
-            portfolio=portfolio,
-            asset_id=asset_id,
-            quantity=quantity,
-        )

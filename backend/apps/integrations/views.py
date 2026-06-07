@@ -15,8 +15,10 @@ from apps.integrations.models import (
 from apps.integrations.serializers import (
     BitvavoConnectSerializer,
     PlatformConnectionSerializer,
+    PlatformImportBatchSerializer,
     SyncJobSerializer,
 )
+from apps.integrations.services.import_batches import purge_connection_data, purge_import_batch
 from apps.integrations.services.credentials import store_api_credentials
 from apps.integrations.api_helpers import linked_user_or_error, require_verified_email
 from apps.integrations.services.demo_seed import demo_features_enabled, seed_demo_for_user
@@ -147,7 +149,82 @@ class PlatformConnectionDeleteView(APIView):
                 "updated_at",
             ]
         )
-        return api_response(message="Platformkoppeling verwijderd.")
+        return api_response(
+            message=(
+                "Platform losgekoppeld. Uw geïmporteerde transacties blijven bewaard. "
+                "Gebruik 'Alle data wissen' om importdata te verwijderen."
+            ),
+        )
+
+
+class PlatformConnectionPurgeDataView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, connection_id):
+        user, error = linked_user_or_error(request)
+        if error:
+            return error
+
+        try:
+            result = purge_connection_data(user, connection_id)
+        except LookupError:
+            return api_error(
+                message="Koppeling niet gevonden.",
+                error="not_found",
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return api_response(
+            data=result,
+            message=(
+                f"{result['transactions_deleted']} transactie(s) verwijderd "
+                f"({result['import_batches_deleted']} import(s))."
+            ),
+        )
+
+
+class PlatformImportBatchListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, connection_id):
+        user, error = linked_user_or_error(request)
+        if error:
+            return error
+
+        connection = PlatformConnection.objects.for_user(user).filter(pk=connection_id).first()
+        if not connection:
+            return api_error(
+                message="Koppeling niet gevonden.",
+                error="not_found",
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        batches = connection.import_batches.all()
+        serializer = PlatformImportBatchSerializer(batches, many=True)
+        return api_response(data=serializer.data)
+
+
+class PlatformImportBatchPurgeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, batch_id):
+        user, error = linked_user_or_error(request)
+        if error:
+            return error
+
+        try:
+            result = purge_import_batch(user, batch_id)
+        except LookupError:
+            return api_error(
+                message="Import niet gevonden.",
+                error="not_found",
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return api_response(
+            data=result,
+            message=f"{result['transactions_deleted']} transactie(s) uit deze import verwijderd.",
+        )
 
 
 class PlatformSyncView(APIView):

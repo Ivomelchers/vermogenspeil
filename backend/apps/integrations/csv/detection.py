@@ -45,13 +45,16 @@ def detect_csv_platform(content: str) -> list[CsvDetectionMatch]:
     return matches
 
 
-def validate_csv_for_platform(content: str, platform: str) -> CsvDetectionMatch:
-    """Controleer of bestand bij gekozen platform hoort."""
+def validate_csv_for_platform(content: str, platform: str, *, explicit: bool = False) -> CsvDetectionMatch:
+    """Controleer of bestand bij gekozen platform hoort.
+
+    explicit=True: gebruiker koos platform zelf — geen AI-probe hier (één AI-call in parse).
+    """
     from apps.integrations.csv.registry import get_csv_parser
 
     entry = get_csv_parser(platform)
     try:
-        normalized, _, _ = read_csv_headers(content)
+        normalized, delimiter, _ = read_csv_headers(content)
     except ValueError as exc:
         raise CsvParseError(str(exc)) from exc
 
@@ -65,6 +68,34 @@ def validate_csv_for_platform(content: str, platform: str) -> CsvDetectionMatch:
     )
 
     if score < MIN_EXPECTED_PLATFORM_SCORE:
+        if explicit:
+            if _platform_parseable_via_column_resolution(content, platform):
+                return match
+            if platform == "degiro" and delimiter != ";":
+                raise CsvParseError(
+                    f"Dit bestand past niet bij {entry.platform_display}. "
+                    "DEGIRO-exporten gebruiken een puntkomma als scheidingsteken. "
+                    "Download de officiële transactie-export van uw broker."
+                )
+            others = [
+                m
+                for m in detect_csv_platform(content)
+                if m.platform != platform and m.confidence >= MIN_AUTO_DETECT_SCORE
+            ]
+            hint = ""
+            if others:
+                hint = (
+                    f" Dit bestand lijkt eerder op {others[0].platform_display} "
+                    f"({others[0].confidence:.0%})."
+                )
+                raise CsvParseError(
+                    f"Dit bestand past niet bij {entry.platform_display}. "
+                    f"Ontbrekende of onbekende kolommen: "
+                    f"{', '.join(missing) or 'onbekend format'}.{hint} "
+                    "Download de officiële transactie-export van uw broker."
+                )
+            return match
+
         if _platform_parseable_via_column_resolution(content, platform):
             return CsvDetectionMatch(
                 platform=entry.platform,
@@ -94,7 +125,7 @@ def validate_csv_for_platform(content: str, platform: str) -> CsvDetectionMatch:
 
 
 def _platform_parseable_via_column_resolution(content: str, platform: str) -> bool:
-    """Of fuzzy/AI-kolommapping voldoende is om te parsen (zonder live AI in tests)."""
+    """Of schema/fuzzy/learned-kolommapping voldoende is (zonder AI — AI alleen in parse-pipeline)."""
     from apps.integrations.csv.column_resolution import resolve_column_mapping
     from apps.integrations.csv.headers import read_csv_headers
     from apps.integrations.csv.schema_registry import get_column_schema
@@ -110,7 +141,7 @@ def _platform_parseable_via_column_resolution(content: str, platform: str) -> bo
         schema,
         original_headers=original_headers,
         content=content,
-        use_ai=True,
+        use_ai=False,
     )
     return resolution.parser_ready
 
@@ -122,7 +153,7 @@ def resolve_platform_for_import(
 ) -> tuple[str, CsvDetectionMatch]:
     """Bepaal platform: expliciet + validatie, of auto-detect bij één duidelijke match."""
     if platform:
-        match = validate_csv_for_platform(content, platform)
+        match = validate_csv_for_platform(content, platform, explicit=True)
         return platform, match
 
     matches = detect_csv_platform(content)

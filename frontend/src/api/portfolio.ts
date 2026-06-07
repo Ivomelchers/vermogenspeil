@@ -211,14 +211,26 @@ export interface Transaction {
   fee_eur: string;
   total_eur: string | null;
   occurred_at: string;
+  external_id: string;
   source_platform: string;
+  import_batch_id: number | null;
+  import_label: string | null;
+  notes: string;
   created_at: string;
+}
+
+export interface TransactionImportBatchFilter {
+  id: number;
+  label: string;
+  platform: string;
+  created_at: string | null;
 }
 
 export interface TransactionListFilters {
   platforms: string[];
   transaction_types: string[];
   symbols: string[];
+  import_batches: TransactionImportBatchFilter[];
 }
 
 export interface TransactionListParams {
@@ -231,6 +243,7 @@ export interface TransactionListParams {
   symbol?: string;
   date_from?: string;
   date_to?: string;
+  import_batch_id?: number;
 }
 
 export interface TransactionListResponse {

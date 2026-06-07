@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.integrations.base import BalanceHolding, PlatformAdapterError, TradeRecord
 from apps.integrations.models import ConnectionMethod, PlatformType, SyncStatus
+from apps.integrations.services.import_batches import create_import_batch, finalize_import_batch
 from apps.portfolio.models import (
     Asset,
     AssetType,
@@ -71,7 +72,13 @@ def _map_trade_type(side: str) -> str:
 
 
 @transaction.atomic
-def apply_sync_results(connection, balances: list[BalanceHolding], trades: list[TradeRecord]) -> tuple[int, int]:
+def apply_sync_results(
+    connection,
+    balances: list[BalanceHolding],
+    trades: list[TradeRecord],
+    *,
+    import_batch=None,
+) -> tuple[int, int]:
     user = connection.user
     portfolio = connection.portfolio
     positions_updated = 0
@@ -95,6 +102,7 @@ def apply_sync_results(connection, balances: list[BalanceHolding], trades: list[
             positions_updated += 1
 
     new_occurred_times = []
+    skipped = 0
     for trade in trades:
         asset_type = trade.asset_type or AssetType.CRYPTO
         asset = _get_or_create_asset(
@@ -131,11 +139,21 @@ def apply_sync_results(connection, balances: list[BalanceHolding], trades: list[
                 "occurred_at": trade.occurred_at,
                 "external_id": trade.external_id,
                 "source_platform": connection.platform,
+                "import_batch": import_batch,
             },
         )
         if created:
             transactions_synced += 1
             new_occurred_times.append(trade.occurred_at)
+        else:
+            skipped += 1
+
+    if import_batch is not None:
+        finalize_import_batch(
+            import_batch,
+            transactions_imported=transactions_synced,
+            transactions_skipped=skipped,
+        )
 
     if new_occurred_times:
         from apps.snapshots.services.recalculate import maybe_recalculate_peildatum_snapshots
@@ -215,7 +233,12 @@ def run_connection_sync(sync_job_id: int) -> None:
             return
 
         adapter = get_adapter(connection)
-        positions, transactions = adapter.sync()
+        import_batch = create_import_batch(
+            connection,
+            sync_job=sync_job,
+            source_label=f"{connection.display_name} (API)",
+        )
+        positions, transactions = adapter.sync(import_batch=import_batch)
         sync_job.positions_synced = positions
         sync_job.transactions_synced = transactions
         sync_job.status = SyncStatus.SUCCESS

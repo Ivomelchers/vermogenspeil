@@ -31,8 +31,11 @@ def _decimal_str(value: Decimal | None) -> str | None:
 
 def _row_to_preview(row, *, status: str) -> dict:
     return {
+        "line_number": getattr(row, "line_number", 0),
         "date": row.occurred_at.date().isoformat(),
         "time": row.occurred_at.strftime("%H:%M:%S"),
+        "description": getattr(row, "description", "") or "",
+        "currency": getattr(row, "currency", "") or "EUR",
         "transaction_type": row.transaction_type,
         "symbol": row.symbol,
         "name": row.name,
@@ -157,6 +160,7 @@ def preview_csv_for_user(
             entry,
             content,
             original_headers=original_headers,
+            user=user,
         )
     except CsvParseError as exc:
         return _rejection(
@@ -195,6 +199,7 @@ def preview_csv_for_user(
         {
             "line_number": s.line_number,
             "reason": s.reason,
+            "reason_label": _issue_reason_label(s.reason),
             "description": s.description,
             "preview": s.preview,
             "suggestion": _issue_suggestion(s.reason),
@@ -212,9 +217,15 @@ def preview_csv_for_user(
     has_gaps = bool(skipped_unrecognized or skipped_other)
     schema_payload = schema_analysis_to_dict(schema_analysis) if schema_analysis else None
     has_schema_warnings = bool(schema_payload and schema_payload.get("has_warnings"))
-    can_confirm = new_count > 0 and not (
-        schema_analysis and schema_analysis.has_blocking_issues
+    parser_ready = (
+        mapping_resolution.parser_ready if mapping_resolution is not None else True
     )
+    can_confirm = new_count > 0 and parser_ready
+
+    from apps.pricing.services.instrument_service import preview_instrument_resolution
+
+    instrument_preview = preview_instrument_resolution(parse_result)
+    has_instrument_gaps = instrument_preview.get("unmapped_count", 0) > 0
 
     record_csv_diagnostic(
         user,
@@ -253,11 +264,22 @@ def preview_csv_for_user(
         "issues": issues,
         "unknown_descriptions": parse_result.unknown_descriptions[:20],
         "has_import_gaps": has_gaps,
+        "has_row_gaps": has_gaps,
+        "has_instrument_gaps": has_instrument_gaps,
+        "instrument_preview": instrument_preview,
         "can_confirm_import": can_confirm,
         "confirm_hint": (
-            "Bevestig alleen als de nieuwe transacties kloppen met uw broker-export."
-            if can_confirm
-            else "Geen nieuwe transacties om te importeren."
+            "Controleer de transacties hieronder en importeer als alles klopt met uw DEGIRO-export."
+            if can_confirm and not has_gaps
+            else (
+                "Controleer de transacties en let op de regels die we hebben overgeslagen."
+                if can_confirm and has_gaps
+                else (
+                    "Geen nieuwe transacties om te importeren."
+                    if new_count <= 0
+                    else "Dit bestand kan nog niet worden geïmporteerd. Probeer de officiële export opnieuw te downloaden."
+                )
+            )
         ),
         "column_schema": schema_payload,
         "has_schema_warnings": has_schema_warnings,
@@ -265,9 +287,21 @@ def preview_csv_for_user(
     }
 
 
+def _issue_reason_label(reason: str) -> str:
+    labels = {
+        "unknown_description": "Niet herkend",
+        "zero_amount": "Geen bedrag",
+        "duplicate": "Al geïmporteerd",
+    }
+    return labels.get(reason, "Overgeslagen")
+
+
 def _issue_suggestion(reason: str) -> str:
     if reason == "unknown_description":
-        return "Voeg handmatig toe via Transacties, of meld deze omschrijving zodat wij de import kunnen uitbreiden."
+        return (
+            "Deze regel past niet bij onze bekende transactietypes. "
+            "U kunt hem later handmatig toevoegen of de regel in DEGIRO controleren."
+        )
     if reason == "zero_amount":
-        return "Controleer de regel in uw export; mogelijk lege of administratieve regel."
-    return "Controleer de regel in uw broker-export."
+        return "Het bedrag is € 0 — vaak een administratieve regel zonder effect op uw portefeuille."
+    return "Open deze regel in uw DEGIRO-export en controleer of de gegevens kloppen."

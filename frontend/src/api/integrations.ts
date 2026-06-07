@@ -68,6 +68,65 @@ export async function deleteConnection(connectionId: number): Promise<void> {
   await api.delete(`integrations/connections/${connectionId}/`);
 }
 
+export interface PlatformImportBatch {
+  id: number;
+  connection_id: number;
+  sync_job_id: number | null;
+  platform: string;
+  platform_display: string;
+  connection_method: string;
+  connection_method_display: string;
+  source_label: string;
+  source_filename: string;
+  display_label: string;
+  ai_used: boolean;
+  rows_in_file: number;
+  rows_recognized: number;
+  transactions_imported: number;
+  transactions_skipped: number;
+  created_at: string;
+}
+
+export interface PurgeDataResult {
+  connection_id: number;
+  import_batches_deleted: number;
+  transactions_deleted: number;
+  orphan_assets_deleted: number;
+}
+
+export interface PurgeImportBatchResult {
+  import_batch_id: number;
+  transactions_deleted: number;
+  orphan_assets_deleted: number;
+}
+
+export async function listImportBatches(
+  connectionId: number,
+): Promise<PlatformImportBatch[]> {
+  const response = await api.get<ApiEnvelope<PlatformImportBatch[]>>(
+    `integrations/connections/${connectionId}/import-batches/`,
+  );
+  return response.data.data;
+}
+
+export async function purgeConnectionData(
+  connectionId: number,
+): Promise<PurgeDataResult> {
+  const response = await api.post<ApiEnvelope<PurgeDataResult>>(
+    `integrations/connections/${connectionId}/purge-data/`,
+  );
+  return response.data.data;
+}
+
+export async function purgeImportBatch(
+  batchId: number,
+): Promise<PurgeImportBatchResult> {
+  const response = await api.post<ApiEnvelope<PurgeImportBatchResult>>(
+    `integrations/import-batches/${batchId}/purge/`,
+  );
+  return response.data.data;
+}
+
 export async function triggerSync(connectionId: number): Promise<SyncJob> {
   const response = await api.post<ApiEnvelope<SyncJob>>(
     `integrations/connections/${connectionId}/sync/`,
@@ -93,6 +152,7 @@ export interface CsvImportResult {
   platform: string;
   platform_display: string;
   connection_id: number;
+  import_batch_id?: number;
   rows_in_file: number;
   rows_recognized: number;
   rows_parsed: number;
@@ -121,8 +181,11 @@ export interface CsvDetectionMatch {
 }
 
 export interface CsvPreviewTransaction {
+  line_number?: number;
   date: string;
   time: string;
+  description?: string;
+  currency?: string;
   transaction_type: string;
   symbol: string;
   name: string;
@@ -137,6 +200,7 @@ export interface CsvPreviewTransaction {
 export interface CsvPreviewIssue {
   line_number: number;
   reason: string;
+  reason_label?: string;
   description: string;
   preview: string;
   suggestion: string;
@@ -194,6 +258,8 @@ export interface CsvColumnMappingReport {
   suggested_aliases: CsvSuggestedAlias[];
   maintenance_snippets: string[];
   ai_used: boolean;
+  learned_user?: boolean;
+  learned_shared?: boolean;
   parser_ready: boolean;
   ai_available: boolean;
 }
@@ -213,6 +279,16 @@ export interface CsvPreviewResult {
   issues: CsvPreviewIssue[];
   unknown_descriptions: string[];
   has_import_gaps: boolean;
+  has_row_gaps?: boolean;
+  has_instrument_gaps?: boolean;
+  instrument_preview?: {
+    total_isins: number;
+    known_count: number;
+    unmapped_count: number;
+    known_isins: string[];
+    unmapped_isins: string[];
+    openfigi_on_import: boolean;
+  };
   has_schema_warnings?: boolean;
   column_schema?: CsvColumnSchemaReport | null;
   column_mapping?: CsvColumnMappingReport;
@@ -253,7 +329,11 @@ export async function detectCsvPlatform(file: File): Promise<{
 
 export async function importPlatformCsv(
   file: File,
-  options?: { platform?: string; label?: string },
+  options?: {
+    platform?: string;
+    label?: string;
+    columnMapping?: Record<string, string>;
+  },
 ): Promise<CsvImportResult> {
   const formData = new FormData();
   formData.append("file", file);
@@ -262,6 +342,9 @@ export async function importPlatformCsv(
   }
   if (options?.label) {
     formData.append("label", options.label);
+  }
+  if (options?.columnMapping && Object.keys(options.columnMapping).length > 0) {
+    formData.append("column_mapping", JSON.stringify(options.columnMapping));
   }
 
   const response = await api.post<ApiEnvelope<CsvImportResult>>(

@@ -31,3 +31,20 @@ export function formatDateNl(isoDate: string): string {
     year: "numeric",
   });
 }
+
+export function formatDateTimeNl(isoDate: string): string {
+  return new Date(isoDate).toLocaleString("nl-NL", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function formatTimeNl(isoDate: string): string {
+  return new Date(isoDate).toLocaleTimeString("nl-NL", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

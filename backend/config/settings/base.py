@@ -232,6 +232,16 @@ else:
     CSV_AI_COLUMN_MAPPING = bool(os.environ.get("OPENAI_API_KEY", ""))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 CSV_AI_COLUMN_MODEL = os.environ.get("CSV_AI_COLUMN_MODEL", "gpt-4o-mini")
+_csv_ai_desc = os.environ.get("CSV_AI_DESCRIPTION_CLASSIFICATION", "").strip().lower()
+if _csv_ai_desc:
+    CSV_AI_DESCRIPTION_CLASSIFICATION = _csv_ai_desc in ("true", "1", "yes")
+else:
+    CSV_AI_DESCRIPTION_CLASSIFICATION = bool(os.environ.get("OPENAI_API_KEY", ""))
+
+# Gedeelde CSV-kolomaliases: min. distinct users vóór alias voor iedereen geldt (default 2)
+LEARNED_ALIAS_GLOBAL_MIN_USERS = int(os.environ.get("LEARNED_ALIAS_GLOBAL_MIN_USERS", "2"))
+# date/total vereisen extra bevestigingen vóór gedeelde verify (default 3)
+LEARNED_ALIAS_CRITICAL_MIN_USERS = int(os.environ.get("LEARNED_ALIAS_CRITICAL_MIN_USERS", "3"))
 
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "")

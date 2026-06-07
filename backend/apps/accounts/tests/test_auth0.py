@@ -204,6 +204,28 @@ class Auth0LoginViewTests(APITestCase):
         self.assertEqual(response.data["error"], "mfa_required")
         self.assertEqual(response.data["data"]["mfa_token"], "local-mfa-token")
 
+    @patch("apps.accounts.views.auth0_sub_from_id_token", return_value="auth0|new-sub")
+    @patch("apps.accounts.views.exchange_password")
+    def test_login_resyncs_stale_auth0_id(self, mock_exchange, mock_sub):
+        self.user.auth_0_id = "auth0|old-sub"
+        self.user.save(update_fields=["auth_0_id"])
+        mock_exchange.return_value = {
+            "id_token": "id-token",
+            "access_token": "access-token",
+            "refresh_token": "refresh-token",
+        }
+
+        response = self.client.post(
+            "/api/v1/auth/login/",
+            {"email": "login@example.com", "password": "SecurePass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.auth_0_id, "auth0|new-sub")
+        mock_sub.assert_called_once_with("id-token")
+
     @patch("apps.accounts.views.exchange_password")
     def test_login_rejects_auth0_mfa_conflict(self, mock_exchange):
         mock_exchange.side_effect = Auth0LoginError(

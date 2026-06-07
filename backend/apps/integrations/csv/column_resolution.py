@@ -6,6 +6,8 @@ import csv
 import io
 from dataclasses import dataclass, field
 
+import logging
+
 from apps.integrations.csv.ai_column_mapping import (
     ai_column_mapping_enabled,
     format_alias_maintenance_snippets,
@@ -15,11 +17,14 @@ from apps.integrations.csv.column_schema import (
     PlatformColumnSchema,
     analyze_column_schema,
     build_column_resolver,
-    missing_required_labels,
 )
 from apps.integrations.csv.headers import detect_delimiter, normalize_header
+from apps.integrations.csv.mapping_enrichment import enrich_column_mapping
+from apps.integrations.csv.mapping_sanity import validate_mapping_against_samples
 
 FUZZY_AUTO_APPLY_THRESHOLD = 0.88
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -32,6 +37,8 @@ class ColumnMappingResolution:
     suggested_aliases: list[dict] = field(default_factory=list)
     maintenance_snippets: list[str] = field(default_factory=list)
     ai_used: bool = False
+    learned_user: bool = False
+    learned_shared: bool = False
 
     @property
     def parser_ready(self) -> bool:
@@ -85,11 +92,13 @@ def resolve_column_mapping(
     original_headers: list[str],
     content: str = "",
     use_ai: bool = True,
+    user=None,
 ) -> ColumnMappingResolution:
     """
     1. Vaste aliases (schema)
-    2. Fuzzy suggesties automatisch toepassen bij hoge confidence
-    3. Optioneel AI (alleen als 1+2 niet voldoende)
+    2. Geleerde aliases (user + geverifieerd gedeeld)
+    3. Fuzzy suggesties automatisch toepassen bij hoge confidence
+    4. Optioneel AI (alleen als 1–3 niet voldoende)
     """
     header_map = _header_map_from_originals(original_headers)
     normalized = set(header_map.keys())
@@ -101,10 +110,46 @@ def resolve_column_mapping(
 
     resolver = build_column_resolver(schema, header_map)
     mapped = _resolver_to_mapped(resolver)
-    missing = missing_required_labels(schema, normalized)
+    missing = _missing_for_mapped(schema, mapped)
 
     source = "schema"
     ai_used = False
+    learned_user = False
+    learned_shared = False
+
+    if user is not None:
+        from apps.integrations.services.learned_aliases import lookup_learned_mappings
+
+        learned = lookup_learned_mappings(user, schema.platform, header_map)
+        for canonical, header in learned["user"].items():
+            if canonical not in mapped:
+                mapped[canonical] = header
+                learned_user = True
+        for canonical, header in learned["shared"].items():
+            if canonical not in mapped:
+                mapped[canonical] = header
+                learned_shared = True
+        if learned_user or learned_shared:
+            missing = _missing_for_mapped(schema, mapped)
+            source = "learned_shared" if learned_shared else "learned_user"
+            if not missing and content.strip():
+                sanity = validate_mapping_against_samples(
+                    mapped,
+                    _read_sample_rows(content),
+                    original_headers=original_headers,
+                )
+                if not sanity.ok:
+                    logger.warning("Learned mapping failed sanity: %s", sanity.errors)
+                    if learned_shared:
+                        for canonical, header in learned["shared"].items():
+                            mapped.pop(canonical, None)
+                        learned_shared = False
+                    if learned_user:
+                        for canonical, header in learned["user"].items():
+                            mapped.pop(canonical, None)
+                        learned_user = False
+                    missing = _missing_for_mapped(schema, mapped)
+                    source = "schema"
 
     if missing:
         mapped = _merge_fuzzy_suggestions(schema, mapped, analysis)
@@ -112,19 +157,47 @@ def resolve_column_mapping(
         if missing and analysis.suggested_aliases:
             source = "fuzzy"
 
+    if missing or not mapped.get("date") or not mapped.get("total"):
+        enriched = enrich_column_mapping(
+            schema,
+            original_headers=original_headers,
+            mapped=mapped,
+        )
+        if enriched != mapped:
+            mapped = enriched
+            missing = _missing_for_mapped(schema, mapped)
+            if not missing and source == "schema":
+                source = "enriched"
+
     if missing and use_ai and ai_column_mapping_enabled() and content.strip():
+        before_ai = dict(mapped)
         ai_result = suggest_column_mapping_with_ai(
             schema,
             file_headers=original_headers,
             sample_rows=_read_sample_rows(content),
+            existing_mapped=mapped,
         )
         if ai_result:
             ai_used = True
-            for canonical, header in ai_result.mapped_columns.items():
-                if canonical not in mapped:
-                    mapped[canonical] = header
+            mapped = ai_result.mapped_columns
             missing = _missing_for_mapped(schema, mapped)
             source = "ai" if not missing else f"{source}+ai"
+            sanity = validate_mapping_against_samples(
+                mapped,
+                _read_sample_rows(content),
+                original_headers=original_headers,
+            )
+            if not sanity.ok:
+                logger.warning("Post-AI mapping sanity failed: %s", sanity.errors)
+                mapped = before_ai
+                ai_used = False
+                missing = _missing_for_mapped(schema, mapped)
+                source = "enriched" if before_ai.get("date") else (
+                    "fuzzy" if analysis.suggested_aliases else "schema"
+                )
+            else:
+                mapped = sanity.mapped_columns
+                missing = _missing_for_mapped(schema, mapped)
 
     maintenance = format_alias_maintenance_snippets(
         schema,
@@ -139,6 +212,8 @@ def resolve_column_mapping(
         suggested_aliases=analysis.suggested_aliases,
         maintenance_snippets=maintenance,
         ai_used=ai_used,
+        learned_user=learned_user,
+        learned_shared=learned_shared,
     )
 
 
@@ -177,6 +252,8 @@ def resolution_to_dict(resolution: ColumnMappingResolution) -> dict:
         "suggested_aliases": resolution.suggested_aliases,
         "maintenance_snippets": resolution.maintenance_snippets,
         "ai_used": resolution.ai_used,
+        "learned_user": resolution.learned_user,
+        "learned_shared": resolution.learned_shared,
         "parser_ready": resolution.parser_ready,
         "ai_available": ai_column_mapping_enabled(),
     }

@@ -177,6 +177,28 @@ def resolve_after_csv_import(parse_result) -> ResolveReport:
     return ensure_instrument_mappings(isins, mic_hints=mic_hints, allow_network=True)
 
 
+def preview_instrument_resolution(parse_result) -> dict:
+    """Dry-run: welke ISINs al bekend zijn vóór import (geen OpenFIGI in preview)."""
+    isins, _ = collect_isins_from_parse_rows(parse_result.rows)
+    unique = sorted(set(isins))
+    seed = load_seed_json()
+    known: list[str] = []
+    unmapped: list[str] = []
+    for isin in unique:
+        if get_mapping(isin) or isin in seed:
+            known.append(isin)
+        else:
+            unmapped.append(isin)
+    return {
+        "total_isins": len(unique),
+        "known_count": len(known),
+        "unmapped_count": len(unmapped),
+        "known_isins": known[:15],
+        "unmapped_isins": unmapped[:15],
+        "openfigi_on_import": bool(unmapped),
+    }
+
+
 def resolve_unmapped_portfolio_isins(*, max_calls: int = 20) -> ResolveReport:
     symbols = [
         s.upper()

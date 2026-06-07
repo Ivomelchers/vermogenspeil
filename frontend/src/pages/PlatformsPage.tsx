@@ -12,6 +12,7 @@ import { Link as RouterLink } from "react-router-dom";
 
 import {
   deleteConnection,
+  purgeConnectionData,
   type CsvImportResult,
   listConnections,
   pollSyncJob,
@@ -168,17 +169,41 @@ export default function PlatformsPage() {
     if (csvInputRef.current) csvInputRef.current.value = "";
   }
 
-  async function handleDelete(connection: PlatformConnection) {
-    if (!window.confirm(`Weet u zeker dat u ${connection.display_name} wilt verwijderen?`)) {
+  async function handleDisconnect(connection: PlatformConnection) {
+    if (
+      !window.confirm(
+        `Weet u zeker dat u ${connection.display_name} wilt loskoppelen? Uw transacties blijven bewaard.`,
+      )
+    ) {
       return;
     }
     setError("");
     try {
       await deleteConnection(connection.id);
-      setMessage(`${connection.display_name} is verwijderd.`);
+      setMessage(`${connection.display_name} is losgekoppeld. Uw transacties blijven bewaard.`);
       await loadConnections();
     } catch (deleteError) {
-      setError(getApiErrorMessage(deleteError, "Verwijderen mislukt."));
+      setError(getApiErrorMessage(deleteError, "Loskoppelen mislukt."));
+    }
+  }
+
+  async function handlePurgeData(connection: PlatformConnection) {
+    if (
+      !window.confirm(
+        `Alle importdata van ${connection.display_name} wordt permanent verwijderd, inclusief transacties en posities. Doorgaan?`,
+      )
+    ) {
+      return;
+    }
+    setError("");
+    try {
+      const result = await purgeConnectionData(connection.id);
+      setMessage(
+        `${result.transactions_deleted} transactie(s) verwijderd (${result.import_batches_deleted} import(s)).`,
+      );
+      await loadConnections();
+    } catch (purgeError) {
+      setError(getApiErrorMessage(purgeError, "Data wissen mislukt."));
     }
   }
 
@@ -235,7 +260,9 @@ export default function PlatformsPage() {
                     ? () => csvInputRef.current?.click()
                     : () => navigate("/platforms/add")
                 }
-                onDelete={() => void handleDelete(connection)}
+                onDisconnect={() => void handleDisconnect(connection)}
+                onPurgeData={() => void handlePurgeData(connection)}
+                onImportHistoryChanged={() => void loadConnections()}
                 primaryActionLabel={
                   connection.connection_method === "csv" ? "↺ Recentere upload" : undefined
                 }

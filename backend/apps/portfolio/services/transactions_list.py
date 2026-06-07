@@ -40,6 +40,7 @@ def filter_transactions(
     symbol: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    import_batch_id: int | None = None,
 ) -> QuerySet[Transaction]:
     if platform:
         queryset = queryset.filter(source_platform=platform.strip().lower())
@@ -51,6 +52,8 @@ def filter_transactions(
         queryset = queryset.filter(occurred_at__date__gte=date_from.strip())
     if date_to:
         queryset = queryset.filter(occurred_at__date__lte=date_to.strip())
+    if import_batch_id is not None:
+        queryset = queryset.filter(import_batch_id=import_batch_id)
     return queryset
 
 
@@ -93,8 +96,9 @@ def list_portfolio_transactions(
     symbol: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    import_batch_id: int | None = None,
 ) -> dict:
-    queryset = portfolio.transactions.select_related("asset")
+    queryset = portfolio.transactions.select_related("asset", "import_batch")
     queryset = filter_transactions(
         queryset,
         platform=platform,
@@ -102,12 +106,15 @@ def list_portfolio_transactions(
         symbol=symbol,
         date_from=date_from,
         date_to=date_to,
+        import_batch_id=import_batch_id,
     )
     queryset = sort_transactions(queryset, sort=sort, order=order)
     return paginate_queryset(queryset, page=page, page_size=page_size)
 
 
 def transaction_filter_options(portfolio) -> dict:
+    from apps.integrations.models import PlatformImportBatch
+
     platforms = (
         portfolio.transactions.exclude(source_platform="")
         .values_list("source_platform", flat=True)
@@ -125,8 +132,28 @@ def transaction_filter_options(portfolio) -> dict:
         .distinct()
         .order_by("asset__symbol")
     )
+    batch_ids = (
+        portfolio.transactions.exclude(import_batch__isnull=True)
+        .values_list("import_batch_id", flat=True)
+        .distinct()
+    )
+    batches = (
+        PlatformImportBatch.objects.filter(id__in=batch_ids)
+        .order_by("-created_at")
+        .values("id", "source_label", "source_filename", "platform", "created_at")
+    )
+    import_batches = [
+        {
+            "id": b["id"],
+            "label": b["source_filename"] or b["source_label"] or f"Import #{b['id']}",
+            "platform": b["platform"],
+            "created_at": b["created_at"].isoformat() if b["created_at"] else None,
+        }
+        for b in batches
+    ]
     return {
         "platforms": list(platforms),
         "transaction_types": list(types),
         "symbols": list(symbols),
+        "import_batches": import_batches,
     }

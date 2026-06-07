@@ -47,6 +47,7 @@ class PositionSerializer(serializers.ModelSerializer):
 
 class TransactionSerializer(serializers.ModelSerializer):
     asset = AssetSerializer(read_only=True)
+    import_label = serializers.SerializerMethodField()
 
     class Meta:
         model = Transaction
@@ -59,9 +60,23 @@ class TransactionSerializer(serializers.ModelSerializer):
             "fee_eur",
             "total_eur",
             "occurred_at",
+            "external_id",
             "source_platform",
+            "import_batch_id",
+            "import_label",
+            "notes",
             "created_at",
         ]
+
+    def get_import_label(self, obj: Transaction) -> str | None:
+        batch = obj.import_batch
+        if not batch:
+            return None
+        if batch.source_filename:
+            return batch.source_filename
+        if batch.source_label:
+            return batch.source_label
+        return f"Import #{batch.pk}"
 
 
 class PortfolioSerializer(serializers.ModelSerializer):

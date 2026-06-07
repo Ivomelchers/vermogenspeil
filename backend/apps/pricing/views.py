@@ -3,11 +3,23 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.portfolio.models import AssetType
+from apps.pricing.instrument_resolver import resolve_yahoo_ticker
 from apps.pricing.services import get_price_service
 
 
+def _market_label(yahoo_ticker: str) -> str:
+    upper = yahoo_ticker.upper()
+    if upper.endswith(".AS"):
+        return f"Euronext Amsterdam ({upper})"
+    if upper.endswith(".L"):
+        return f"LSE ({upper})"
+    if upper.endswith(".DE"):
+        return f"XETRA ({upper})"
+    return upper
+
+
 class LiveQuotesView(APIView):
-    """Debug/Postman: live koersen voor symbolen (gecachet)."""
+    """Live koersen voor symbolen (gecachet)."""
 
     def get(self, request):
         symbols_raw = request.query_params.get("symbols", "")
@@ -27,18 +39,26 @@ class LiveQuotesView(APIView):
         service = get_price_service()
         quotes = service.get_live_prices([(symbol, asset_type) for symbol in symbols])
 
-        payload = [
-            {
-                "symbol": symbol,
-                "asset_type": asset_type,
-                "price_eur": str(quotes[symbol].price_eur),
-                "source": quotes[symbol].source,
-                "fetched_at": quotes[symbol].fetched_at,
-                "from_cache": quotes[symbol].from_cache,
-            }
-            for symbol in symbols
-            if symbol in quotes
-        ]
+        payload = []
+        for symbol in symbols:
+            if symbol not in quotes:
+                continue
+            quote = quotes[symbol]
+            market_ticker = resolve_yahoo_ticker(symbol) if quote.source == "yahoo" else symbol
+            payload.append(
+                {
+                    "symbol": symbol,
+                    "asset_type": asset_type,
+                    "price_eur": str(quote.price_eur),
+                    "source": quote.source,
+                    "fetched_at": quote.fetched_at,
+                    "from_cache": quote.from_cache,
+                    "market_ticker": market_ticker,
+                    "market_label": _market_label(market_ticker)
+                    if quote.source == "yahoo"
+                    else market_ticker,
+                }
+            )
 
         return Response(
             {

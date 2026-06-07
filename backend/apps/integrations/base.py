@@ -49,7 +49,7 @@ class PlatformAdapter(ABC):
     def fetch_transactions(self, since: datetime | None = None) -> list[TradeRecord]:
         """Haal transacties/trades op."""
 
-    def sync(self) -> tuple[int, int]:
+    def sync(self, *, import_batch=None) -> tuple[int, int]:
         """Synchroniseer balances en transacties naar de database."""
         from apps.integrations.services.sync import apply_sync_results
 
@@ -58,4 +58,9 @@ class PlatformAdapter(ABC):
 
         balances = self.fetch_balances()
         trades = self.fetch_transactions()
-        return apply_sync_results(self.connection, balances, trades)
+        return apply_sync_results(
+            self.connection,
+            balances,
+            trades,
+            import_batch=import_batch,
+        )
