@@ -15,7 +15,8 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # Official image via AWS Public ECR — avoids flaky Docker Hub pulls on GHA runners.
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
