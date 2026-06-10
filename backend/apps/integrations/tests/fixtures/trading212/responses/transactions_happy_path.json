@@ -1,0 +1,31 @@
+{
+  "items": [
+    {
+      "id": "tx_001",
+      "ticker": "AAPL_US_EQ",
+      "filledQuantity": 10.0,
+      "fillPrice": 145.00,
+      "dateExecuted": "2026-01-15T10:30:00.000Z",
+      "type": "MARKET_BUY",
+      "totalAmount": 1450.00
+    },
+    {
+      "id": "tx_002",
+      "ticker": "IWDA_EQ",
+      "filledQuantity": 20.0,
+      "fillPrice": 80.00,
+      "dateExecuted": "2026-02-20T14:45:00.000Z",
+      "type": "MARKET_BUY",
+      "totalAmount": 1600.00
+    },
+    {
+      "id": "tx_003",
+      "ticker": "AAPL_US_EQ",
+      "filledQuantity": 2.0,
+      "fillPrice": 0.0,
+      "dateExecuted": "2026-03-10T09:00:00.000Z",
+      "type": "DIVIDEND",
+      "totalAmount": 12.50
+    }
+  ]
+}

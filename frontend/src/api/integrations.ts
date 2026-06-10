@@ -88,6 +88,26 @@ export async function connectOkx(
   return response.data.data;
 }
 
+export async function connectTrading212(
+  payload: CryptoConnectPayload,
+): Promise<BitvavoConnectResponse> {
+  const response = await api.post<ApiEnvelope<BitvavoConnectResponse>>(
+    "integrations/connections/trading212/",
+    { api_key: payload.api_key, label: payload.label },
+  );
+  return response.data.data;
+}
+
+export async function connectTradeRepublic(
+  payload: CryptoConnectPayload,
+): Promise<BitvavoConnectResponse> {
+  const response = await api.post<ApiEnvelope<BitvavoConnectResponse>>(
+    "integrations/connections/trade-republic/",
+    { api_key: payload.api_key, label: payload.label },
+  );
+  return response.data.data;
+}
+
 export async function deleteConnection(connectionId: number): Promise<void> {
   await api.delete(`integrations/connections/${connectionId}/`);
 }

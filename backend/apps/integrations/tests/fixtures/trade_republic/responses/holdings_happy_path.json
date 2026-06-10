@@ -1,0 +1,25 @@
+{
+  "holdings": [
+    {
+      "isin": "IE00B4L5Y983",
+      "name": "iShares Core MSCI World UCITS ETF",
+      "quantity": 20.0,
+      "currentPrice": 85.50,
+      "averagePrice": 78.00
+    },
+    {
+      "isin": "DE0008469008",
+      "name": "DAX ETF",
+      "quantity": 5.0,
+      "currentPrice": 105.00,
+      "averagePrice": 98.00
+    },
+    {
+      "isin": "US0378331005",
+      "name": "Apple Inc.",
+      "quantity": 8.0,
+      "currentPrice": 187.80,
+      "averagePrice": 165.00
+    }
+  ]
+}

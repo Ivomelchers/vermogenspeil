@@ -18,6 +18,8 @@ import {
   connectBitvavo,
   connectBybit,
   connectOkx,
+  connectTrading212,
+  connectTradeRepublic,
   pollSyncJob,
 } from "../api/integrations";
 import AuthAlert from "../components/auth/AuthAlert";
@@ -33,7 +35,7 @@ import {
   type CatalogPlatform,
   type IntegrationMethod,
 } from "../data/platformCatalog";
-import { LIVE_API_CRYPTO_PLATFORMS, LIVE_CSV_PLATFORMS } from "../utils/platformLabels";
+import { LIVE_API_PLATFORMS, LIVE_CSV_PLATFORMS } from "../utils/platformLabels";
 import { useUser } from "../contexts/UserContext";
 import { getApiErrorMessage } from "../utils/apiError";
 
@@ -51,7 +53,7 @@ const METHOD_CARDS: {
     label: "API-koppeling",
     name: "Realtime sync",
     desc: "Verbind direct met API-key. Data wordt automatisch en doorlopend bijgewerkt.",
-    platforms: "Bitvavo, Bybit, OKX",
+    platforms: "Bitvavo, Bybit, OKX, Trading 212, Trade Republic",
   },
   {
     method: "csv",
@@ -71,13 +73,15 @@ const METHOD_CARDS: {
   },
 ];
 
-const CRYPTO_CONNECTORS = {
+const API_CONNECTORS = {
   bitvavo: connectBitvavo,
   bybit: connectBybit,
   okx: connectOkx,
+  trading212: connectTrading212,
+  trade_republic: connectTradeRepublic,
 } as const;
 
-type CryptoPlatformId = keyof typeof CRYPTO_CONNECTORS;
+type ApiPlatformId = keyof typeof API_CONNECTORS;
 
 export default function AddPlatformPage() {
   const navigate = useNavigate();
@@ -106,7 +110,7 @@ export default function AddPlatformPage() {
     if (!q) {
       return PLATFORM_CATALOG.filter((p) =>
         LIVE_CSV_PLATFORMS.some((live) => live.id === p.id) ||
-        LIVE_API_CRYPTO_PLATFORMS.some((live) => live.id === p.id),
+        LIVE_API_PLATFORMS.some((live) => live.id === p.id),
       );
     }
     return PLATFORM_CATALOG.filter(
@@ -118,18 +122,18 @@ export default function AddPlatformPage() {
   }, [search]);
 
   const availableMethods = selectedPlatform?.methods ?? [];
-  const cryptoMeta = LIVE_API_CRYPTO_PLATFORMS.find((p) => p.id === selectedPlatform?.id);
+  const apiMeta = LIVE_API_PLATFORMS.find((p) => p.id === selectedPlatform?.id);
   const isLiveCsv =
     selectedPlatform != null &&
     LIVE_CSV_PLATFORMS.some((p) => p.id === selectedPlatform.id);
-  const isLiveCryptoApi = cryptoMeta != null;
+  const isLiveApi = apiMeta != null;
 
-  async function handleCryptoSubmit(event: React.FormEvent) {
+  async function handleApiSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!selectedPlatform || !isLiveCryptoApi) return;
+    if (!selectedPlatform || !isLiveApi) return;
 
-    const platformId = selectedPlatform.id as CryptoPlatformId;
-    const connect = CRYPTO_CONNECTORS[platformId];
+    const platformId = selectedPlatform.id as ApiPlatformId;
+    const connect = API_CONNECTORS[platformId];
     if (!connect) return;
 
     setError("");
@@ -140,7 +144,7 @@ export default function AddPlatformPage() {
       const result = await connect({
         api_key: apiKey.trim(),
         api_secret: apiSecret.trim(),
-        api_passphrase: cryptoMeta.needsPassphrase ? apiPassphrase.trim() : undefined,
+        api_passphrase: apiMeta?.needsPassphrase ? apiPassphrase.trim() : undefined,
         label: label.trim() || selectedPlatform.name,
       });
       if (result.sync_job?.id) {
@@ -161,7 +165,7 @@ export default function AddPlatformPage() {
     }
   }
 
-  const showCryptoForm = isLiveCryptoApi && selectedMethod === "api";
+  const showApiForm = isLiveApi && selectedMethod === "api";
 
   return (
     <PageShell maxW="960px">
@@ -286,12 +290,12 @@ export default function AddPlatformPage() {
 
       <MotionSection>
         <FiscalDisclaimer>
-          API-koppelingen zijn voorkeur voor crypto (Bitvavo, Bybit, OKX). Brokers zonder API:
+          API-koppelingen: Bitvavo, Bybit, OKX, Trading 212 en Trade Republic. Brokers zonder API:
           CSV-upload op Mijn platformen.
         </FiscalDisclaimer>
       </MotionSection>
 
-      {showCryptoForm && selectedPlatform && (
+      {showApiForm && selectedPlatform && (
         <MotionSection>
           <FiscalCard elevated p={6} borderLeft="3px solid" borderLeftColor="moss.500">
             <Text fontWeight={600} mb={4}>
@@ -299,7 +303,7 @@ export default function AddPlatformPage() {
             </Text>
             {error && <AuthAlert tone="error">{error}</AuthAlert>}
             {statusMessage && !error && <AuthAlert tone="info">{statusMessage}</AuthAlert>}
-            <Box as="form" onSubmit={(e: React.FormEvent) => void handleCryptoSubmit(e)}>
+            <Box as="form" onSubmit={(e: React.FormEvent) => void handleApiSubmit(e)}>
               <VStack align="stretch" spacing={4}>
                 <AuthFormField
                   label="Label"
@@ -315,19 +319,21 @@ export default function AddPlatformPage() {
                   isRequired
                   autoComplete="off"
                 />
-                <FormControl isRequired>
-                  <FormLabel fontSize="sm" color="ink.dim">
-                    API-secret
-                  </FormLabel>
-                  <Input
-                    type="password"
-                    value={apiSecret}
-                    onChange={(e) => setApiSecret(e.target.value)}
-                    autoComplete="off"
-                    variant="fiscal"
-                  />
-                </FormControl>
-                {cryptoMeta?.needsPassphrase && (
+                {apiMeta?.needsSecret && (
+                  <FormControl isRequired>
+                    <FormLabel fontSize="sm" color="ink.dim">
+                      API-secret
+                    </FormLabel>
+                    <Input
+                      type="password"
+                      value={apiSecret}
+                      onChange={(e) => setApiSecret(e.target.value)}
+                      autoComplete="off"
+                      variant="fiscal"
+                    />
+                  </FormControl>
+                )}
+                {apiMeta?.needsPassphrase && (
                   <FormControl isRequired>
                     <FormLabel fontSize="sm" color="ink.dim">
                       API-passphrase
@@ -348,8 +354,8 @@ export default function AddPlatformPage() {
                   isDisabled={
                     !user?.email_verified ||
                     !apiKey ||
-                    !apiSecret ||
-                    (cryptoMeta?.needsPassphrase && !apiPassphrase)
+                    (apiMeta?.needsSecret && !apiSecret) ||
+                    (apiMeta?.needsPassphrase && !apiPassphrase)
                   }
                   alignSelf="flex-start"
                 >
@@ -386,7 +392,7 @@ export default function AddPlatformPage() {
 
       {selectedPlatform &&
         selectedMethod &&
-        !showCryptoForm &&
+        !showApiForm &&
         !(selectedMethod === "csv" && isLiveCsv) && (
         <MotionSection>
           <FiscalCard elevated p={6}>

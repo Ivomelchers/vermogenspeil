@@ -1,0 +1,79 @@
+{
+  "definitions": {
+    "BalanceEntry": {
+      "type": "object",
+      "required": ["symbol", "available", "inOrder"],
+      "properties": {
+        "symbol": { "type": "string" },
+        "available": { "type": "string" },
+        "inOrder": { "type": "string" }
+      }
+    },
+    "BalanceResponse": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["symbol", "available", "inOrder"],
+        "properties": {
+          "symbol": { "type": "string" },
+          "available": { "type": "string" },
+          "inOrder": { "type": "string" }
+        }
+      }
+    },
+    "HistoryItem": {
+      "type": "object",
+      "required": ["transactionId", "executedAt", "type"],
+      "properties": {
+        "transactionId": { "type": "string" },
+        "executedAt": { "type": "string" },
+        "type": { "type": "string", "enum": ["buy", "sell", "deposit", "withdrawal", "staking", "rebate"] },
+        "priceCurrency": { "type": "string" },
+        "priceAmount": { "type": "string" },
+        "sentCurrency": { "type": "string" },
+        "sentAmount": { "type": "string" },
+        "receivedCurrency": { "type": "string" },
+        "receivedAmount": { "type": "string" },
+        "feesCurrency": { "type": "string" },
+        "feesAmount": { "type": "string" }
+      }
+    },
+    "HistoryResponse": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["transactionId", "executedAt", "type"],
+            "properties": {
+              "transactionId": { "type": "string" },
+              "executedAt": { "type": "string" },
+              "type": { "type": "string", "enum": ["buy", "sell", "deposit", "withdrawal", "staking", "rebate"] },
+              "priceCurrency": { "type": "string" },
+              "priceAmount": { "type": "string" },
+              "sentCurrency": { "type": "string" },
+              "sentAmount": { "type": "string" },
+              "receivedCurrency": { "type": "string" },
+              "receivedAmount": { "type": "string" },
+              "feesCurrency": { "type": "string" },
+              "feesAmount": { "type": "string" }
+            }
+          }
+        },
+        "currentPage": { "type": "integer" },
+        "totalPages": { "type": "integer" },
+        "maxItems": { "type": "integer" }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {
+        "error": { "type": "string" },
+        "errorCode": { "type": "integer" }
+      }
+    }
+  }
+}

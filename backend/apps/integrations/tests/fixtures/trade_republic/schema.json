@@ -1,0 +1,45 @@
+{
+  "definitions": {
+    "HoldingsResponse": {
+      "type": "object",
+      "required": ["holdings"],
+      "properties": {
+        "holdings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["isin", "quantity", "currentPrice"],
+            "properties": {
+              "isin": { "type": "string" },
+              "quantity": { "type": "number", "minimum": 0 },
+              "currentPrice": { "type": "number", "minimum": 0 },
+              "averagePrice": { "type": "number", "minimum": 0 },
+              "name": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "TransactionsResponse": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "isin", "quantity", "price", "timestamp", "type"],
+            "properties": {
+              "id": { "type": "string" },
+              "isin": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" },
+              "timestamp": { "type": "string" },
+              "type": { "type": "string", "enum": ["buy", "sell", "dividend", "savingsplan"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

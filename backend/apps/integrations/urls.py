@@ -12,6 +12,8 @@ from apps.integrations.views import (
     DemoFeaturesStatusView,
     DemoSeedView,
     OkxConnectView,
+    Trading212ConnectView,
+    TradeRepublicConnectView,
     PlatformConnectionDeleteView,
     PlatformConnectionListView,
     PlatformConnectionPurgeDataView,
@@ -26,6 +28,8 @@ urlpatterns = [
     path("connections/bitvavo/", BitvavoConnectView.as_view(), name="bitvavo-connect"),
     path("connections/bybit/", BybitConnectView.as_view(), name="bybit-connect"),
     path("connections/okx/", OkxConnectView.as_view(), name="okx-connect"),
+    path("connections/trading212/", Trading212ConnectView.as_view(), name="trading212-connect"),
+    path("connections/trade-republic/", TradeRepublicConnectView.as_view(), name="trade-republic-connect"),
     path(
         "connections/<int:connection_id>/",
         PlatformConnectionDeleteView.as_view(),

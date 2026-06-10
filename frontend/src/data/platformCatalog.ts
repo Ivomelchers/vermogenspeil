@@ -8,6 +8,8 @@ export type LiveConnection =
   | "api-bitvavo"
   | "api-bybit"
   | "api-okx"
+  | "api-trading212"
+  | "api-trade_republic"
   | "csv-degiro"
   | "csv-trading212"
   | "csv-trade_republic"
@@ -189,9 +191,9 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     initials: "T2",
     color: "#2d6a4f",
     category: "broker",
-    typeLabel: "Broker · CSV · CySEC",
+    typeLabel: "Broker · API + CSV · CySEC",
     regulation: "CySEC + FCA",
-    methods: ["csv"],
+    methods: ["api", "csv"],
     idealFor: "Starters, kleine bedragen, DCA-beleggers",
     costStars: 5,
     costNote: "Geen commissies, FX-spread 0,15%",
@@ -199,12 +201,12 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     regulationBadge: "CySEC + FCA",
     easeStars: 5,
     easeNote: "Zeer toegankelijk, moderne app",
-    integrationLabel: "CSV",
-    integrationNote: "handmatig periodiek · API in beta",
+    integrationLabel: "API + CSV",
+    integrationNote: "realtime API of handmatige CSV-export",
     features: ["Fractioneel vanaf € 1", "AutoInvest (DCA)", "0% commissie"],
     country: "Cyprus (EER)",
-    liveConnection: "csv-trading212",
-    description: "Commission-free broker met fractioneel beleggen en DCA (AutoInvest).",
+    liveConnection: "api-trading212",
+    description: "Commission-free broker met fractioneel beleggen en DCA (AutoInvest). Koppel via API-key of importeer via CSV-export.",
   },
   {
     id: "trade_republic",
@@ -212,9 +214,9 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     initials: "TR",
     color: "#1a1a1a",
     category: "broker",
-    typeLabel: "Broker · CSV · BaFin",
+    typeLabel: "Broker · API + CSV · BaFin",
     regulation: "BaFin",
-    methods: ["csv"],
+    methods: ["api", "csv"],
     idealFor: "Mobiele beleggers, lage kosten",
     costStars: 5,
     costNote: "Geen ordercommissie",
@@ -222,13 +224,13 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     regulationBadge: "BaFin",
     easeStars: 5,
     easeNote: "App-first, eenvoudige export",
-    integrationLabel: "CSV",
-    integrationNote: "transactie-export uit app",
+    integrationLabel: "API + CSV",
+    integrationNote: "realtime API of transactie-export uit app",
     features: ["Sparen met rente", "Fractioneel", "Crypto in app"],
     country: "Duitsland (EER)",
-    liveConnection: "csv-trade_republic",
+    liveConnection: "api-trade_republic",
     description:
-      "Mobiele broker zonder ordercommissie. Import via transactie-CSV uit de app (Profiel → Afschriften).",
+      "Mobiele broker zonder ordercommissie. Koppel via API-key of importeer via CSV-export (Profiel → Afschriften).",
   },
   {
     id: "bux",

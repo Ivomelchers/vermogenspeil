@@ -1,0 +1,64 @@
+{
+  "definitions": {
+    "Position": {
+      "type": "object",
+      "required": ["ticker", "quantity", "currentPrice"],
+      "properties": {
+        "ticker": { "type": "string" },
+        "quantity": { "type": "number", "minimum": 0 },
+        "currentPrice": { "type": "number", "minimum": 0 }
+      }
+    },
+    "PortfolioResponse": {
+      "type": "object",
+      "required": ["positions"],
+      "properties": {
+        "positions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["ticker", "quantity", "currentPrice"],
+            "properties": {
+              "ticker": { "type": "string" },
+              "quantity": { "type": "number", "minimum": 0 },
+              "currentPrice": { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "Transaction": {
+      "type": "object",
+      "required": ["id", "ticker", "filledQuantity", "fillPrice", "dateExecuted", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "ticker": { "type": "string" },
+        "filledQuantity": { "type": "number" },
+        "fillPrice": { "type": "number" },
+        "dateExecuted": { "type": "string" },
+        "type": { "type": "string", "enum": ["MARKET_BUY", "MARKET_SELL", "DIVIDEND", "LIMIT_BUY", "LIMIT_SELL"] }
+      }
+    },
+    "TransactionsResponse": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "ticker", "filledQuantity", "fillPrice", "dateExecuted", "type"],
+            "properties": {
+              "id": { "type": "string" },
+              "ticker": { "type": "string" },
+              "filledQuantity": { "type": "number" },
+              "fillPrice": { "type": "number" },
+              "dateExecuted": { "type": "string" },
+              "type": { "type": "string", "enum": ["MARKET_BUY", "MARKET_SELL", "DIVIDEND", "LIMIT_BUY", "LIMIT_SELL"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

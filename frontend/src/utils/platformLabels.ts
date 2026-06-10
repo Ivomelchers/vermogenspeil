@@ -24,9 +24,16 @@ export const LIVE_CSV_PLATFORMS = [
   { id: "okx", name: "OKX" },
 ] as const;
 
-/** Crypto-platformen met live API-koppeling. */
-export const LIVE_API_CRYPTO_PLATFORMS = [
-  { id: "bitvavo", name: "Bitvavo", needsPassphrase: false },
-  { id: "bybit", name: "Bybit", needsPassphrase: false },
-  { id: "okx", name: "OKX", needsPassphrase: true },
+/** Platformen met live API-koppeling (crypto + brokers). */
+export const LIVE_API_PLATFORMS = [
+  { id: "bitvavo", name: "Bitvavo", needsSecret: true, needsPassphrase: false },
+  { id: "bybit", name: "Bybit", needsSecret: true, needsPassphrase: false },
+  { id: "okx", name: "OKX", needsSecret: true, needsPassphrase: true },
+  { id: "trading212", name: "Trading 212", needsSecret: false, needsPassphrase: false },
+  { id: "trade_republic", name: "Trade Republic", needsSecret: false, needsPassphrase: false },
 ] as const;
+
+/** @deprecated Gebruik LIVE_API_PLATFORMS */
+export const LIVE_API_CRYPTO_PLATFORMS = LIVE_API_PLATFORMS.filter(
+  (p) => p.id === "bitvavo" || p.id === "bybit" || p.id === "okx",
+);

@@ -1,0 +1,5 @@
+[
+  {"symbol": "EUR", "available": "1250.00", "inOrder": "0"},
+  {"symbol": "BTC", "available": "0.15", "inOrder": "0.01"},
+  {"symbol": "ETH", "available": "2.5", "inOrder": "0"}
+]

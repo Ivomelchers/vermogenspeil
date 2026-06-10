@@ -1,0 +1,13 @@
+name: "Trade Republic"
+slug: "trade_republic"
+api_base_url: "https://api.traderepublic.com/api/v1"
+sandbox_url: null
+docs_url: "https://traderepublic.com/api"
+auth_type: "bearer_token"
+endpoints:
+  - name: "holdings"
+    method: "GET"
+    path: "/portfolio/holdings"
+  - name: "transactions"
+    method: "GET"
+    path: "/timeline/activities"

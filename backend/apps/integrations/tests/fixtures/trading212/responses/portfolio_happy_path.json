@@ -1,0 +1,25 @@
+{
+  "positions": [
+    {
+      "ticker": "AAPL_US_EQ",
+      "quantity": 10.0,
+      "currentPrice": 150.25,
+      "averagePrice": 145.00,
+      "ppl": 52.50
+    },
+    {
+      "ticker": "IWDA_EQ",
+      "quantity": 20.0,
+      "currentPrice": 85.50,
+      "averagePrice": 80.00,
+      "ppl": 110.00
+    },
+    {
+      "ticker": "VUSA_EQ",
+      "quantity": 5.0,
+      "currentPrice": 95.00,
+      "averagePrice": 90.00,
+      "ppl": 25.00
+    }
+  ]
+}

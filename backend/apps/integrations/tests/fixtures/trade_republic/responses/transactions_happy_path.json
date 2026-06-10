@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "id": "tr_001",
+      "isin": "IE00B4L5Y983",
+      "quantity": 10.0,
+      "price": 80.00,
+      "timestamp": "2026-01-10T09:30:00.000Z",
+      "type": "buy",
+      "totalAmount": 800.00
+    },
+    {
+      "id": "tr_002",
+      "isin": "IE00B4L5Y983",
+      "quantity": 10.0,
+      "price": 82.50,
+      "timestamp": "2026-02-15T10:00:00.000Z",
+      "type": "savingsplan",
+      "totalAmount": 825.00
+    },
+    {
+      "id": "tr_003",
+      "isin": "DE0008469008",
+      "quantity": 5.0,
+      "price": 103.00,
+      "timestamp": "2026-03-05T14:45:00.000Z",
+      "type": "buy",
+      "totalAmount": 515.00
+    },
+    {
+      "id": "tr_004",
+      "isin": "IE00B4L5Y983",
+      "quantity": 0.5,
+      "price": 85.00,
+      "timestamp": "2026-04-01T00:00:00.000Z",
+      "type": "dividend",
+      "totalAmount": 42.50
+    }
+  ]
+}

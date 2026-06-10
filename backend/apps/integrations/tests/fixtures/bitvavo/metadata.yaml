@@ -1,0 +1,16 @@
+name: "Bitvavo"
+slug: "bitvavo"
+api_base_url: "https://api.bitvavo.com/v2"
+sandbox_url: null
+docs_url: "https://docs.bitvavo.com"
+auth_type: "hmac_sha256"
+endpoints:
+  - name: "balance"
+    method: "GET"
+    path: "/balance"
+  - name: "history"
+    method: "GET"
+    path: "/account/history"
+  - name: "trades"
+    method: "GET"
+    path: "/trades"

@@ -1,0 +1,85 @@
+{
+  "items": [
+    {
+      "transactionId": "fixture-history-deposit-1",
+      "executedAt": "2024-01-05T10:00:00.000Z",
+      "type": "deposit",
+      "priceCurrency": "EUR",
+      "priceAmount": "1000.00",
+      "sentCurrency": "EUR",
+      "sentAmount": "1000.00",
+      "receivedCurrency": "EUR",
+      "receivedAmount": "1000.00",
+      "feesCurrency": "EUR",
+      "feesAmount": "0"
+    },
+    {
+      "transactionId": "fixture-history-buy-btc-1",
+      "executedAt": "2024-01-15T10:30:00.000Z",
+      "type": "buy",
+      "priceCurrency": "EUR",
+      "priceAmount": "4200.00",
+      "sentCurrency": "EUR",
+      "sentAmount": "4200.00",
+      "receivedCurrency": "BTC",
+      "receivedAmount": "0.10",
+      "feesCurrency": "EUR",
+      "feesAmount": "0.50"
+    },
+    {
+      "transactionId": "fixture-history-buy-eth-1",
+      "executedAt": "2024-02-01T14:00:00.000Z",
+      "type": "buy",
+      "priceCurrency": "EUR",
+      "priceAmount": "8000.00",
+      "sentCurrency": "EUR",
+      "sentAmount": "8000.00",
+      "receivedCurrency": "ETH",
+      "receivedAmount": "2.5",
+      "feesCurrency": "EUR",
+      "feesAmount": "0.18"
+    },
+    {
+      "transactionId": "fixture-history-sell-btc-1",
+      "executedAt": "2024-03-10T11:00:00.000Z",
+      "type": "sell",
+      "priceCurrency": "EUR",
+      "priceAmount": "1220.00",
+      "sentCurrency": "BTC",
+      "sentAmount": "0.02",
+      "receivedCurrency": "EUR",
+      "receivedAmount": "1220.00",
+      "feesCurrency": "EUR",
+      "feesAmount": "0.30"
+    },
+    {
+      "transactionId": "fixture-history-staking-1",
+      "executedAt": "2024-04-01T08:00:00.000Z",
+      "type": "staking",
+      "priceCurrency": "EUR",
+      "priceAmount": "12.50",
+      "sentCurrency": "ETH",
+      "sentAmount": "0",
+      "receivedCurrency": "ETH",
+      "receivedAmount": "0.004",
+      "feesCurrency": "EUR",
+      "feesAmount": "0"
+    },
+    {
+      "transactionId": "fixture-history-withdrawal-1",
+      "executedAt": "2024-05-01T16:00:00.000Z",
+      "type": "withdrawal",
+      "priceCurrency": "EUR",
+      "priceAmount": "500.00",
+      "sentCurrency": "EUR",
+      "sentAmount": "500.00",
+      "receivedCurrency": "EUR",
+      "receivedAmount": "500.00",
+      "feesCurrency": "EUR",
+      "feesAmount": "0"
+    }
+  ],
+  "currentPage": 1,
+  "totalPages": 1,
+  "maxItems": 100
+}
