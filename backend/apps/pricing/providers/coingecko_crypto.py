@@ -24,6 +24,7 @@ COINGECKO_COIN_IDS: dict[str, str] = {
     "DOT": "polkadot",
     "LINK": "chainlink",
     "LTC": "litecoin",
+    "AR": "arweave",
 }
 
 

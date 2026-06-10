@@ -62,7 +62,7 @@ class OkxClient:
         if body:
             body_str = json.dumps(body, separators=(",", ":"))
 
-        timestamp = str(time.time())
+        timestamp = str(int(time.time()))
         signature = self._sign(timestamp, method, request_path, body_str)
 
         headers = {
