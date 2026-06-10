@@ -201,6 +201,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.pricing.tasks.refresh_live_prices",
         "schedule": crontab(minute="*/5"),
     },
+    "refresh-symbol-cache": {
+        "task": "apps.pricing.tasks.refresh_symbol_cache",
+        "schedule": crontab(minute=0, hour=2),  # 2 AM daily
+    },
 }
 
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "").lower() in (
@@ -209,6 +213,12 @@ CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "").lower(
     "yes",
 )
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# Memory optimizations for resource-constrained environments
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # Don't prefetch tasks into memory
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000  # Recycle workers to free memory
+CELERY_TASK_ACKS_LATE = True  # Acknowledge tasks after completion
+CELERY_TASK_REJECT_ON_WORKER_LOST = True  # Re-queue if worker dies
 
 DEMO_FEATURES_ENABLED = os.environ.get("DEMO_FEATURES_ENABLED", "").lower() in (
     "true",

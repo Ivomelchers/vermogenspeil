@@ -118,6 +118,21 @@ class ManualAssetCreateSerializer(serializers.Serializer):
         default=VermogensCategorie.BELEGGING,
     )
 
+    def validate(self, data):
+        from django.core.exceptions import ValidationError
+
+        symbol = data.get("symbol", "").strip().upper()
+        asset_type = data.get("asset_type")
+
+        if asset_type:
+            asset = Asset(symbol=symbol, asset_type=asset_type)
+            try:
+                asset.clean()
+            except ValidationError as e:
+                raise serializers.ValidationError({"symbol": e.message})
+
+        return data
+
 
 class ManualTransactionCreateSerializer(serializers.Serializer):
     asset_id = serializers.IntegerField()

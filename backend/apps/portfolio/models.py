@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.core.exceptions import ValidationError
 
 from .querysets import UserOwnedManager
 
@@ -87,6 +88,25 @@ class Asset(models.Model):
 
     def __str__(self):
         return self.symbol
+
+    def clean(self):
+        from apps.pricing.symbol_registry import (
+            is_symbol_supported,
+            suggest_similar_symbols,
+        )
+
+        if not self.asset_type:
+            return
+
+        if not is_symbol_supported(self.symbol, self.asset_type):
+            suggestions = suggest_similar_symbols(self.symbol, self.asset_type)
+            hint = ""
+            if suggestions:
+                hint = f" Bedoelde u: {', '.join(suggestions)}?"
+            raise ValidationError(
+                f"Symbol '{self.symbol}' is niet ondersteund voor {self.get_asset_type_display()}. "
+                f"Dit symbol kan niet automatisch worden geprijsd.{hint}"
+            )
 
 
 class Position(models.Model):
