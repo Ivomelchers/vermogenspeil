@@ -1,0 +1,4 @@
+Action,Time,ISIN,Ticker,Name,ID,No. of shares,Price / share,Total,Currency (Total),Result,Currency (Result)
+Market buy,2024-03-15 14:30:00,IE00B4L5Y983,IWDA,iShares Core MSCI World,tx-001,2,75.50,-151.00,EUR,,
+Market sell,2024-06-20 10:15:00,IE00B4L5Y983,IWDA,iShares Core MSCI World,tx-002,1,82.30,82.30,EUR,12.50,EUR
+Dividend (Dividend),2024-12-10 08:00:00,IE00B4L5Y983,IWDA,iShares Core MSCI World,tx-003,0,0,5.25,EUR,5.25,EUR

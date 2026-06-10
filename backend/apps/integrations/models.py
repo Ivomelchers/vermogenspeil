@@ -6,7 +6,11 @@ from apps.portfolio.querysets import UserOwnedManager
 
 class PlatformType(models.TextChoices):
     BITVAVO = "bitvavo", "Bitvavo"
+    BYBIT = "bybit", "Bybit"
+    OKX = "okx", "OKX"
     DEGIRO = "degiro", "DEGIRO"
+    TRADING212 = "trading212", "Trading 212"
+    TRADE_REPUBLIC = "trade_republic", "Trade Republic"
     MANUAL = "manual", "Handmatig"
 
 
@@ -43,6 +47,7 @@ class PlatformConnection(models.Model):
     label = models.CharField("label", max_length=120, blank=True, default="")
     api_key_encrypted = models.TextField(blank=True, default="")
     api_secret_encrypted = models.TextField(blank=True, default="")
+    api_passphrase_encrypted = models.TextField(blank=True, default="")
     status = models.CharField(
         max_length=16,
         choices=SyncStatus.choices,

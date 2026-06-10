@@ -38,6 +38,7 @@ import {
 } from "../data/platformCatalog";
 import { useUser } from "../contexts/UserContext";
 import { formatEur } from "../utils/formatMoney";
+import { LIVE_CSV_PLATFORMS } from "../utils/platformLabels";
 import { getApiErrorMessage } from "../utils/apiError";
 
 const BROWSE_PLATFORMS = PLATFORM_CATALOG.filter((p) =>
@@ -66,9 +67,9 @@ export default function PlatformsPage() {
   const [syncingId, setSyncingId] = useState<number | null>(null);
   const [csvWizardOpen, setCsvWizardOpen] = useState(false);
   const [csvWizardFile, setCsvWizardFile] = useState<File | null>(null);
-  const [csvWizardPlatform, setCsvWizardPlatform] = useState<string | undefined>("degiro");
+  const [csvWizardPlatform, setCsvWizardPlatform] = useState<string | undefined>(undefined);
   const csvInputRef = useRef<HTMLInputElement>(null);
-  const degiroCsvSectionRef = useRef<HTMLDivElement>(null);
+  const csvSectionRef = useRef<HTMLDivElement>(null);
 
   const loadConnections = useCallback(async () => {
     setLoading(true);
@@ -101,13 +102,18 @@ export default function PlatformsPage() {
   }, [loadConnections]);
 
   useEffect(() => {
-    const state = location.state as { focusDegiroCsv?: boolean } | null;
-    if (!state?.focusDegiroCsv) {
+    const state = location.state as {
+      focusDegiroCsv?: boolean;
+      focusCsvPlatform?: string;
+    } | null;
+    const platform = state?.focusCsvPlatform ?? (state?.focusDegiroCsv ? "degiro" : null);
+    if (!platform) {
       return;
     }
     navigate(location.pathname, { replace: true, state: {} });
+    setCsvWizardPlatform(platform);
     const timer = window.setTimeout(() => {
-      degiroCsvSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      csvSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 300);
     return () => window.clearTimeout(timer);
   }, [location.pathname, location.state, navigate]);
@@ -157,9 +163,8 @@ export default function PlatformsPage() {
     }
   }
 
-  function openCsvWizard(file: File, platform = "degiro") {
+  function openCsvWizard(file: File) {
     setCsvWizardFile(file);
-    setCsvWizardPlatform(platform);
     setCsvWizardOpen(true);
   }
 
@@ -257,7 +262,10 @@ export default function PlatformsPage() {
                 }
                 onManage={
                   connection.connection_method === "csv"
-                    ? () => csvInputRef.current?.click()
+                    ? () => {
+                        setCsvWizardPlatform(connection.platform);
+                        csvInputRef.current?.click();
+                      }
                     : () => navigate("/platforms/add")
                 }
                 onDisconnect={() => void handleDisconnect(connection)}
@@ -404,7 +412,7 @@ export default function PlatformsPage() {
 
           <MotionSection>
             <Box
-              ref={degiroCsvSectionRef}
+              ref={csvSectionRef}
               p={5}
               border="1px dashed"
               borderColor="line.DEFAULT"
@@ -412,20 +420,28 @@ export default function PlatformsPage() {
               bg="backgroundHover"
             >
               <Text fontWeight={600} mb={2}>
-                DEGIRO · snelle CSV-import
+                CSV-import
               </Text>
               <Text fontSize="sm" color="ink.dim" mb={4} lineHeight={1.7}>
-                Exporteer transacties uit DEGIRO en upload het CSV-bestand. U ziet eerst een preview
-                vóór import.
+                Upload een transactie-export. Ondersteund: DEGIRO, Trading 212, Trade Republic,
+                Bybit en OKX. Auto-detectie op kolomkoppen; preview vóór import.
               </Text>
-              <Button
-                variant="fiscal"
-                size="sm"
-                isDisabled={!user?.email_verified}
-                onClick={() => csvInputRef.current?.click()}
-              >
-                DEGIRO CSV uploaden
-              </Button>
+              <Flex gap={2} flexWrap="wrap">
+                {LIVE_CSV_PLATFORMS.map((p) => (
+                  <Button
+                    key={p.id}
+                    variant={csvWizardPlatform === p.id ? "fiscal" : "fiscalOutline"}
+                    size="sm"
+                    isDisabled={!user?.email_verified}
+                    onClick={() => {
+                      setCsvWizardPlatform(p.id);
+                      csvInputRef.current?.click();
+                    }}
+                  >
+                    {p.name} CSV
+                  </Button>
+                ))}
+              </Flex>
             </Box>
           </MotionSection>
         </>

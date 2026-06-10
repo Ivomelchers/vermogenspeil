@@ -9,6 +9,19 @@ class BitvavoConnectSerializer(serializers.Serializer):
     label = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
 
 
+class BybitConnectSerializer(serializers.Serializer):
+    api_key = serializers.CharField(max_length=256, trim_whitespace=True)
+    api_secret = serializers.CharField(max_length=256, trim_whitespace=True, write_only=True)
+    label = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
+
+
+class OkxConnectSerializer(serializers.Serializer):
+    api_key = serializers.CharField(max_length=256, trim_whitespace=True)
+    api_secret = serializers.CharField(max_length=256, trim_whitespace=True, write_only=True)
+    api_passphrase = serializers.CharField(max_length=256, trim_whitespace=True, write_only=True)
+    label = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
+
+
 class PlatformConnectionSerializer(serializers.ModelSerializer):
     platform_display = serializers.CharField(source="get_platform_display", read_only=True)
     connection_method_display = serializers.CharField(

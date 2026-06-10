@@ -77,7 +77,7 @@ export default function PlatformComparatorPage() {
       <MotionSection>
         <FiscalDisclaimer>
           <strong>Let op:</strong> gebaseerd op openbare gegevens. Verbox biedt geen
-          beleggingsadvies. Alleen Bitvavo (API) en DEGIRO (CSV) zijn nu live koppelbaar; overige
+          beleggingsadvies. Bitvavo, Bybit, OKX (API), DEGIRO, Trading 212, Trade Republic (CSV) zijn live;
           platformen staan in de catalogus.
         </FiscalDisclaimer>
       </MotionSection>

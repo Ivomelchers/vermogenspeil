@@ -280,10 +280,19 @@ export default function CsvImportWizard({
                 {preview.message ??
                   "Dit bestand kunnen we niet importeren. Gebruik de officiële transactie-export van uw broker."}
               </AuthAlert>
-              <Text fontSize="sm" color="ink.dim">
-                Tip: download in DEGIRO het bestand <strong>Transactions</strong> (CSV) en upload dat
-                opnieuw.
-              </Text>
+              {preview.requested_platform === "degiro" && (
+                <Text fontSize="sm" color="ink.dim">
+                  Tip: download in DEGIRO het bestand <strong>Transactions</strong> (CSV) en upload dat
+                  opnieuw.
+                </Text>
+              )}
+              {preview.matches && preview.matches.length > 0 && (
+                <Text fontSize="sm" color="ink.dim">
+                  Dit bestand lijkt op{" "}
+                  <strong>{preview.matches.map((m) => m.platform_display).join(", ")}</strong>. Kies
+                  het juiste platform vóór upload.
+                </Text>
+              )}
             </VStack>
           )}
 

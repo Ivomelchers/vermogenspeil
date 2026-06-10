@@ -5,6 +5,8 @@ from rest_framework.views import APIView
 from apps.accounts.utils.responses import api_error, api_response, first_validation_message
 from apps.integrations.base import PlatformAdapterError
 from apps.integrations.bitvavo.adapter import BitvavoPlatformAdapter
+from apps.integrations.bybit.adapter import BybitPlatformAdapter
+from apps.integrations.okx.adapter import OkxPlatformAdapter
 from apps.integrations.models import (
     ConnectionMethod,
     PlatformConnection,
@@ -14,6 +16,8 @@ from apps.integrations.models import (
 )
 from apps.integrations.serializers import (
     BitvavoConnectSerializer,
+    BybitConnectSerializer,
+    OkxConnectSerializer,
     PlatformConnectionSerializer,
     PlatformImportBatchSerializer,
     SyncJobSerializer,
@@ -122,6 +126,169 @@ class BitvavoConnectView(APIView):
         )
 
 
+class BybitConnectView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user, error = linked_user_or_error(request)
+        if error:
+            return error
+
+        verified_error = require_verified_email(user)
+        if verified_error:
+            return verified_error
+
+        serializer = BybitConnectSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = serializer.validated_data
+        portfolio = get_or_create_default_portfolio(user)
+        label = data.get("label") or "Bybit"
+
+        connection, created = PlatformConnection.objects.get_or_create(
+            user=user,
+            platform=PlatformType.BYBIT,
+            label=label,
+            defaults={
+                "portfolio": portfolio,
+                "connection_method": ConnectionMethod.API,
+                "status": SyncStatus.PENDING,
+            },
+        )
+
+        if not created:
+            connection.portfolio = portfolio
+            connection.is_active = True
+            connection.save(update_fields=["portfolio", "is_active", "updated_at"])
+
+        store_api_credentials(
+            connection,
+            api_key=data["api_key"],
+            api_secret=data["api_secret"],
+        )
+
+        try:
+            BybitPlatformAdapter(connection).validate_connection()
+        except PlatformAdapterError as exc:
+            connection.is_active = False
+            connection.status = SyncStatus.ERROR
+            connection.last_error = str(exc)
+            connection.save(update_fields=["is_active", "status", "last_error", "updated_at"])
+            return api_error(
+                message=str(exc),
+                error="bybit_connection_failed",
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        connection.status = SyncStatus.PENDING
+        connection.last_error = ""
+        connection.save(update_fields=["status", "last_error", "updated_at"])
+
+        sync_job = SyncJob.objects.create(
+            connection=connection,
+            status=SyncStatus.PENDING,
+        )
+        task = sync_platform_connection.delay(sync_job.id)
+        sync_job.celery_task_id = task.id
+        sync_job.save(update_fields=["celery_task_id"])
+
+        response_data = PlatformConnectionSerializer(connection).data
+        response_data["sync_job"] = SyncJobSerializer(sync_job).data
+        return api_response(
+            data=response_data,
+            message="Bybit gekoppeld. Synchronisatie is gestart.",
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class OkxConnectView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user, error = linked_user_or_error(request)
+        if error:
+            return error
+
+        verified_error = require_verified_email(user)
+        if verified_error:
+            return verified_error
+
+        serializer = OkxConnectSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = serializer.validated_data
+        portfolio = get_or_create_default_portfolio(user)
+        label = data.get("label") or "OKX"
+
+        connection, created = PlatformConnection.objects.get_or_create(
+            user=user,
+            platform=PlatformType.OKX,
+            label=label,
+            defaults={
+                "portfolio": portfolio,
+                "connection_method": ConnectionMethod.API,
+                "status": SyncStatus.PENDING,
+            },
+        )
+
+        if not created:
+            connection.portfolio = portfolio
+            connection.is_active = True
+            connection.save(update_fields=["portfolio", "is_active", "updated_at"])
+
+        store_api_credentials(
+            connection,
+            api_key=data["api_key"],
+            api_secret=data["api_secret"],
+            api_passphrase=data["api_passphrase"],
+        )
+
+        try:
+            OkxPlatformAdapter(connection).validate_connection()
+        except PlatformAdapterError as exc:
+            connection.is_active = False
+            connection.status = SyncStatus.ERROR
+            connection.last_error = str(exc)
+            connection.save(update_fields=["is_active", "status", "last_error", "updated_at"])
+            return api_error(
+                message=str(exc),
+                error="okx_connection_failed",
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        connection.status = SyncStatus.PENDING
+        connection.last_error = ""
+        connection.save(update_fields=["status", "last_error", "updated_at"])
+
+        sync_job = SyncJob.objects.create(
+            connection=connection,
+            status=SyncStatus.PENDING,
+        )
+        task = sync_platform_connection.delay(sync_job.id)
+        sync_job.celery_task_id = task.id
+        sync_job.save(update_fields=["celery_task_id"])
+
+        response_data = PlatformConnectionSerializer(connection).data
+        response_data["sync_job"] = SyncJobSerializer(sync_job).data
+        return api_response(
+            data=response_data,
+            message="OKX gekoppeld. Synchronisatie is gestart.",
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
 class PlatformConnectionDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -141,11 +308,13 @@ class PlatformConnectionDeleteView(APIView):
         connection.is_active = False
         connection.api_key_encrypted = ""
         connection.api_secret_encrypted = ""
+        connection.api_passphrase_encrypted = ""
         connection.save(
             update_fields=[
                 "is_active",
                 "api_key_encrypted",
                 "api_secret_encrypted",
+                "api_passphrase_encrypted",
                 "updated_at",
             ]
         )

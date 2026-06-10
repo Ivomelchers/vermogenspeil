@@ -176,9 +176,13 @@ def get_adapter(connection):
         return DemoPlatformAdapter(connection)
 
     from apps.integrations.bitvavo.adapter import BitvavoPlatformAdapter
+    from apps.integrations.bybit.adapter import BybitPlatformAdapter
+    from apps.integrations.okx.adapter import OkxPlatformAdapter
 
     adapters = {
         PlatformType.BITVAVO: BitvavoPlatformAdapter,
+        PlatformType.BYBIT: BybitPlatformAdapter,
+        PlatformType.OKX: OkxPlatformAdapter,
     }
     adapter_cls = adapters.get(connection.platform)
     if not adapter_cls:
@@ -188,6 +192,20 @@ def get_adapter(connection):
         ):
             raise PlatformAdapterError(
                 "DEGIRO wordt via CSV bijgewerkt. Upload een nieuw exportbestand."
+            )
+        if (
+            connection.platform == PlatformType.BYBIT
+            and connection.connection_method == ConnectionMethod.CSV
+        ):
+            raise PlatformAdapterError(
+                "Bybit wordt via CSV bijgewerkt. Upload een nieuw exportbestand."
+            )
+        if (
+            connection.platform == PlatformType.OKX
+            and connection.connection_method == ConnectionMethod.CSV
+        ):
+            raise PlatformAdapterError(
+                "OKX wordt via CSV bijgewerkt. Upload een nieuw exportbestand."
             )
         raise PlatformAdapterError(f"Platform {connection.platform} wordt nog niet ondersteund.")
     return adapter_cls(connection)

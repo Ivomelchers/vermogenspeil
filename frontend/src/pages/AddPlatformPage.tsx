@@ -14,7 +14,12 @@ import {
 } from "@chakra-ui/react";
 import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
 
-import { connectBitvavo, pollSyncJob } from "../api/integrations";
+import {
+  connectBitvavo,
+  connectBybit,
+  connectOkx,
+  pollSyncJob,
+} from "../api/integrations";
 import AuthAlert from "../components/auth/AuthAlert";
 import AuthFormField from "../components/auth/AuthFormField";
 import FiscalCard from "../components/common/FiscalCard";
@@ -28,6 +33,7 @@ import {
   type CatalogPlatform,
   type IntegrationMethod,
 } from "../data/platformCatalog";
+import { LIVE_API_CRYPTO_PLATFORMS, LIVE_CSV_PLATFORMS } from "../utils/platformLabels";
 import { useUser } from "../contexts/UserContext";
 import { getApiErrorMessage } from "../utils/apiError";
 
@@ -45,7 +51,7 @@ const METHOD_CARDS: {
     label: "API-koppeling",
     name: "Realtime sync",
     desc: "Verbind direct met API-key. Data wordt automatisch en doorlopend bijgewerkt.",
-    platforms: "Bitvavo, Coinbase, Bybit, Kraken, OKX, IBKR, Bitpanda",
+    platforms: "Bitvavo, Bybit, OKX",
   },
   {
     method: "csv",
@@ -53,7 +59,7 @@ const METHOD_CARDS: {
     label: "CSV-upload",
     name: "Periodieke import",
     desc: "Upload zelf een transactie-export. Ideaal voor brokers zonder API.",
-    platforms: "DEGIRO, eToro, Trading 212, BUX Zero",
+    platforms: "DEGIRO, Trading 212, Trade Republic, Bybit, OKX",
   },
   {
     method: "year",
@@ -64,6 +70,14 @@ const METHOD_CARDS: {
     platforms: "ABN AMRO, ING, Rabobank, Meesman",
   },
 ];
+
+const CRYPTO_CONNECTORS = {
+  bitvavo: connectBitvavo,
+  bybit: connectBybit,
+  okx: connectOkx,
+} as const;
+
+type CryptoPlatformId = keyof typeof CRYPTO_CONNECTORS;
 
 export default function AddPlatformPage() {
   const navigate = useNavigate();
@@ -81,14 +95,20 @@ export default function AddPlatformPage() {
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
-  const [label, setLabel] = useState("Bitvavo");
+  const [apiPassphrase, setApiPassphrase] = useState("");
+  const [label, setLabel] = useState("");
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredPlatforms = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return PLATFORM_CATALOG.slice(0, 8);
+    if (!q) {
+      return PLATFORM_CATALOG.filter((p) =>
+        LIVE_CSV_PLATFORMS.some((live) => live.id === p.id) ||
+        LIVE_API_CRYPTO_PLATFORMS.some((live) => live.id === p.id),
+      );
+    }
     return PLATFORM_CATALOG.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
@@ -98,18 +118,30 @@ export default function AddPlatformPage() {
   }, [search]);
 
   const availableMethods = selectedPlatform?.methods ?? [];
+  const cryptoMeta = LIVE_API_CRYPTO_PLATFORMS.find((p) => p.id === selectedPlatform?.id);
+  const isLiveCsv =
+    selectedPlatform != null &&
+    LIVE_CSV_PLATFORMS.some((p) => p.id === selectedPlatform.id);
+  const isLiveCryptoApi = cryptoMeta != null;
 
-  async function handleBitvavoSubmit(event: React.FormEvent) {
+  async function handleCryptoSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (!selectedPlatform || !isLiveCryptoApi) return;
+
+    const platformId = selectedPlatform.id as CryptoPlatformId;
+    const connect = CRYPTO_CONNECTORS[platformId];
+    if (!connect) return;
+
     setError("");
     setStatusMessage("");
     setIsSubmitting(true);
     try {
       setStatusMessage("Verbinding controleren…");
-      const result = await connectBitvavo({
+      const result = await connect({
         api_key: apiKey.trim(),
         api_secret: apiSecret.trim(),
-        label: label.trim() || "Bitvavo",
+        api_passphrase: cryptoMeta.needsPassphrase ? apiPassphrase.trim() : undefined,
+        label: label.trim() || selectedPlatform.name,
       });
       if (result.sync_job?.id) {
         setStatusMessage("Portfolio synchroniseren…");
@@ -120,17 +152,16 @@ export default function AddPlatformPage() {
         }
       }
       navigate("/platforms", {
-        state: { message: "Bitvavo succesvol gekoppeld." },
+        state: { message: `${selectedPlatform.name} succesvol gekoppeld.` },
       });
     } catch (submitError) {
-      setError(getApiErrorMessage(submitError, "Bitvavo koppelen mislukt."));
+      setError(getApiErrorMessage(submitError, `${selectedPlatform.name} koppelen mislukt.`));
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  const showBitvavoForm =
-    selectedPlatform?.id === "bitvavo" && selectedMethod === "api";
+  const showCryptoForm = isLiveCryptoApi && selectedMethod === "api";
 
   return (
     <PageShell maxW="960px">
@@ -146,7 +177,7 @@ export default function AddPlatformPage() {
               Nieuwe <Text as="em">databron</Text>
             </>
           }
-          subtitle="Voeg een broker, exchange of bank toe. Kies eerst het platform en vervolgens de koppelingsmethode die dat platform ondersteunt."
+          subtitle="Kies een platform en koppelingsmethode. CSV-imports ondersteunen auto-detectie op kolomkoppen."
         />
       </MotionSection>
 
@@ -164,7 +195,7 @@ export default function AddPlatformPage() {
         </Text>
         <Input
           variant="fiscal"
-          placeholder="Zoek platform… (bijv. DEGIRO, Bitvavo)"
+          placeholder="Zoek platform…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           mb={4}
@@ -188,7 +219,7 @@ export default function AddPlatformPage() {
                 onClick={() => {
                   setSelectedPlatform(platform);
                   setSelectedMethod(null);
-                  if (platform.id === "bitvavo") setLabel("Bitvavo");
+                  setLabel(platform.name);
                 }}
               >
                 <Flex gap={3} align="center">
@@ -206,18 +237,12 @@ export default function AddPlatformPage() {
             );
           })}
         </SimpleGrid>
-        <Button variant="ghostNav" size="sm" mt={3} onClick={() => setSearch("")}>
-          Toon alle {PLATFORM_CATALOG.length}+ platformen
-        </Button>
       </MotionSection>
 
       {selectedPlatform && (
         <MotionSection>
           <Text fontSize="sm" fontWeight={600} letterSpacing="0.06em" color="ink.dim" mb={3}>
             Stap 2 · Hoe wilt u koppelen?
-          </Text>
-          <Text fontSize="xs" color="taupe.500" mb={4}>
-            beschikbaarheid hangt af van gekozen platform
           </Text>
           <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap={4}>
             {METHOD_CARDS.filter((m) => availableMethods.includes(m.method)).map((card) => {
@@ -261,24 +286,20 @@ export default function AddPlatformPage() {
 
       <MotionSection>
         <FiscalDisclaimer>
-          <strong>Welke methode is het beste?</strong> API-koppelingen zijn voorkeur (realtime). Geen API?
-          CSV-upload. Banken/indexfondsen: jaaroverzicht. Edelmetaal of eigen wallet:{" "}
-          <Link as={RouterLink} to="/portfolio/manual/transaction" color="azure.500">
-            handmatige transactie
-          </Link>
-          .
+          API-koppelingen zijn voorkeur voor crypto (Bitvavo, Bybit, OKX). Brokers zonder API:
+          CSV-upload op Mijn platformen.
         </FiscalDisclaimer>
       </MotionSection>
 
-      {showBitvavoForm && (
+      {showCryptoForm && selectedPlatform && (
         <MotionSection>
           <FiscalCard elevated p={6} borderLeft="3px solid" borderLeftColor="moss.500">
             <Text fontWeight={600} mb={4}>
-              Bitvavo API-koppeling
+              {selectedPlatform.name} API-koppeling
             </Text>
             {error && <AuthAlert tone="error">{error}</AuthAlert>}
             {statusMessage && !error && <AuthAlert tone="info">{statusMessage}</AuthAlert>}
-            <Box as="form" onSubmit={(e: React.FormEvent) => void handleBitvavoSubmit(e)}>
+            <Box as="form" onSubmit={(e: React.FormEvent) => void handleCryptoSubmit(e)}>
               <VStack align="stretch" spacing={4}>
                 <AuthFormField
                   label="Label"
@@ -306,14 +327,33 @@ export default function AddPlatformPage() {
                     variant="fiscal"
                   />
                 </FormControl>
+                {cryptoMeta?.needsPassphrase && (
+                  <FormControl isRequired>
+                    <FormLabel fontSize="sm" color="ink.dim">
+                      API-passphrase
+                    </FormLabel>
+                    <Input
+                      type="password"
+                      value={apiPassphrase}
+                      onChange={(e) => setApiPassphrase(e.target.value)}
+                      autoComplete="off"
+                      variant="fiscal"
+                    />
+                  </FormControl>
+                )}
                 <Button
                   type="submit"
                   variant="fiscal"
                   isLoading={isSubmitting}
-                  isDisabled={!user?.email_verified || !apiKey || !apiSecret}
+                  isDisabled={
+                    !user?.email_verified ||
+                    !apiKey ||
+                    !apiSecret ||
+                    (cryptoMeta?.needsPassphrase && !apiPassphrase)
+                  }
                   alignSelf="flex-start"
                 >
-                  Bitvavo koppelen
+                  {selectedPlatform?.name} koppelen
                 </Button>
               </VStack>
             </Box>
@@ -321,24 +361,24 @@ export default function AddPlatformPage() {
         </MotionSection>
       )}
 
-      {selectedPlatform && selectedMethod === "csv" && selectedPlatform.id === "degiro" && (
+      {selectedPlatform && selectedMethod === "csv" && isLiveCsv && (
         <MotionSection>
           <FiscalCard elevated p={6}>
             <Text fontWeight={600} mb={2}>
-              DEGIRO · CSV-import
+              {selectedPlatform.name} · CSV-import
             </Text>
             <Text fontSize="sm" color="ink.dim" lineHeight={1.7} mb={4}>
-              Upload uw DEGIRO-transactie-export op de pagina Mijn platformen. Duplicaten worden
-              automatisch overgeslagen.
+              Upload uw officiële transactie-export op Mijn platformen. We detecteren het formaat
+              automatisch en tonen eerst een preview.
             </Text>
             <Button
               as={RouterLink}
               to="/platforms"
-              state={{ focusDegiroCsv: true }}
+              state={{ focusCsvPlatform: selectedPlatform.id }}
               variant="fiscal"
               size="sm"
             >
-              Naar DEGIRO CSV-upload
+              Naar CSV-upload
             </Button>
           </FiscalCard>
         </MotionSection>
@@ -346,33 +386,22 @@ export default function AddPlatformPage() {
 
       {selectedPlatform &&
         selectedMethod &&
-        !showBitvavoForm &&
-        !(selectedMethod === "csv" && selectedPlatform.id === "degiro") && (
+        !showCryptoForm &&
+        !(selectedMethod === "csv" && isLiveCsv) && (
         <MotionSection>
           <FiscalCard elevated p={6}>
             <Text fontWeight={600} mb={2}>
               {selectedPlatform.name} · catalogus
             </Text>
             <Text fontSize="sm" color="ink.dim" lineHeight={1.7} mb={4}>
-              {selectedPlatform.description} De automatische koppeling voor dit platform volgt in
-              een latere release. U kunt nu al:
+              {selectedPlatform.description} Automatische koppeling voor deze methode volgt later.
             </Text>
             <Flex gap={2} flexWrap="wrap">
-              {selectedMethod === "manual" || selectedPlatform.methods.includes("manual") ? (
-                <Button as={RouterLink} to="/portfolio/manual/asset" variant="fiscal" size="sm">
-                  Handmatig asset toevoegen
-                </Button>
-              ) : null}
-              <Button
-                as={RouterLink}
-                to="/belasting/overig-vermogen"
-                variant="fiscalOutline"
-                size="sm"
-              >
-                Overig vermogen (bank/vastgoed)
+              <Button as={RouterLink} to="/portfolio/manual/asset" variant="fiscal" size="sm">
+                Handmatig asset toevoegen
               </Button>
               <Button as={RouterLink} to="/platforms/vergelijker" variant="ghostNav" size="sm">
-                Andere platformen vergelijken
+                Platformen vergelijken
               </Button>
             </Flex>
           </FiscalCard>

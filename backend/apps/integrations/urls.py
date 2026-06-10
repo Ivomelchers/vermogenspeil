@@ -8,8 +8,10 @@ from apps.integrations.csv.views import (
 )
 from apps.integrations.views import (
     BitvavoConnectView,
+    BybitConnectView,
     DemoFeaturesStatusView,
     DemoSeedView,
+    OkxConnectView,
     PlatformConnectionDeleteView,
     PlatformConnectionListView,
     PlatformConnectionPurgeDataView,
@@ -22,6 +24,8 @@ from apps.integrations.views import (
 urlpatterns = [
     path("connections/", PlatformConnectionListView.as_view(), name="connection-list"),
     path("connections/bitvavo/", BitvavoConnectView.as_view(), name="bitvavo-connect"),
+    path("connections/bybit/", BybitConnectView.as_view(), name="bybit-connect"),
+    path("connections/okx/", OkxConnectView.as_view(), name="okx-connect"),
     path(
         "connections/<int:connection_id>/",
         PlatformConnectionDeleteView.as_view(),

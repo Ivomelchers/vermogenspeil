@@ -3,8 +3,17 @@
 export type IntegrationMethod = "api" | "csv" | "year" | "manual";
 export type PlatformCategory = "crypto" | "broker" | "metal" | "bank";
 
-/** Actieve koppeling in de app (overige zijn alleen catalogus/vergelijker). */
-export type LiveConnection = "api-bitvavo" | "csv-degiro" | null;
+/** Actieve koppeling in de app. */
+export type LiveConnection =
+  | "api-bitvavo"
+  | "api-bybit"
+  | "api-okx"
+  | "csv-degiro"
+  | "csv-trading212"
+  | "csv-trade_republic"
+  | "csv-bybit"
+  | "csv-okx"
+  | null;
 
 export interface CatalogPlatform {
   id: string;
@@ -15,7 +24,7 @@ export interface CatalogPlatform {
   typeLabel: string;
   regulation: string;
   methods: IntegrationMethod[];
-  /** Alleen Bitvavo API en DEGIRO CSV zijn nu live. */
+  /** Live API- of CSV-koppeling in de app. */
   liveConnection: LiveConnection;
   description: string;
   idealFor: string;
@@ -65,7 +74,7 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     category: "crypto",
     typeLabel: "Crypto · API · MiCA",
     regulation: "MiCA (Malta)",
-    methods: ["api"],
+    methods: ["api", "csv"],
     idealFor: "Actieve traders, lage kosten",
     costStars: 5,
     costNote: "0,08% maker / 0,10% taker",
@@ -74,10 +83,10 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     easeStars: 3,
     easeNote: "Uitgebreid maar complex",
     integrationLabel: "API",
-    integrationNote: "realtime (max 3 mnd)",
+    integrationNote: "realtime + CSV export",
     features: ["Futures & opties", "DeFi earn", "Copy trading", "Lage fees"],
     country: "Malta (EER)",
-    liveConnection: null,
+    liveConnection: "api-okx",
     description: "Grote internationale exchange met lage fees en uitgebreid derivaten-aanbod.",
   },
   {
@@ -88,7 +97,7 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     category: "crypto",
     typeLabel: "Crypto · API · MiCA",
     regulation: "FMA + MiCA",
-    methods: ["api"],
+    methods: ["api", "csv"],
     idealFor: "Ervaren crypto-traders",
     costStars: 4,
     costNote: "0,10% maker / 0,10% taker",
@@ -97,10 +106,10 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     easeStars: 3,
     easeNote: "Trader-gericht, veel functies",
     integrationLabel: "API",
-    integrationNote: "realtime (2 jr lookback)",
+    integrationNote: "realtime + CSV export",
     features: ["Derivatives", "Launchpad", "Earn products"],
     country: "Oostenrijk (EER)",
-    liveConnection: null,
+    liveConnection: "api-bybit",
     description: "EU-exchange gericht op actieve traders en derivatives.",
   },
   {
@@ -191,11 +200,35 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     easeStars: 5,
     easeNote: "Zeer toegankelijk, moderne app",
     integrationLabel: "CSV",
-    integrationNote: "handmatig (API in beta)",
+    integrationNote: "handmatig periodiek · API in beta",
     features: ["Fractioneel vanaf € 1", "AutoInvest (DCA)", "0% commissie"],
     country: "Cyprus (EER)",
-    liveConnection: null,
+    liveConnection: "csv-trading212",
     description: "Commission-free broker met fractioneel beleggen en DCA (AutoInvest).",
+  },
+  {
+    id: "trade_republic",
+    name: "Trade Republic",
+    initials: "TR",
+    color: "#1a1a1a",
+    category: "broker",
+    typeLabel: "Broker · CSV · BaFin",
+    regulation: "BaFin",
+    methods: ["csv"],
+    idealFor: "Mobiele beleggers, lage kosten",
+    costStars: 5,
+    costNote: "Geen ordercommissie",
+    offering: "Aandelen, ETF's, crypto",
+    regulationBadge: "BaFin",
+    easeStars: 5,
+    easeNote: "App-first, eenvoudige export",
+    integrationLabel: "CSV",
+    integrationNote: "transactie-export uit app",
+    features: ["Sparen met rente", "Fractioneel", "Crypto in app"],
+    country: "Duitsland (EER)",
+    liveConnection: "csv-trade_republic",
+    description:
+      "Mobiele broker zonder ordercommissie. Import via transactie-CSV uit de app (Profiel → Afschriften).",
   },
   {
     id: "bux",

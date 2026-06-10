@@ -43,6 +43,10 @@ export interface BitvavoConnectPayload {
   label?: string;
 }
 
+export interface CryptoConnectPayload extends BitvavoConnectPayload {
+  api_passphrase?: string;
+}
+
 export interface BitvavoConnectResponse extends PlatformConnection {
   sync_job?: SyncJob;
 }
@@ -59,6 +63,26 @@ export async function connectBitvavo(
 ): Promise<BitvavoConnectResponse> {
   const response = await api.post<ApiEnvelope<BitvavoConnectResponse>>(
     "integrations/connections/bitvavo/",
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function connectBybit(
+  payload: CryptoConnectPayload,
+): Promise<BitvavoConnectResponse> {
+  const response = await api.post<ApiEnvelope<BitvavoConnectResponse>>(
+    "integrations/connections/bybit/",
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function connectOkx(
+  payload: CryptoConnectPayload,
+): Promise<BitvavoConnectResponse> {
+  const response = await api.post<ApiEnvelope<BitvavoConnectResponse>>(
+    "integrations/connections/okx/",
     payload,
   );
   return response.data.data;
@@ -268,6 +292,7 @@ export interface CsvPreviewResult {
   status: "ok" | "rejected";
   failure_reason: CsvPreviewFailureReason | null;
   message: string | null;
+  requested_platform?: string | null;
   platform?: string;
   platform_display?: string;
   file_headers: string[];

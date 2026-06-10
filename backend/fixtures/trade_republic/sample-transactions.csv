@@ -1,0 +1,5 @@
+ID,Status,Timestamp,Type,Asset type,Name,Instrument,Shares,Rate,Commission,Debit,Credit,Tax amount
+1d9ad3b5-e65c-41f6-9c7d-96baa2a2ecad,executed,23 Nov 23 16:45 +0100,Purchase,ETF,NASDAQ100 USD (Dist),DE000A0F5UF5,1,135.14,1,136.14,0,0
+a3b8e625-a6e9-4269-9529-01ebb86d69bb,executed,11 Mar 24 12:23 +0100,Sale,Other,Novo Nordisk (ADR),US6701002056,-5,96.8,1,0,482.99,0.01
+23cf72a9-3888-4918-898c-c3bc38346ba1,executed,13 Dec 23 13:44 +0100,Dividends,ETF,MSCI World USD (Dist),IE00BK1PV551,10.344033,0.28,0,0,2.94,0
+1ae661c0-b3f1-4a81-a909-79567161b014,executed,21 May 23 10:25 +0200,Deposit,Cash,,,0,0,0,0,200,0
