@@ -43,7 +43,15 @@ class OkxClient:
         if base_url:
             self.base_url = base_url.rstrip("/")
         else:
-            self.base_url = f"https://www.{domain}".rstrip("/")
+            # Map domain to API endpoint
+            if domain == "okx.com":
+                self.base_url = "https://www.okx.com"
+            elif domain == "eea.okx.com":
+                self.base_url = "https://api.okx.com"
+            elif domain == "us.okx.com":
+                self.base_url = "https://www.okx.com"
+            else:
+                self.base_url = f"https://www.{domain}"
 
     def _get_timestamp(self) -> str:
         """Get current timestamp in ISO 8601 UTC format with millisecond precision.
