@@ -163,13 +163,17 @@ class SymbolDiscoveryTest(TestCase):
             asset_invalid.clean()
 
     def test_ar_symbol_supported(self):
-        """AR (Arweave) should be in fallback and providers."""
-        from apps.pricing.providers.coingecko_crypto import COINGECKO_COIN_IDS
+        """AR (Arweave) should be dynamically discovered from CoinGecko."""
+        from apps.pricing.symbol_registry import CACHE_KEYS
 
-        # Should be in CoinGecko
-        self.assertIn("AR", COINGECKO_COIN_IDS)
+        # Simulate CoinGecko discovery finding AR
+        cache.set(
+            CACHE_KEYS["crypto"],
+            ["BTC", "ETH", "AR"],
+            86400,
+        )
 
-        # Should validate
+        # AR should now be supported
         self.assertTrue(is_symbol_supported("AR", AssetType.CRYPTO))
 
 
