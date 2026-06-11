@@ -27,12 +27,23 @@ class OkxClient:
         api_key: str,
         api_secret: str,
         passphrase: str,
+        domain: str = "okx.com",
         base_url: str | None = None,
     ):
         self.api_key = api_key.strip()
         self.api_secret = api_secret.strip()
         self.passphrase = passphrase.strip()
-        self.base_url = (base_url or settings.OKX_API_URL).rstrip("/")
+
+        # Domain mag 'okx.com', 'okx.nl', etc. zijn
+        domain = domain.strip().lower()
+        if not domain.startswith('okx'):
+            domain = 'okx.com'  # fallback
+
+        # Build URL from domain
+        if base_url:
+            self.base_url = base_url.rstrip("/")
+        else:
+            self.base_url = f"https://www.{domain}".rstrip("/")
 
     def _get_timestamp(self) -> str:
         """Get current timestamp in ISO 8601 UTC format with millisecond precision.
@@ -116,7 +127,20 @@ class OkxClient:
         return data.get("data") or []
 
     def get_balance(self) -> list[dict]:
-        data = self._request("GET", "api/v5/account/balance")
+        """Get account balance. Raises OkxAPIError met diagnostische info."""
+        try:
+            data = self._request("GET", "api/v5/account/balance")
+        except OkxAPIError as exc:
+            # Voeg diagnostische info toe
+            msg = str(exc)
+            if "API key doesn't exist" in msg or "apikey doesn't exist" in msg.lower():
+                msg += " [DIAGNOSE: Controleer of de API-sleutel actief is op OKX en niet vervallen. Check ook IP-whitelisting.]"
+            elif "Invalid signature" in msg or "invalid signature" in msg.lower():
+                msg += " [DIAGNOSE: API-secret is waarschijnlijk incorrect. Zorg ervoor dat je het volledige geheim hebt gekopieerd.]"
+            elif "Invalid Passphrase" in msg or "invalid passphrase" in msg.lower():
+                msg += " [DIAGNOSE: API-passphrase klopt niet. Check of het juist is ingesteld op OKX.]"
+            raise OkxAPIError(msg, status_code=exc.status_code) from None
+
         details: list[dict] = []
         if isinstance(data, list):
             for account in data:

@@ -233,6 +233,7 @@ class OkxConnectView(APIView):
         data = serializer.validated_data
         portfolio = get_or_create_default_portfolio(user)
         label = data.get("label") or "OKX"
+        domain = data.get("domain", "okx.com")
 
         connection, created = PlatformConnection.objects.get_or_create(
             user=user,
@@ -242,13 +243,15 @@ class OkxConnectView(APIView):
                 "portfolio": portfolio,
                 "connection_method": ConnectionMethod.API,
                 "status": SyncStatus.PENDING,
+                "okx_domain": domain,
             },
         )
 
         if not created:
             connection.portfolio = portfolio
             connection.is_active = True
-            connection.save(update_fields=["portfolio", "is_active", "updated_at"])
+            connection.okx_domain = domain
+            connection.save(update_fields=["portfolio", "is_active", "okx_domain", "updated_at"])
 
         store_api_credentials(
             connection,
@@ -535,6 +538,67 @@ class SyncJobDetailView(APIView):
             )
 
         return api_response(data=SyncJobSerializer(sync_job).data)
+
+
+class OkxValidateCredentialsView(APIView):
+    """Test OKX credentials zonder opslaan (diagnostisch)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user, error = linked_user_or_error(request)
+        if error:
+            return error
+
+        serializer = OkxConnectSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_error(
+                message=first_validation_message(serializer),
+                error="validation_error",
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = serializer.validated_data
+        domain = data.get("domain", "okx.com")
+
+        # Maak een temporaire connection om te testen
+        temp_connection = PlatformConnection(
+            user=user,
+            platform=PlatformType.OKX,
+            connection_method=ConnectionMethod.API,
+            status=SyncStatus.PENDING,
+            okx_domain=domain,
+        )
+
+        # Sla credentials op (versleuteld) maar commit niet
+        from apps.integrations.services.credentials import store_api_credentials
+        store_api_credentials(
+            temp_connection,
+            api_key=data["api_key"],
+            api_secret=data["api_secret"],
+            api_passphrase=data["api_passphrase"],
+        )
+
+        try:
+            adapter = OkxPlatformAdapter(temp_connection)
+            adapter.validate_connection()
+            return api_response(
+                data={
+                    "valid": True,
+                    "message": f"OKX credentials zijn geldig op {domain}.",
+                    "domain": domain,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except PlatformAdapterError as exc:
+            return api_response(
+                data={
+                    "valid": False,
+                    "error_message": str(exc),
+                    "domain": domain,
+                },
+                status=status.HTTP_200_OK,  # 200 maar valid=False (geen 4xx error)
+            )
 
 
 class DemoFeaturesStatusView(APIView):

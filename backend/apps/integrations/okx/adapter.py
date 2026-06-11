@@ -23,7 +23,10 @@ class OkxPlatformAdapter(PlatformAdapter):
         if not api_key or not api_secret or not passphrase:
             raise PlatformAdapterError("OKX API-key, secret of passphrase ontbreekt.")
 
-        return OkxClient(api_key, api_secret, passphrase)
+        # Get domain from connection (default: okx.com)
+        domain = getattr(self.connection, 'okx_domain', 'okx.com')
+
+        return OkxClient(api_key, api_secret, passphrase, domain=domain)
 
     def validate_connection(self) -> bool:
         try:

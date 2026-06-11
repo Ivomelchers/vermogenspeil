@@ -27,6 +27,12 @@ class SyncStatus(models.TextChoices):
     ERROR = "error", "Fout"
 
 
+class OkxDomain(models.TextChoices):
+    COM = "okx.com", "okx.com (Global - www.okx.com)"
+    EEA = "eea.okx.com", "eea.okx.com (EU/NL - my.okx.com)"
+    US = "us.okx.com", "us.okx.com (US/AU - app.okx.com)"
+
+
 class PlatformConnection(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -48,6 +54,12 @@ class PlatformConnection(models.Model):
     api_key_encrypted = models.TextField(blank=True, default="")
     api_secret_encrypted = models.TextField(blank=True, default="")
     api_passphrase_encrypted = models.TextField(blank=True, default="")
+    okx_domain = models.CharField(
+        max_length=16,
+        choices=OkxDomain.choices,
+        default=OkxDomain.COM,
+        help_text="OKX API domein (okx.com of okx.nl)",
+    )
     status = models.CharField(
         max_length=16,
         choices=SyncStatus.choices,

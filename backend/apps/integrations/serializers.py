@@ -19,6 +19,11 @@ class OkxConnectSerializer(serializers.Serializer):
     api_key = serializers.CharField(max_length=256, trim_whitespace=True)
     api_secret = serializers.CharField(max_length=256, trim_whitespace=True, write_only=True)
     api_passphrase = serializers.CharField(max_length=256, trim_whitespace=True, write_only=True)
+    domain = serializers.ChoiceField(
+        choices=["okx.com", "eea.okx.com", "us.okx.com"],
+        default="okx.com",
+        required=False,
+    )
     label = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
 
 

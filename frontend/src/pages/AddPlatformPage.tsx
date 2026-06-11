@@ -8,6 +8,7 @@ import {
   Grid,
   Input,
   Link,
+  Select,
   SimpleGrid,
   Text,
   VStack,
@@ -98,6 +99,7 @@ export default function AddPlatformPage() {
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [apiPassphrase, setApiPassphrase] = useState("");
+  const [okxDomain, setOkxDomain] = useState("okx.com");
   const [label, setLabel] = useState("");
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -139,12 +141,17 @@ export default function AddPlatformPage() {
     setIsSubmitting(true);
     try {
       setStatusMessage("Verbinding controleren…");
-      const result = await connect({
+      const connectData: any = {
         api_key: apiKey.trim(),
         api_secret: apiSecret.trim(),
         api_passphrase: apiMeta?.needsPassphrase ? apiPassphrase.trim() : undefined,
         label: label.trim() || selectedPlatform.name,
-      });
+      };
+      // Voeg OKX domain toe als het OKX is
+      if (selectedPlatform.id === "okx") {
+        connectData.domain = okxDomain;
+      }
+      const result = await connect(connectData);
       if (result.sync_job?.id) {
         setStatusMessage("Portfolio synchroniseren…");
         const job = await pollSyncJob(result.sync_job.id);
@@ -343,6 +350,26 @@ export default function AddPlatformPage() {
                       autoComplete="off"
                       variant="fiscal"
                     />
+                  </FormControl>
+                )}
+                {selectedPlatform?.id === "okx" && (
+                  <FormControl>
+                    <FormLabel fontSize="sm" color="ink.dim">
+                      OKX API Domein
+                    </FormLabel>
+                    <Select
+                      value={okxDomain}
+                      onChange={(e) => setOkxDomain(e.target.value)}
+                      variant="fiscal"
+                      fontSize="sm"
+                    >
+                      <option value="okx.com">okx.com (Global - www.okx.com)</option>
+                      <option value="eea.okx.com">eea.okx.com (EU/Nederland - my.okx.com)</option>
+                      <option value="us.okx.com">us.okx.com (US/AU - app.okx.com)</option>
+                    </Select>
+                    <Text fontSize="xs" color="ink.faint" mt={2}>
+                      Controleer waar u zich op OKX hebt geregistreerd. Kies het bijbehorende API-domein.
+                    </Text>
                   </FormControl>
                 )}
                 <Button

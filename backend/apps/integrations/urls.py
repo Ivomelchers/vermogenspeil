@@ -12,6 +12,7 @@ from apps.integrations.views import (
     DemoFeaturesStatusView,
     DemoSeedView,
     OkxConnectView,
+    OkxValidateCredentialsView,
     Trading212ConnectView,
     PlatformConnectionDeleteView,
     PlatformConnectionListView,
@@ -27,6 +28,7 @@ urlpatterns = [
     path("connections/bitvavo/", BitvavoConnectView.as_view(), name="bitvavo-connect"),
     path("connections/bybit/", BybitConnectView.as_view(), name="bybit-connect"),
     path("connections/okx/", OkxConnectView.as_view(), name="okx-connect"),
+    path("connections/okx/validate/", OkxValidateCredentialsView.as_view(), name="okx-validate"),
     path("connections/trading212/", Trading212ConnectView.as_view(), name="trading212-connect"),
     path(
         "connections/<int:connection_id>/",
