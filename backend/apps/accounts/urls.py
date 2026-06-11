@@ -14,6 +14,7 @@ from apps.accounts.views import (
     TwoFactorDisableView,
     TwoFactorSetupView,
     TwoFactorVerifyView,
+    UserDataExportView,
     VerifyEmailView,
 )
 
@@ -43,5 +44,10 @@ urlpatterns = [
         "auth/password/reset/validate/",
         PasswordResetTokenView.as_view(),
         name="auth-password-reset-validate",
+    ),
+    path(
+        "me/export/",
+        UserDataExportView.as_view(),
+        name="user-data-export",
     ),
 ]

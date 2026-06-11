@@ -111,19 +111,21 @@ class Auth0PasswordResetTests(APITestCase):
     @patch("apps.accounts.services.password_reset.update_user_password")
     def test_validate_and_confirm_reset_token(self, mock_update_password):
         import hashlib
+        from django.utils import timezone
+        from datetime import timedelta
 
         plain_token = "abc123reset"
         hashed_token = hashlib.sha256(plain_token.encode()).hexdigest()
-        PasswordResetToken.objects.create(user=self.user, token=hashed_token)
-
-        validate_response = self.client.get(
-            f"/api/v1/auth/password/reset/{plain_token}/",
+        expires_at = timezone.now() + timedelta(hours=1)
+        PasswordResetToken.objects.create(
+            user=self.user,
+            token=hashed_token,
+            expires_at=expires_at,
         )
-        self.assertEqual(validate_response.status_code, status.HTTP_200_OK)
 
         confirm_response = self.client.post(
-            f"/api/v1/auth/password/reset/{plain_token}/",
-            {"password": "NewSecurePass456!"},
+            "/api/v1/auth/password/reset/validate/",
+            {"token": plain_token, "password": "NewSecurePass456!"},
             format="json",
         )
         self.assertEqual(confirm_response.status_code, status.HTTP_200_OK)
@@ -135,14 +137,21 @@ class Auth0PasswordResetTests(APITestCase):
     @patch("apps.accounts.services.password_reset.update_user_password")
     def test_password_reset_does_not_remove_auth0_link(self, _mock_update_password):
         import hashlib
+        from django.utils import timezone
+        from datetime import timedelta
 
         plain_token = "reset456token"
         hashed_token = hashlib.sha256(plain_token.encode()).hexdigest()
-        PasswordResetToken.objects.create(user=self.user, token=hashed_token)
+        expires_at = timezone.now() + timedelta(hours=1)
+        PasswordResetToken.objects.create(
+            user=self.user,
+            token=hashed_token,
+            expires_at=expires_at,
+        )
 
         self.client.post(
-            f"/api/v1/auth/password/reset/{plain_token}/",
-            {"password": "NewSecurePass456!"},
+            "/api/v1/auth/password/reset/validate/",
+            {"token": plain_token, "password": "NewSecurePass456!"},
             format="json",
         )
 

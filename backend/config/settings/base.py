@@ -220,6 +220,12 @@ CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000  # Recycle workers to free memory
 CELERY_TASK_ACKS_LATE = True  # Acknowledge tasks after completion
 CELERY_TASK_REJECT_ON_WORKER_LOST = True  # Re-queue if worker dies
 
+# Task timeout configuration (prevents hanging tasks)
+CELERY_TASK_TIME_LIMIT = 600  # 10 minutes hard limit
+CELERY_TASK_SOFT_TIME_LIMIT = 540  # 9 minutes soft limit (allows graceful shutdown)
+CELERY_TASK_MAX_RETRIES = 3
+CELERY_TASK_DEFAULT_RETRY_DELAY = 60  # 1 minute between retries
+
 DEMO_FEATURES_ENABLED = os.environ.get("DEMO_FEATURES_ENABLED", "").lower() in (
     "true",
     "1",
@@ -275,3 +281,8 @@ if EMAIL_HOST:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# API Timeout Configuration
+OKX_API_TIMEOUT = int(os.environ.get("OKX_API_TIMEOUT", "30"))
+AUTH0_TIMEOUT = int(os.environ.get("AUTH0_TIMEOUT", "10"))
+EXTERNAL_API_TIMEOUT = int(os.environ.get("EXTERNAL_API_TIMEOUT", "30"))

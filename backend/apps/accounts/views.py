@@ -1,6 +1,9 @@
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
+import json
 
 from apps.accounts.serializers import (
     LoginSerializer,
@@ -15,6 +18,7 @@ from apps.accounts.serializers import (
     UserSerializer,
     VerifyEmailSerializer,
 )
+from apps.accounts.utils.rate_limit import rate_limit
 from apps.accounts.services.auth0_login import (
     Auth0LoginError,
     exchange_password,
@@ -68,6 +72,7 @@ class RegisterView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
+    @rate_limit(limit_per_minute=3)
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
@@ -154,6 +159,7 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
+    @rate_limit(limit_per_minute=5)
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
@@ -504,6 +510,7 @@ class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
+    @rate_limit(limit_per_minute=3)
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -524,6 +531,7 @@ class PasswordResetTokenView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
+    @rate_limit(limit_per_minute=5)
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         if not serializer.is_valid():
@@ -563,3 +571,76 @@ class PasswordResetTokenView(APIView):
             data={"email": user.email},
             message="Wachtwoord bijgewerkt. U kunt nu inloggen.",
         )
+
+
+class UserDataExportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user, error = _linked_user_or_error(request)
+        if error:
+            return error
+
+        from django.db.models import Model
+        from django.core.serializers import serialize
+        from django.forms.models import model_to_dict
+
+        export_data = {
+            "exported_at": timezone.now().isoformat(),
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email_verified": user.email_verified,
+                "subscription_tier": user.subscription_tier,
+                "has_fiscal_partner": user.has_fiscal_partner,
+                "active_tax_year": user.active_tax_year,
+                "created_at": user.created_at.isoformat(),
+            },
+            "portfolios": [],
+            "platform_connections": [],
+            "transactions": [],
+        }
+
+        from apps.portfolio.models import Portfolio, Transaction
+        from apps.integrations.models import PlatformConnection
+
+        portfolios = Portfolio.objects.filter(user=user)
+        for portfolio in portfolios:
+            export_data["portfolios"].append({
+                "id": str(portfolio.id),
+                "name": portfolio.name,
+                "description": portfolio.description,
+                "created_at": portfolio.created_at.isoformat(),
+            })
+
+        connections = PlatformConnection.objects.filter(user=user)
+        for conn in connections:
+            export_data["platform_connections"].append({
+                "id": str(conn.id),
+                "platform": conn.platform,
+                "label": conn.label,
+                "connection_method": conn.connection_method,
+                "created_at": conn.created_at.isoformat(),
+            })
+
+        transactions = Transaction.objects.filter(
+            position__portfolio__user=user,
+        ).values(
+            "id",
+            "position__asset__symbol",
+            "position__asset__name",
+            "quantity",
+            "price",
+            "currency",
+            "transaction_date",
+        )
+        export_data["transactions"] = list(transactions)
+
+        response = Response(
+            export_data,
+            content_type="application/json",
+        )
+        response["Content-Disposition"] = f"attachment; filename=vermogenspeil-export-{user.id}.json"
+        return response

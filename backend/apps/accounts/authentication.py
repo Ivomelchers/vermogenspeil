@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import timedelta
 
 import jwt
 import requests
@@ -8,6 +9,7 @@ from auth0.exceptions import Auth0Error
 from auth0.management import Auth0
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from rest_framework import authentication
 
 from apps.accounts.exceptions import InvalidAuthToken, InvalidHeader, NoAuthToken
@@ -16,7 +18,9 @@ from apps.accounts.models import User
 logger = logging.getLogger(__name__)
 
 ALGORITHMS = ["RS256"]
+JWKS_CACHE_TTL = timedelta(hours=24)
 _jwks_cache: dict | None = None
+_jwks_cache_time: timezone.datetime | None = None
 
 
 class UnlinkedAuth0User:
@@ -31,12 +35,22 @@ class UnlinkedAuth0User:
 
 
 def _get_jwks():
-    global _jwks_cache
-    if _jwks_cache is None:
-        jwks_url = f"https://{settings.AUTH0_DOMAIN}/.well-known/jwks.json"
-        response = requests.get(jwks_url, timeout=10)
-        response.raise_for_status()
-        _jwks_cache = response.json()
+    global _jwks_cache, _jwks_cache_time
+    now = timezone.now()
+
+    if _jwks_cache is None or _jwks_cache_time is None or (now - _jwks_cache_time) > JWKS_CACHE_TTL:
+        try:
+            jwks_url = f"https://{settings.AUTH0_DOMAIN}/.well-known/jwks.json"
+            response = requests.get(jwks_url, timeout=10)
+            response.raise_for_status()
+            _jwks_cache = response.json()
+            _jwks_cache_time = now
+            logger.debug("Refreshed JWKS cache from Auth0")
+        except Exception as exc:
+            logger.warning(f"Failed to refresh JWKS cache: {exc}")
+            if _jwks_cache is None:
+                raise
+
     return _jwks_cache
 
 
