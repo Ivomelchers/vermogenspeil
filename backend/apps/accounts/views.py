@@ -524,36 +524,21 @@ class PasswordResetTokenView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
-    def get(self, request, token):
-        try:
-            user = validate_password_reset_token(token)
-        except ValueError as exc:
-            return _handle_value_error(
-                exc,
-                {
-                    "invalid_token": (
-                        "Ongeldige resetlink.",
-                        status.HTTP_400_BAD_REQUEST,
-                    ),
-                    "expired_token": (
-                        "De resetlink is verlopen. Vraag een nieuwe aan.",
-                        status.HTTP_400_BAD_REQUEST,
-                    ),
-                },
-            )
-
-        return api_response(
-            data={"email": user.email},
-            message="Resetlink is geldig.",
-        )
-
-    def post(self, request, token):
+    def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         if not serializer.is_valid():
             return api_error(
                 message=first_validation_message(serializer),
                 error="validation_error",
                 data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        token = serializer.validated_data.get("token")
+        if not token:
+            return api_error(
+                message="Token is vereist.",
+                error="missing_token",
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

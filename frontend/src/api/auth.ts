@@ -136,18 +136,10 @@ export const requestPasswordReset = async (email: string) => {
   return res.data;
 };
 
-export const validatePasswordResetToken = async (token: string) => {
-  const res = await axios.get<ApiEnvelope<{ email: string }>>(
-    `${baseURL}auth/password/reset/${token}/`,
-    { timeout: 120_000 },
-  );
-  return res.data;
-};
-
 export const confirmPasswordReset = async (token: string, password: string) => {
   const res = await axios.post<ApiEnvelope<{ email: string }>>(
-    `${baseURL}auth/password/reset/${token}/`,
-    { password },
+    `${baseURL}auth/password/reset/validate/`,
+    { token, password },
     {
       headers: { "Content-Type": "application/json" },
       timeout: 120_000,

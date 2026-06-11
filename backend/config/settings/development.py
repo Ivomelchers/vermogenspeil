@@ -15,7 +15,8 @@ if not ENCRYPTION_KEY:  # noqa: F405
     # Moet exact 32 bytes zijn na base64-decode (AES-256)
     ENCRYPTION_KEY = base64.b64encode(b"0" * 32).decode()
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+if not os.environ.get("EMAIL_HOST"):  # noqa: F405
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"].append(  # noqa: F405
     "rest_framework.renderers.BrowsableAPIRenderer",

@@ -115,6 +115,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=64)
     password = serializers.CharField(write_only=True, min_length=12)
 
     def validate_password(self, value):

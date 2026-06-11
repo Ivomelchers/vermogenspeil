@@ -33,6 +33,29 @@ class OkxClient:
         self.api_secret = api_secret.strip()
         self.passphrase = passphrase.strip()
         self.base_url = (base_url or settings.OKX_API_URL).rstrip("/")
+        self._time_offset_ms = 0  # Offset between local and OKX server time
+        self._sync_time()  # Sync on initialization to catch any time drift
+
+    def _sync_time(self) -> None:
+        """Sync local time with OKX server to fix timestamp mismatches."""
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/v5/public/time",
+                timeout=10,
+            )
+            if response.status_code == 200:
+                server_time_ms = int(response.json().get("data", [{}])[0].get("ts", 0))
+                local_time_ms = int(time.time() * 1000)
+                self._time_offset_ms = server_time_ms - local_time_ms
+                logger.debug(f"OKX time offset: {self._time_offset_ms}ms")
+        except Exception as exc:
+            logger.warning(f"Failed to sync OKX time: {exc}")
+
+    def _get_timestamp(self) -> str:
+        """Get current timestamp in milliseconds, adjusted for server time offset."""
+        local_time_ms = int(time.time() * 1000)
+        adjusted_time_ms = local_time_ms + self._time_offset_ms
+        return str(adjusted_time_ms)
 
     def _sign(self, timestamp: str, method: str, request_path: str, body: str = "") -> str:
         payload = f"{timestamp}{method.upper()}{request_path}{body}"
@@ -62,7 +85,7 @@ class OkxClient:
         if body:
             body_str = json.dumps(body, separators=(",", ":"))
 
-        timestamp = str(int(time.time() * 1000))
+        timestamp = self._get_timestamp()
         signature = self._sign(timestamp, method, request_path, body_str)
 
         headers = {
@@ -90,6 +113,11 @@ class OkxClient:
                 detail = response.json().get("msg", response.text)
             except (ValueError, AttributeError):
                 detail = response.text
+
+            if "Timestamp request expired" in detail or "timestamp" in detail.lower():
+                logger.warning("Timestamp expired error, syncing time with OKX...")
+                self._sync_time()
+
             raise OkxAPIError(
                 f"OKX API-fout: {detail}",
                 status_code=response.status_code,
@@ -98,8 +126,12 @@ class OkxClient:
         data = response.json() if response.text else {}
         code = str(data.get("code", "0"))
         if code not in ("0", ""):
+            msg = data.get('msg', code)
+            if "Timestamp request expired" in msg or "timestamp" in msg.lower():
+                logger.warning("Timestamp expired error, syncing time with OKX...")
+                self._sync_time()
             raise OkxAPIError(
-                f"OKX API-fout: {data.get('msg', code)}",
+                f"OKX API-fout: {msg}",
                 status_code=response.status_code,
             )
 

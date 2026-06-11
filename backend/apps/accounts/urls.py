@@ -40,8 +40,8 @@ urlpatterns = [
         name="auth-password-reset-request",
     ),
     path(
-        "auth/password/reset/<str:token>/",
+        "auth/password/reset/validate/",
         PasswordResetTokenView.as_view(),
-        name="auth-password-reset-token",
+        name="auth-password-reset-validate",
     ),
 ]

@@ -1,3 +1,4 @@
+import hashlib
 import logging
 
 from django.conf import settings
@@ -14,17 +15,19 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-def build_password_reset_url(plain_token: str) -> str:
+def build_password_reset_url() -> str:
+    """Return password reset page URL (token sent separately in POST body)."""
     frontend_url = settings.FRONTEND_URL.rstrip("/")
-    return f"{frontend_url}/#/auth/password/reset?token={plain_token}"
+    return f"{frontend_url}/#/auth/password/reset"
 
 
 def send_password_reset_email(user: User, plain_token: str) -> None:
-    reset_url = build_password_reset_url(plain_token)
+    reset_url = build_password_reset_url()
     context = {
         "user": user,
         "reset_url": reset_url,
         "valid_hours": settings.PASSWORD_RESET_TOKEN_HOURS,
+        "token": plain_token,
     }
     subject = "Wachtwoord resetten — MijnVermogen"
     message = render_to_string("accounts/email/password_reset.txt", context)
@@ -44,13 +47,20 @@ def request_password_reset(email: str) -> None:
         return
 
     plain_token, hashed_token = generate_hashed_secure_token()
-    PasswordResetToken.objects.create(user=user, token=hashed_token)
+    expires_at = timezone.now() + timezone.timedelta(
+        hours=settings.PASSWORD_RESET_TOKEN_HOURS,
+    )
+
+    PasswordResetToken.objects.filter(user=user, used=False).update(used=True)
+    PasswordResetToken.objects.create(
+        user=user,
+        token=hashed_token,
+        expires_at=expires_at,
+    )
     send_password_reset_email(user, plain_token)
 
 
 def _get_valid_reset_token(plain_token: str) -> PasswordResetToken:
-    import hashlib
-
     hashed_token = hashlib.sha256(plain_token.encode()).hexdigest()
     reset_token = (
         PasswordResetToken.objects.select_related("user")
@@ -60,10 +70,7 @@ def _get_valid_reset_token(plain_token: str) -> PasswordResetToken:
     if reset_token is None:
         raise ValueError("invalid_token")
 
-    expiry = reset_token.created_at + timezone.timedelta(
-        hours=settings.PASSWORD_RESET_TOKEN_HOURS,
-    )
-    if timezone.now() >= expiry:
+    if timezone.now() >= reset_token.expires_at:
         raise ValueError("expired_token")
 
     return reset_token

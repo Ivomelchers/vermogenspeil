@@ -160,6 +160,7 @@ class PasswordResetToken(models.Model):
     token = models.CharField(max_length=64, unique=True, db_index=True)
     used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
 
     class Meta:
         verbose_name = "wachtwoord-reset token"
