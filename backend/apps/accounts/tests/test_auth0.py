@@ -1,12 +1,12 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
-from django.core import cache, mail
+from django.core import cache
 from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from apps.accounts.models import PasswordResetToken
+from apps.accounts.models import EmailLog, PasswordResetToken
 from apps.accounts.services.auth0_login import Auth0LoginError
 
 User = get_user_model()
@@ -67,7 +67,7 @@ class Auth0MeTests(APITestCase):
         self.assertEqual(response.data["error"], "email_not_verified")
 
 
-@override_settings(FRONTEND_URL="http://localhost:5173")
+@override_settings(FRONTEND_URL="http://localhost:5173", RESEND_API_KEY="test-key")
 class Auth0RegistrationTests(APITestCase):
     def setUp(self):
         cache.cache.clear()
@@ -80,26 +80,33 @@ class Auth0RegistrationTests(APITestCase):
             "terms_accepted": True,
         }
 
+    @patch("apps.accounts.services.verification.send_email")
     @patch("apps.accounts.serializers.create_auth0_user", return_value="auth0|jan")
-    def test_register_creates_user_and_sends_email(self, _mock_auth0):
+    def test_register_creates_user_and_sends_email(self, _mock_auth0, mock_send_email):
+        mock_log = MagicMock(spec=EmailLog)
+        mock_send_email.return_value = mock_log
+
         response = self.client.post(self.url, self.payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertFalse(response.data["data"]["email_verified"])
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertTrue(mock_send_email.called)
 
         user = User.objects.get(email="jan@example.com")
         self.assertEqual(user.auth_0_id, "auth0|jan")
 
 
-@override_settings(FRONTEND_URL="http://localhost:5173", PASSWORD_RESET_TOKEN_HOURS=1)
+@override_settings(FRONTEND_URL="http://localhost:5173", PASSWORD_RESET_TOKEN_HOURS=1, RESEND_API_KEY="test-key")
 class Auth0PasswordResetTests(APITestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = make_user(email="reset@example.com", auth_0_id="auth0|reset")
 
-    def test_reset_request_sends_email_for_known_user(self):
-        mail.outbox.clear()
+    @patch("apps.accounts.services.password_reset.send_email")
+    def test_reset_request_sends_email_for_known_user(self, mock_send_email):
+        mock_log = MagicMock(spec=EmailLog)
+        mock_send_email.return_value = mock_log
+
         response = self.client.post(
             "/api/v1/auth/password/reset/",
             {"email": "reset@example.com"},
@@ -107,7 +114,7 @@ class Auth0PasswordResetTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertTrue(mock_send_email.called)
 
     @patch("apps.accounts.services.password_reset.update_user_password")
     def test_validate_and_confirm_reset_token(self, mock_update_password):

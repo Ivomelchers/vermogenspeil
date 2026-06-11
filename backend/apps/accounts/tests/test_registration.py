@@ -1,20 +1,21 @@
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
-from django.core import cache, mail
+from django.core import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import EmailVerificationToken
+from apps.accounts.models import EmailLog, EmailVerificationToken
 
 User = get_user_model()
 
 
 @override_settings(
     FRONTEND_URL="http://localhost:5173",
+    RESEND_API_KEY="test-key-12345",
     CACHES={
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
@@ -34,21 +35,26 @@ class RegistrationTests(TestCase):
             "terms_accepted": True,
         }
 
+    @patch("apps.accounts.services.verification.send_email")
     @patch("apps.accounts.serializers.create_auth0_user", return_value="auth0|jan")
-    def test_register_creates_user_and_sends_email(self, _mock_auth0):
+    def test_register_creates_user_and_sends_email(self, _mock_auth0, mock_send_email):
+        # Mock send_email to return an EmailLog
+        mock_log = MagicMock(spec=EmailLog)
+        mock_send_email.return_value = mock_log
+
         response = self.client.post(self.url, self.payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNone(response.data["error"])
         self.assertFalse(response.data["data"]["email_verified"])
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("jan@example.com", mail.outbox[0].to)
 
         user = User.objects.get(email="jan@example.com")
         self.assertFalse(user.email_verified)
         self.assertEqual(user.auth_0_id, "auth0|jan")
         self.assertIsNotNone(user.terms_accepted_at)
         self.assertEqual(EmailVerificationToken.objects.filter(user=user).count(), 1)
+        # Verify send_email was called
+        self.assertTrue(mock_send_email.called)
 
     def test_register_requires_terms_accepted(self):
         payload = {**self.payload, "terms_accepted": False}
@@ -133,20 +139,23 @@ class VerifyEmailTests(TestCase):
         self.assertEqual(response.data["error"], "expired_token")
 
 
-@override_settings(FRONTEND_URL="http://localhost:5173")
+@override_settings(FRONTEND_URL="http://localhost:5173", RESEND_API_KEY="test-key-12345")
 class ResendVerificationTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.url = "/api/v1/auth/resend-verification/"
 
-    def test_resend_sends_new_email_for_unverified_user(self):
+    @patch("apps.accounts.services.verification.send_email")
+    def test_resend_sends_new_email_for_unverified_user(self, mock_send_email):
+        mock_log = MagicMock(spec=EmailLog)
+        mock_send_email.return_value = mock_log
+
         user = User.objects.create_user(
             email="resend@example.com",
             password="SecurePass123!",
             first_name="Resend",
         )
         EmailVerificationToken.create_for_user(user)
-        mail.outbox.clear()
 
         response = self.client.post(
             self.url,
@@ -155,9 +164,10 @@ class ResendVerificationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertTrue(mock_send_email.called)
 
-    def test_resend_does_not_reveal_unknown_email(self):
+    @patch("apps.accounts.services.verification.send_email")
+    def test_resend_does_not_reveal_unknown_email(self, mock_send_email):
         response = self.client.post(
             self.url,
             {"email": "unknown@example.com"},
@@ -165,9 +175,10 @@ class ResendVerificationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(mock_send_email.called)
 
-    def test_resend_skips_already_verified_user(self):
+    @patch("apps.accounts.services.verification.send_email")
+    def test_resend_skips_already_verified_user(self, mock_send_email):
         user = User.objects.create_user(
             email="done@example.com",
             password="SecurePass123!",
@@ -183,4 +194,4 @@ class ResendVerificationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(mock_send_email.called)

@@ -1,35 +1,22 @@
 import logging
 
 from django.conf import settings
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
 from django.utils import timezone
 
-from apps.accounts.models import EmailVerificationToken, User
+from apps.accounts.models import EmailLog, EmailVerificationToken, User
+from apps.accounts.services.email_service import send_email
 
 logger = logging.getLogger(__name__)
 
 
-def build_verification_url(token: str) -> str:
-    frontend_url = settings.FRONTEND_URL.rstrip("/")
-    return f"{frontend_url}/#/auth/verify-email?token={token}"
-
-
 def send_verification_email(user: User, verification_token: EmailVerificationToken) -> None:
-    verification_url = build_verification_url(verification_token.token)
-    context = {
-        "user": user,
-        "verification_url": verification_url,
-        "valid_hours": 24,
-    }
-    subject = "Bevestig je e-mailadres — MijnVermogen"
-    message = render_to_string("accounts/email/verify_email.txt", context)
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-        fail_silently=False,
+    verification_link = f"{settings.FRONTEND_URL}/verify-email?token={verification_token.token}"
+    send_email(
+        user=user,
+        email_type=EmailLog.EmailType.VERIFICATION,
+        subject="Verify your email — Vermogenspeil",
+        recipient=user.email,
+        template_data={"verification_link": verification_link}
     )
     logger.info("Verificatie-e-mail verstuurd naar %s", user.email)
 

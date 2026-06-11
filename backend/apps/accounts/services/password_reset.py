@@ -3,40 +3,25 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
 from django.utils import timezone
 
 from apps.accounts.authentication import update_user_password
-from apps.accounts.models import PasswordResetToken
+from apps.accounts.models import EmailLog, PasswordResetToken
 from apps.accounts.security import generate_hashed_secure_token
+from apps.accounts.services.email_service import send_email
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-def build_password_reset_url() -> str:
-    """Return password reset page URL (token sent separately in POST body)."""
-    frontend_url = settings.FRONTEND_URL.rstrip("/")
-    return f"{frontend_url}/#/auth/password/reset"
-
-
 def send_password_reset_email(user: User, plain_token: str) -> None:
-    reset_url = build_password_reset_url()
-    context = {
-        "user": user,
-        "reset_url": reset_url,
-        "valid_hours": settings.PASSWORD_RESET_TOKEN_HOURS,
-        "token": plain_token,
-    }
-    subject = "Wachtwoord resetten — MijnVermogen"
-    message = render_to_string("accounts/email/password_reset.txt", context)
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-        fail_silently=False,
+    reset_link = f"{settings.FRONTEND_URL}/auth/password/reset?token={plain_token}"
+    send_email(
+        user=user,
+        email_type=EmailLog.EmailType.PASSWORD_RESET,
+        subject="Reset your password — Vermogenspeil",
+        recipient=user.email,
+        template_data={"reset_link": reset_link}
     )
     logger.info("Wachtwoord-reset e-mail verstuurd naar %s", user.email)
 

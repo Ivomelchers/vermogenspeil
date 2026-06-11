@@ -220,3 +220,48 @@ class TwoFactorBackupCode(models.Model):
 
     def __str__(self):
         return f"Backupcode voor {self.user.email}"
+
+
+class EmailLog(models.Model):
+    """Audit trail of all transactional emails sent via Resend."""
+
+    class EmailType(models.TextChoices):
+        VERIFICATION = "verification", "Email Verification"
+        PASSWORD_RESET = "password_reset", "Password Reset"
+        TEST = "test", "Test Email"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        DELIVERED = "delivered", "Delivered"
+        BOUNCED = "bounced", "Bounced"
+        FAILED = "failed", "Failed"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="email_logs")
+    recipient_email = models.EmailField()
+    email_type = models.CharField(max_length=20, choices=EmailType.choices)
+    subject = models.CharField(max_length=255)
+
+    sent_at = models.DateTimeField(auto_now_add=True)
+    resend_message_id = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        help_text="Message ID returned from Resend API"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        help_text="Delivery status (pending until checked from Resend)"
+    )
+    status_checked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-sent_at"]
+        indexes = [
+            models.Index(fields=["user", "-sent_at"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.email_type} → {self.recipient_email} ({self.status})"
