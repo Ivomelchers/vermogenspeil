@@ -178,7 +178,6 @@ def get_adapter(connection):
     from apps.integrations.bitvavo.adapter import BitvavoPlatformAdapter
     from apps.integrations.bybit.adapter import BybitPlatformAdapter
     from apps.integrations.okx.adapter import OkxPlatformAdapter
-    from apps.integrations.trade_republic.adapter import TradeRepublicAdapter
     from apps.integrations.trading212.adapter import Trading212Adapter
 
     adapters = {
@@ -186,7 +185,6 @@ def get_adapter(connection):
         PlatformType.BYBIT: BybitPlatformAdapter,
         PlatformType.OKX: OkxPlatformAdapter,
         PlatformType.TRADING212: Trading212Adapter,
-        PlatformType.TRADE_REPUBLIC: TradeRepublicAdapter,
     }
     adapter_cls = adapters.get(connection.platform)
     if not adapter_cls:

@@ -7,7 +7,6 @@ from apps.integrations.base import PlatformAdapterError
 from apps.integrations.bitvavo.adapter import BitvavoPlatformAdapter
 from apps.integrations.bybit.adapter import BybitPlatformAdapter
 from apps.integrations.okx.adapter import OkxPlatformAdapter
-from apps.integrations.trade_republic.adapter import TradeRepublicAdapter
 from apps.integrations.trading212.adapter import Trading212Adapter
 from apps.integrations.models import (
     ConnectionMethod,
@@ -21,7 +20,6 @@ from apps.integrations.serializers import (
     BybitConnectSerializer,
     OkxConnectSerializer,
     Trading212ConnectSerializer,
-    TradeRepublicConnectSerializer,
     PlatformConnectionSerializer,
     PlatformImportBatchSerializer,
     SyncJobSerializer,
@@ -370,87 +368,6 @@ class Trading212ConnectView(APIView):
         return api_response(
             data=response_data,
             message="Trading 212 gekoppeld. Synchronisatie is gestart.",
-            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
-        )
-
-
-class TradeRepublicConnectView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        user, error = linked_user_or_error(request)
-        if error:
-            return error
-
-        verified_error = require_verified_email(user)
-        if verified_error:
-            return verified_error
-
-        serializer = TradeRepublicConnectSerializer(data=request.data)
-        if not serializer.is_valid():
-            return api_error(
-                message=first_validation_message(serializer),
-                error="validation_error",
-                data=serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        data = serializer.validated_data
-        portfolio = get_or_create_default_portfolio(user)
-        label = data.get("label") or "Trade Republic"
-
-        connection, created = PlatformConnection.objects.get_or_create(
-            user=user,
-            platform=PlatformType.TRADE_REPUBLIC,
-            label=label,
-            defaults={
-                "portfolio": portfolio,
-                "connection_method": ConnectionMethod.API,
-                "status": SyncStatus.PENDING,
-            },
-        )
-
-        if not created:
-            connection.portfolio = portfolio
-            connection.is_active = True
-            connection.save(update_fields=["portfolio", "is_active", "updated_at"])
-
-        store_api_credentials(
-            connection,
-            api_key=data["api_key"],
-            api_secret="",
-        )
-
-        try:
-            TradeRepublicAdapter(connection).validate_connection()
-        except PlatformAdapterError as exc:
-            connection.is_active = False
-            connection.status = SyncStatus.ERROR
-            connection.last_error = str(exc)
-            connection.save(update_fields=["is_active", "status", "last_error", "updated_at"])
-            return api_error(
-                message=str(exc),
-                error="trade_republic_connection_failed",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        connection.status = SyncStatus.PENDING
-        connection.last_error = ""
-        connection.save(update_fields=["status", "last_error", "updated_at"])
-
-        sync_job = SyncJob.objects.create(
-            connection=connection,
-            status=SyncStatus.PENDING,
-        )
-        task = sync_platform_connection.delay(sync_job.id)
-        sync_job.celery_task_id = task.id
-        sync_job.save(update_fields=["celery_task_id"])
-
-        response_data = PlatformConnectionSerializer(connection).data
-        response_data["sync_job"] = SyncJobSerializer(sync_job).data
-        return api_response(
-            data=response_data,
-            message="Trade Republic gekoppeld. Synchronisatie is gestart.",
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 

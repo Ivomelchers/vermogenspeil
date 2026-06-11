@@ -19,7 +19,6 @@ import {
   connectBybit,
   connectOkx,
   connectTrading212,
-  connectTradeRepublic,
   pollSyncJob,
 } from "../api/integrations";
 import AuthAlert from "../components/auth/AuthAlert";
@@ -53,7 +52,7 @@ const METHOD_CARDS: {
     label: "API-koppeling",
     name: "Realtime sync",
     desc: "Verbind direct met API-key. Data wordt automatisch en doorlopend bijgewerkt.",
-    platforms: "Bitvavo, Bybit, OKX, Trading 212, Trade Republic",
+    platforms: "Bitvavo, Bybit, OKX, Trading 212",
   },
   {
     method: "csv",
@@ -78,7 +77,6 @@ const API_CONNECTORS = {
   bybit: connectBybit,
   okx: connectOkx,
   trading212: connectTrading212,
-  trade_republic: connectTradeRepublic,
 } as const;
 
 type ApiPlatformId = keyof typeof API_CONNECTORS;

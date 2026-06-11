@@ -9,7 +9,6 @@ export type LiveConnection =
   | "api-bybit"
   | "api-okx"
   | "api-trading212"
-  | "api-trade_republic"
   | "csv-degiro"
   | "csv-trading212"
   | "csv-trade_republic"
@@ -214,9 +213,9 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     initials: "TR",
     color: "#1a1a1a",
     category: "broker",
-    typeLabel: "Broker · API + CSV · BaFin",
+    typeLabel: "Broker · CSV · BaFin",
     regulation: "BaFin",
-    methods: ["api", "csv"],
+    methods: ["csv"],
     idealFor: "Mobiele beleggers, lage kosten",
     costStars: 5,
     costNote: "Geen ordercommissie",
@@ -224,13 +223,13 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     regulationBadge: "BaFin",
     easeStars: 5,
     easeNote: "App-first, eenvoudige export",
-    integrationLabel: "API + CSV",
-    integrationNote: "realtime API of transactie-export uit app",
+    integrationLabel: "CSV",
+    integrationNote: "handmatig periodiek via transactie-export",
     features: ["Sparen met rente", "Fractioneel", "Crypto in app"],
     country: "Duitsland (EER)",
-    liveConnection: "api-trade_republic",
+    liveConnection: "csv-trade_republic",
     description:
-      "Mobiele broker zonder ordercommissie. Koppel via API-key of importeer via CSV-export (Profiel → Afschriften).",
+      "Mobiele broker zonder ordercommissie. Importeer transacties via CSV-export (Profiel → Afschriften).",
   },
   {
     id: "bux",

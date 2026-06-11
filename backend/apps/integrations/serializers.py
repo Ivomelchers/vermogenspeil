@@ -27,11 +27,6 @@ class Trading212ConnectSerializer(serializers.Serializer):
     label = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
 
 
-class TradeRepublicConnectSerializer(serializers.Serializer):
-    api_key = serializers.CharField(max_length=256, trim_whitespace=True)
-    label = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
-
-
 class PlatformConnectionSerializer(serializers.ModelSerializer):
     platform_display = serializers.CharField(source="get_platform_display", read_only=True)
     connection_method_display = serializers.CharField(
