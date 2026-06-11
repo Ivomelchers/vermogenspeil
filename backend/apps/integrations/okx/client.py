@@ -100,6 +100,17 @@ class OkxClient:
             "Content-Type": "application/json",
         }
 
+        # Debug logging (credentials masked for security)
+        logger.debug(f"OKX Request Debug:")
+        logger.debug(f"  URL: {url}")
+        logger.debug(f"  Method: {method.upper()}")
+        logger.debug(f"  API Key: {self.api_key[:8]}...{self.api_key[-8:]} (len={len(self.api_key)})")
+        logger.debug(f"  API Secret: {self.api_secret[:8]}...{self.api_secret[-8:]} (len={len(self.api_secret)})")
+        logger.debug(f"  Passphrase: {'*' * max(1, len(self.passphrase)-2)}{self.passphrase[-2:]} (len={len(self.passphrase)})")
+        logger.debug(f"  Timestamp: {timestamp}")
+        logger.debug(f"  Request Path: {request_path}")
+        logger.debug(f"  Body: {body_str}")
+
         try:
             response = requests.request(
                 method.upper(),
@@ -114,9 +125,12 @@ class OkxClient:
 
         if response.status_code >= 400:
             try:
-                detail = response.json().get("msg", response.text)
+                response_data = response.json()
+                detail = response_data.get("msg", response.text)
+                logger.error(f"OKX Error Response: {json.dumps(response_data)}")
             except (ValueError, AttributeError):
                 detail = response.text
+                logger.error(f"OKX Error (raw): {response.text}")
 
             raise OkxAPIError(
                 f"OKX API-fout: {detail}",
