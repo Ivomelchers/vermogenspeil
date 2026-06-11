@@ -2,7 +2,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.core import mail
+from django.core import cache, mail
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
@@ -13,9 +13,18 @@ from apps.accounts.models import EmailVerificationToken
 User = get_user_model()
 
 
-@override_settings(FRONTEND_URL="http://localhost:5173")
+@override_settings(
+    FRONTEND_URL="http://localhost:5173",
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache",
+        }
+    }
+)
 class RegistrationTests(TestCase):
     def setUp(self):
+        cache.cache.clear()
         self.client = APIClient()
         self.url = "/api/v1/auth/register/"
         self.payload = {

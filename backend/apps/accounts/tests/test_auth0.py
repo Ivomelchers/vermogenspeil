@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.core import mail
+from django.core import cache, mail
 from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
@@ -70,6 +70,7 @@ class Auth0MeTests(APITestCase):
 @override_settings(FRONTEND_URL="http://localhost:5173")
 class Auth0RegistrationTests(APITestCase):
     def setUp(self):
+        cache.cache.clear()
         self.client = APIClient()
         self.url = "/api/v1/auth/register/"
         self.payload = {
@@ -166,6 +167,7 @@ class Auth0PasswordResetTests(APITestCase):
 )
 class Auth0LoginViewTests(APITestCase):
     def setUp(self):
+        cache.cache.clear()
         self.client = APIClient()
         self.user = make_user(email="login@example.com")
 
