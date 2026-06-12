@@ -9,6 +9,7 @@ import PasswordResetRequestPage from "../pages/PasswordResetRequestPage";
 import RegisterPage from "../pages/RegisterPage";
 import ResendVerificationPage from "../pages/ResendVerificationPage";
 import VerifyEmailPage from "../pages/VerifyEmailPage";
+import { SaxoCallbackSuccessBridge, SaxoCallbackErrorBridge } from "../pages/SaxoCallbackBridgePage";
 import { useUser } from "../contexts/UserContext";
 
 const PUBLIC_AUTH_EXCEPTIONS = new Set([
@@ -40,6 +41,8 @@ export function PublicRoutes() {
       <Route path="/auth/resend-verification" element={<ResendVerificationPage />} />
       <Route path="/auth/password/forgot" element={<PasswordResetRequestPage />} />
       <Route path="/auth/password/reset" element={<PasswordResetConfirmPage />} />
+      <Route path="/auth/saxo/callback-success" element={<SaxoCallbackSuccessBridge />} />
+      <Route path="/auth/saxo/callback-error" element={<SaxoCallbackErrorBridge />} />
 
       <Route element={<PublicAuthGuard />}>
         <Route path="/auth/login" element={<LoginPage />} />

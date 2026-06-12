@@ -624,11 +624,11 @@ class SaxoOAuthCallbackView(View):
 
         if error:
             logger.warning(f"Saxo OAuth error: {error} - {error_description}")
-            return redirect(f"/#/auth/saxo/error?error={error}&description={error_description}")
+            return redirect(f"/auth/saxo/callback-error?error={error}&description={error_description}")
 
         if not code:
             logger.warning("Saxo OAuth callback received without authorization code")
-            return redirect("/#/auth/saxo/error?error=missing_code&description=Authorization code not received")
+            return redirect("/auth/saxo/callback-error?error=missing_code&description=Authorization code not received")
 
         user = request.user
 
@@ -639,11 +639,11 @@ class SaxoOAuthCallbackView(View):
             logger.info(f"Token exchange succeeded: got access_token and refresh_token (user: {user.id})")
         except Exception as exc:
             logger.error(f"Saxo OAuth token exchange failed: {exc}", exc_info=True)
-            return redirect(f"/#/auth/saxo/error?error=token_exchange_failed&description=Token exchange failed")
+            return redirect("/auth/saxo/callback-error?error=token_exchange_failed&description=Token exchange failed")
 
         if not token_response:
             logger.error("Token response is empty")
-            return redirect("/#/auth/saxo/error?error=invalid_token_response&description=Invalid token response")
+            return redirect("/auth/saxo/callback-error?error=invalid_token_response&description=Invalid token response")
 
         # Create or update PlatformConnection
         logger.info(f"Creating/updating Saxo PlatformConnection (user: {user.id})")
@@ -656,7 +656,7 @@ class SaxoOAuthCallbackView(View):
             logger.info(f"Connection created/updated: ID={connection.id} (user: {user.id})")
         except Exception as exc:
             logger.error(f"Saxo connection creation failed: {exc}", exc_info=True)
-            return redirect(f"/#/auth/saxo/error?error=connection_failed&description=Failed to create connection")
+            return redirect("/auth/saxo/callback-error?error=connection_failed&description=Failed to create connection")
 
         # Validate the connection
         logger.info(f"Validating Saxo connection (connection: {connection.id}, user: {user.id})")
@@ -669,7 +669,7 @@ class SaxoOAuthCallbackView(View):
             connection.last_error = str(exc)
             connection.save(update_fields=["is_active", "status", "last_error", "updated_at"])
             logger.error(f"Saxo connection validation failed: {exc}")
-            return redirect(f"/#/auth/saxo/error?error=validation_failed&description=Connection validation failed")
+            return redirect("/auth/saxo/callback-error?error=validation_failed&description=Connection validation failed")
 
         # Start sync job
         logger.info(f"Starting sync job for Saxo connection (connection: {connection.id})")
@@ -691,7 +691,7 @@ class SaxoOAuthCallbackView(View):
             # Don't fail, connection is already valid
 
         logger.info(f"Saxo OAuth callback completed successfully (connection: {connection.id}, user: {user.id})")
-        return redirect(f"/#/auth/saxo/success?connection_id={connection.id}")
+        return redirect(f"/auth/saxo/callback-success?connection_id={connection.id}")
 
     def _exchange_code_for_token(self, code: str) -> dict | None:
         """Exchange authorization code for access token."""
