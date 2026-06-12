@@ -108,6 +108,8 @@ class SaxoAdapterTestCase(TestCase):
         mock_client.get_accounts.return_value = [
             {"AccountKey": "acc_123", "AccountId": "Account 1"},
         ]
+        # Mock get_account_history to fail, triggering fallback to get_trades
+        mock_client.get_account_history.side_effect = SaxoAPIError("Not available")
         mock_client.get_trades.return_value = [
             {
                 "TradeId": "trade_123",
