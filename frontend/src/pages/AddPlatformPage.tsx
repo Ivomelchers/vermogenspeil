@@ -20,6 +20,7 @@ import {
   connectBybit,
   connectOkx,
   connectTrading212,
+  connectSaxoOAuth,
   pollSyncJob,
 } from "../api/integrations";
 import AuthAlert from "../components/auth/AuthAlert";
@@ -52,8 +53,8 @@ const METHOD_CARDS: {
     icon: "⚡",
     label: "API-koppeling",
     name: "Realtime sync",
-    desc: "Verbind direct met API-key. Data wordt automatisch en doorlopend bijgewerkt.",
-    platforms: "Bitvavo, Bybit, OKX, Trading 212",
+    desc: "Verbind direct met API-key of OAuth2. Data wordt automatisch en doorlopend bijgewerkt.",
+    platforms: "Bitvavo, Bybit, OKX, Trading 212, Saxo Bank",
   },
   {
     method: "csv",
@@ -61,7 +62,7 @@ const METHOD_CARDS: {
     label: "CSV-upload",
     name: "Periodieke import",
     desc: "Upload zelf een transactie-export. Ideaal voor brokers zonder API.",
-    platforms: "DEGIRO, Trading 212, Trade Republic, Bybit, OKX",
+    platforms: "DEGIRO, Trading 212, Trade Republic, Bybit, OKX, Saxo Bank",
   },
   {
     method: "year",
@@ -131,6 +132,12 @@ export default function AddPlatformPage() {
   async function handleApiSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!selectedPlatform || !isLiveApi) return;
+
+    // Special handling for Saxo OAuth
+    if (selectedPlatform.id === "saxo") {
+      connectSaxoOAuth();
+      return;
+    }
 
     const platformId = selectedPlatform.id as ApiPlatformId;
     const connect = API_CONNECTORS[platformId];
@@ -304,90 +311,109 @@ export default function AddPlatformPage() {
         <MotionSection>
           <FiscalCard elevated p={6} borderLeft="3px solid" borderLeftColor="moss.500">
             <Text fontWeight={600} mb={4}>
-              {selectedPlatform.name} API-koppeling
+              {selectedPlatform.name} {selectedPlatform.id === "saxo" ? "OAuth-koppeling" : "API-koppeling"}
             </Text>
             {error && <AuthAlert tone="error">{error}</AuthAlert>}
             {statusMessage && !error && <AuthAlert tone="info">{statusMessage}</AuthAlert>}
-            <Box as="form" onSubmit={(e: React.FormEvent) => void handleApiSubmit(e)}>
+
+            {selectedPlatform.id === "saxo" ? (
               <VStack align="stretch" spacing={4}>
-                <AuthFormField
-                  label="Label"
-                  name="label"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                />
-                <AuthFormField
-                  label="API-key"
-                  name="api_key"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  isRequired
-                  autoComplete="off"
-                />
-                {apiMeta?.needsSecret && (
-                  <FormControl isRequired>
-                    <FormLabel fontSize="sm" color="ink.dim">
-                      API-secret
-                    </FormLabel>
-                    <Input
-                      type="password"
-                      value={apiSecret}
-                      onChange={(e) => setApiSecret(e.target.value)}
-                      autoComplete="off"
-                      variant="fiscal"
-                    />
-                  </FormControl>
-                )}
-                {apiMeta?.needsPassphrase && (
-                  <FormControl isRequired>
-                    <FormLabel fontSize="sm" color="ink.dim">
-                      API-passphrase
-                    </FormLabel>
-                    <Input
-                      type="password"
-                      value={apiPassphrase}
-                      onChange={(e) => setApiPassphrase(e.target.value)}
-                      autoComplete="off"
-                      variant="fiscal"
-                    />
-                  </FormControl>
-                )}
-                {selectedPlatform?.id === "okx" && (
-                  <FormControl>
-                    <FormLabel fontSize="sm" color="ink.dim">
-                      OKX API Domein
-                    </FormLabel>
-                    <Select
-                      value={okxDomain}
-                      onChange={(e) => setOkxDomain(e.target.value)}
-                      variant="fiscal"
-                      fontSize="sm"
-                    >
-                      <option value="okx.com">okx.com (Global - www.okx.com)</option>
-                      <option value="eea.okx.com">eea.okx.com (EU/Nederland - my.okx.com)</option>
-                      <option value="us.okx.com">us.okx.com (US/AU - app.okx.com)</option>
-                    </Select>
-                    <Text fontSize="xs" color="ink.faint" mt={2}>
-                      Controleer waar u zich op OKX hebt geregistreerd. Kies het bijbehorende API-domein.
-                    </Text>
-                  </FormControl>
-                )}
+                <Text fontSize="sm" color="ink.dim" lineHeight={1.7}>
+                  U wordt doorgestuurd naar Saxo Bank om in te loggen en de app goed te keuren. Na goedkeuring
+                  keert u automatisch terug naar Vermogenspeil.
+                </Text>
                 <Button
-                  type="submit"
+                  onClick={(e: React.FormEvent) => handleApiSubmit(e)}
                   variant="fiscal"
                   isLoading={isSubmitting}
-                  isDisabled={
-                    !user?.email_verified ||
-                    !apiKey ||
-                    (apiMeta?.needsSecret && !apiSecret) ||
-                    (apiMeta?.needsPassphrase && !apiPassphrase)
-                  }
+                  isDisabled={!user?.email_verified}
                   alignSelf="flex-start"
                 >
-                  {selectedPlatform?.name} koppelen
+                  Met Saxo Bank inloggen
                 </Button>
               </VStack>
-            </Box>
+            ) : (
+              <Box as="form" onSubmit={(e: React.FormEvent) => void handleApiSubmit(e)}>
+                <VStack align="stretch" spacing={4}>
+                  <AuthFormField
+                    label="Label"
+                    name="label"
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                  />
+                  <AuthFormField
+                    label="API-key"
+                    name="api_key"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    isRequired
+                    autoComplete="off"
+                  />
+                  {apiMeta?.needsSecret && (
+                    <FormControl isRequired>
+                      <FormLabel fontSize="sm" color="ink.dim">
+                        API-secret
+                      </FormLabel>
+                      <Input
+                        type="password"
+                        value={apiSecret}
+                        onChange={(e) => setApiSecret(e.target.value)}
+                        autoComplete="off"
+                        variant="fiscal"
+                      />
+                    </FormControl>
+                  )}
+                  {apiMeta?.needsPassphrase && (
+                    <FormControl isRequired>
+                      <FormLabel fontSize="sm" color="ink.dim">
+                        API-passphrase
+                      </FormLabel>
+                      <Input
+                        type="password"
+                        value={apiPassphrase}
+                        onChange={(e) => setApiPassphrase(e.target.value)}
+                        autoComplete="off"
+                        variant="fiscal"
+                      />
+                    </FormControl>
+                  )}
+                  {selectedPlatform?.id === "okx" && (
+                    <FormControl>
+                      <FormLabel fontSize="sm" color="ink.dim">
+                        OKX API Domein
+                      </FormLabel>
+                      <Select
+                        value={okxDomain}
+                        onChange={(e) => setOkxDomain(e.target.value)}
+                        variant="fiscal"
+                        fontSize="sm"
+                      >
+                        <option value="okx.com">okx.com (Global - www.okx.com)</option>
+                        <option value="eea.okx.com">eea.okx.com (EU/Nederland - my.okx.com)</option>
+                        <option value="us.okx.com">us.okx.com (US/AU - app.okx.com)</option>
+                      </Select>
+                      <Text fontSize="xs" color="ink.faint" mt={2}>
+                        Controleer waar u zich op OKX hebt geregistreerd. Kies het bijbehorende API-domein.
+                      </Text>
+                    </FormControl>
+                  )}
+                  <Button
+                    type="submit"
+                    variant="fiscal"
+                    isLoading={isSubmitting}
+                    isDisabled={
+                      !user?.email_verified ||
+                      !apiKey ||
+                      (apiMeta?.needsSecret && !apiSecret) ||
+                      (apiMeta?.needsPassphrase && !apiPassphrase)
+                    }
+                    alignSelf="flex-start"
+                  >
+                    {selectedPlatform?.name} koppelen
+                  </Button>
+                </VStack>
+              </Box>
+            )}
           </FiscalCard>
         </MotionSection>
       )}

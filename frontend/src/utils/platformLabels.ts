@@ -5,6 +5,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   degiro: "DEGIRO",
   trading212: "Trading 212",
   trade_republic: "Trade Republic",
+  saxo: "Saxo Bank",
   manual: "Handmatig",
 };
 
@@ -22,6 +23,7 @@ export const LIVE_CSV_PLATFORMS = [
   { id: "trade_republic", name: "Trade Republic" },
   { id: "bybit", name: "Bybit" },
   { id: "okx", name: "OKX" },
+  { id: "saxo", name: "Saxo Bank" },
 ] as const;
 
 /** Platformen met live API-koppeling (crypto + brokers). */
@@ -31,6 +33,7 @@ export const LIVE_API_PLATFORMS = [
   { id: "okx", name: "OKX", needsSecret: true, needsPassphrase: true },
   { id: "trading212", name: "Trading 212", needsSecret: false, needsPassphrase: false },
   { id: "trade_republic", name: "Trade Republic", needsSecret: false, needsPassphrase: false },
+  { id: "saxo", name: "Saxo Bank", needsSecret: false, needsPassphrase: false },
 ] as const;
 
 /** @deprecated Gebruik LIVE_API_PLATFORMS */

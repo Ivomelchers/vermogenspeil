@@ -9,11 +9,13 @@ export type LiveConnection =
   | "api-bybit"
   | "api-okx"
   | "api-trading212"
+  | "api-saxo"
   | "csv-degiro"
   | "csv-trading212"
   | "csv-trade_republic"
   | "csv-bybit"
   | "csv-okx"
+  | "csv-saxo"
   | null;
 
 export interface CatalogPlatform {
@@ -206,6 +208,30 @@ export const PLATFORM_CATALOG: CatalogPlatform[] = [
     country: "Cyprus (EER)",
     liveConnection: "api-trading212",
     description: "Commission-free broker met fractioneel beleggen en DCA (AutoInvest). Koppel via API-key of importeer via CSV-export.",
+  },
+  {
+    id: "saxo",
+    name: "Saxo Bank",
+    initials: "Sx",
+    color: "#1e3a5c",
+    category: "broker",
+    typeLabel: "Broker · API + CSV · MiFID II",
+    regulation: "AFM + MiFID II",
+    methods: ["api", "csv"],
+    idealFor: "Internationale beleggers, actieve traders",
+    costStars: 4,
+    costNote: "Variabel per instrument, geen accountkosten",
+    offering: "Aandelen, ETF's, opties, futures, forex",
+    regulationBadge: "AFM + MiFID II",
+    easeStars: 4,
+    easeNote: "Professioneel platform, goed voor Europa",
+    integrationLabel: "API + CSV",
+    integrationNote: "realtime API of CSV-import",
+    features: ["40.000+ instrumenten", "Opties & futures", "Realtime koersen", "Gecentraliseerde verwerkingsomgeving"],
+    country: "Denemarken (EER)",
+    liveConnection: "api-saxo",
+    description:
+      "Internationale broker met realtime API-toegang en CSV-import. Koppel via OAuth2 of importeer transacties uit exportbestand.",
   },
   {
     id: "trade_republic",
