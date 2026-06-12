@@ -66,6 +66,27 @@ def mark_email_verified(modeladmin, request, queryset):
 mark_email_verified.short_description = "Mark selected users as email verified"
 
 
+def send_test_email(modeladmin, request, queryset):
+    """Admin action: Send a test email to selected users."""
+    count = 0
+    for user in queryset:
+        try:
+            send_email(
+                user=user,
+                email_type=EmailLog.EmailType.TEST,
+                subject="Test Email — Vermogenspeil",
+                recipient=user.email,
+                template_data={"test_message": "This is a test email from Vermogenspeil admin panel"}
+            )
+            count += 1
+        except Exception as e:
+            messages.error(request, f"Failed to send to {user.email}: {str(e)}")
+    messages.success(request, f"Sent {count} test emails")
+
+
+send_test_email.short_description = "Send test email to selected users"
+
+
 @admin.register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):
     list_display = ("sent_at", "user", "recipient_email", "email_type", "status")
@@ -88,7 +109,7 @@ class UserAdmin(DjangoUserAdmin):
         "is_staff",
         "is_active",
     )
-    actions = [resend_verification_email, send_password_reset_email, mark_email_verified]
+    actions = [send_test_email, resend_verification_email, send_password_reset_email, mark_email_verified]
     list_filter = (
         "subscription_tier",
         "email_verified",
