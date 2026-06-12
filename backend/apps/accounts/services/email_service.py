@@ -4,6 +4,7 @@ import logging
 
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.utils import timezone
 
 from apps.accounts.models import EmailLog, User
 
@@ -38,16 +39,18 @@ def send_email(
 
     # Send via Resend
     try:
-        from resend import Resend
+        import resend
+        from resend import Emails
     except ImportError:
         raise ImportError(
             "resend package not installed. "
             "Install it with: pip install resend"
         )
 
-    resend = Resend(api_key=settings.RESEND_API_KEY)
     try:
-        response = resend.emails.send({
+        resend.api_key = settings.RESEND_API_KEY
+        emails = Emails()
+        response = emails.send({
             "from": settings.DEFAULT_FROM_EMAIL,
             "to": recipient,
             "subject": subject,
@@ -64,7 +67,8 @@ def send_email(
         email_type=email_type,
         subject=subject,
         resend_message_id=response.get("id") if response else None,
-        status=EmailLog.Status.PENDING,
+        status=EmailLog.Status.DELIVERED,
+        status_checked_at=timezone.now(),
     )
 
     return email_log
