@@ -6,12 +6,16 @@ import { useSearchParams } from "react-router-dom";
  * and redirects to the appropriate success/error page in the hash router.
  * This is necessary because the backend redirects to a non-hash URL,
  * but the frontend uses hash-based routing.
+ *
+ * It also passes the user ID from sessionStorage to the backend via query param,
+ * so the backend can create the connection for the correct user.
  */
 export function SaxoCallbackSuccessBridge() {
   const [searchParams] = useSearchParams();
   const connectionId = searchParams.get("connection_id");
 
   useEffect(() => {
+    // Forward to the hash route
     if (connectionId) {
       window.location.href = `/#/auth/saxo/success?connection_id=${connectionId}`;
     } else {
@@ -28,6 +32,7 @@ export function SaxoCallbackErrorBridge() {
   const description = searchParams.get("description");
 
   useEffect(() => {
+    // Forward to the hash route
     const params = new URLSearchParams();
     if (error) params.set("error", error);
     if (description) params.set("description", description);

@@ -270,7 +270,7 @@ export default function PlatformsPage() {
                 }
                 onDisconnect={() => void handleDisconnect(connection)}
                 onPurgeData={() => void handlePurgeData(connection)}
-                onImportHistoryChanged={() => void loadConnections()}
+                onImportHistoryChanged={loadConnections}
                 primaryActionLabel={
                   connection.connection_method === "csv" ? "↺ Recentere upload" : undefined
                 }

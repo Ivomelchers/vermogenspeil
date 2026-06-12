@@ -3,8 +3,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 from django.shortcuts import redirect
 from django.views import View
-from django.contrib.auth.decorators import login_required
-from django.utils.decorators import method_decorator
 import requests
 import logging
 
@@ -610,17 +608,18 @@ class OkxValidateCredentialsView(APIView):
             )
 
 
-@method_decorator(login_required(login_url="/auth/login"), name="dispatch")
 class SaxoOAuthCallbackView(View):
     """Handle OAuth2 callback from Saxo Bank."""
 
     def get(self, request):
+        from apps.accounts.models import User
+
         code = request.GET.get("code")
         state = request.GET.get("state")
         error = request.GET.get("error")
         error_description = request.GET.get("error_description")
 
-        logger.info(f"Saxo OAuth callback received for user {request.user.id}")
+        logger.info(f"Saxo OAuth callback received. Code: {code[:20] if code else 'None'}..., State: {state}")
 
         if error:
             logger.warning(f"Saxo OAuth error: {error} - {error_description}")
@@ -630,32 +629,50 @@ class SaxoOAuthCallbackView(View):
             logger.warning("Saxo OAuth callback received without authorization code")
             return redirect("/auth/saxo/callback-error?error=missing_code&description=Authorization code not received")
 
-        user = request.user
+        if not state:
+            logger.warning("Saxo OAuth callback received without state parameter")
+            return redirect("/auth/saxo/callback-error?error=missing_state&description=State parameter missing")
+
+        # Extract user ID from state parameter (format: "user_id_random_string")
+        try:
+            user_id_str = state.split("_")[0]
+            user_id = int(user_id_str)
+            user = User.objects.get(id=user_id)
+            logger.info(f"Saxo OAuth: User extracted from state: {user.email}")
+        except (ValueError, IndexError) as exc:
+            logger.error(f"Saxo OAuth: Invalid state parameter format: {exc}")
+            return redirect("/auth/saxo/callback-error?error=invalid_state&description=Invalid state parameter")
+        except User.DoesNotExist:
+            logger.error(f"Saxo OAuth: User not found for id={user_id}")
+            return redirect("/auth/saxo/callback-error?error=invalid_state&description=Invalid state parameter")
+        except Exception as exc:
+            logger.error(f"Saxo OAuth: Unexpected error extracting user: {exc}", exc_info=True)
+            return redirect("/auth/saxo/callback-error?error=invalid_state&description=Invalid state parameter")
 
         # Exchange authorization code for access token
-        logger.info(f"Exchanging Saxo authorization code for access token (user: {user.id})")
+        logger.info(f"Saxo OAuth: Exchanging authorization code for access token (user: {user.id})")
         try:
             token_response = self._exchange_code_for_token(code)
-            logger.info(f"Token exchange succeeded: got access_token and refresh_token (user: {user.id})")
+            logger.info(f"Saxo OAuth: Token exchange succeeded (user: {user.id})")
         except Exception as exc:
-            logger.error(f"Saxo OAuth token exchange failed: {exc}", exc_info=True)
+            logger.error(f"Saxo OAuth: Token exchange failed: {exc}", exc_info=True)
             return redirect("/auth/saxo/callback-error?error=token_exchange_failed&description=Token exchange failed")
 
         if not token_response:
-            logger.error("Token response is empty")
+            logger.error("Saxo OAuth: Token response is empty")
             return redirect("/auth/saxo/callback-error?error=invalid_token_response&description=Invalid token response")
 
         # Create or update PlatformConnection
-        logger.info(f"Creating/updating Saxo PlatformConnection (user: {user.id})")
+        logger.info(f"Saxo OAuth: Creating/updating PlatformConnection (user: {user.id})")
         try:
             connection = self._create_or_update_connection(
                 user=user,
                 access_token=token_response.get("access_token"),
                 refresh_token=token_response.get("refresh_token"),
             )
-            logger.info(f"Connection created/updated: ID={connection.id} (user: {user.id})")
+            logger.info(f"Saxo OAuth: Connection created (ID={connection.id}, user: {user.id})")
         except Exception as exc:
-            logger.error(f"Saxo connection creation failed: {exc}", exc_info=True)
+            logger.error(f"Saxo OAuth: Connection creation failed: {exc}", exc_info=True)
             return redirect("/auth/saxo/callback-error?error=connection_failed&description=Failed to create connection")
 
         # Validate the connection
@@ -734,7 +751,7 @@ class SaxoOAuthCallbackView(View):
             label="Saxo Bank",
             defaults={
                 "portfolio": portfolio,
-                "connection_method": ConnectionMethod.OAUTH,
+                "connection_method": ConnectionMethod.API,
                 "status": SyncStatus.PENDING,
             },
         )
@@ -742,7 +759,7 @@ class SaxoOAuthCallbackView(View):
         if not created:
             connection.portfolio = portfolio
             connection.is_active = True
-            connection.connection_method = ConnectionMethod.OAUTH
+            connection.connection_method = ConnectionMethod.API
             connection.save(update_fields=["portfolio", "is_active", "connection_method", "updated_at"])
 
         # Store tokens encrypted

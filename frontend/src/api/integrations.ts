@@ -98,18 +98,30 @@ export async function connectTrading212(
   return response.data.data;
 }
 
-export function connectSaxoOAuth(): void {
+export async function connectSaxoOAuth(): Promise<void> {
   /**
    * Redirect to Saxo OAuth authorization endpoint.
+   * Encode the current user ID in the state parameter so the callback can retrieve it.
    * The user will log in and approve the app, then be redirected to /api/v1/integrations/auth/saxo/callback/
    */
-  const authorizeUrl = new URL("https://sim.logonvalidation.net/authorize");
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("client_id", "4a56376e1b374179a7753010d0885c51");
-  authorizeUrl.searchParams.set("redirect_uri", `${window.location.origin}/api/v1/integrations/auth/saxo/callback/`);
-  authorizeUrl.searchParams.set("state", Math.random().toString(36).substring(7));
+  try {
+    const meResponse = await api.get<ApiEnvelope<{ id: number; email: string }>>("auth/me/");
+    const userId = meResponse.data.data.id;
 
-  window.location.href = authorizeUrl.toString();
+    // State contains both user ID and a random string for CSRF protection
+    const state = `${userId}_${Math.random().toString(36).substring(7)}`;
+
+    const authorizeUrl = new URL("https://sim.logonvalidation.net/authorize");
+    authorizeUrl.searchParams.set("response_type", "code");
+    authorizeUrl.searchParams.set("client_id", "4a56376e1b374179a7753010d0885c51");
+    authorizeUrl.searchParams.set("redirect_uri", `${window.location.origin}/api/v1/integrations/auth/saxo/callback/`);
+    authorizeUrl.searchParams.set("state", state);
+
+    window.location.href = authorizeUrl.toString();
+  } catch (error) {
+    console.error("Could not get current user ID", error);
+    alert("Je moet ingelogd zijn om Saxo te verbinden");
+  }
 }
 
 export async function deleteConnection(connectionId: number): Promise<void> {

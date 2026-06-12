@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -22,7 +22,7 @@ interface ImportHistoryPanelProps {
   onChanged?: () => void;
 }
 
-export default function ImportHistoryPanel({
+function ImportHistoryPanelComponent({
   connection,
   onChanged,
 }: ImportHistoryPanelProps) {
@@ -145,3 +145,5 @@ export default function ImportHistoryPanel({
     </VStack>
   );
 }
+
+export default memo(ImportHistoryPanelComponent);

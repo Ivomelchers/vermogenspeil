@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Box, Button, Flex, Text } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 
@@ -38,7 +39,7 @@ interface ConnectionRowCardProps {
   onImportHistoryChanged?: () => void;
 }
 
-export default function ConnectionRowCard({
+function ConnectionRowCardComponent({
   connection,
   secondaryLine,
   syncing,
@@ -152,3 +153,5 @@ export default function ConnectionRowCard({
     </motion.div>
   );
 }
+
+export default memo(ConnectionRowCardComponent);

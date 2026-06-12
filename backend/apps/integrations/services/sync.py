@@ -126,7 +126,7 @@ def apply_sync_results(
             price=price,
             occurred_at=trade.occurred_at,
         )
-        _, created = Transaction.objects.get_or_create(
+        tx_obj, created = Transaction.objects.get_or_create(
             portfolio=portfolio,
             transaction_hash=tx_hash,
             defaults={
@@ -146,6 +146,11 @@ def apply_sync_results(
             transactions_synced += 1
             new_occurred_times.append(trade.occurred_at)
         else:
+            # Update existing transaction if asset or type changed (e.g., symbol corrected)
+            if tx_obj.asset != asset or tx_obj.transaction_type != tx_type:
+                tx_obj.asset = asset
+                tx_obj.transaction_type = tx_type
+                tx_obj.save(update_fields=["asset", "transaction_type"])
             skipped += 1
 
     if import_batch is not None:

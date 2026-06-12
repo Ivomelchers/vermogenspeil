@@ -201,6 +201,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.pricing.tasks.refresh_live_prices",
         "schedule": crontab(minute="*/5"),
     },
+    "sync-all-platform-connections": {
+        "task": "apps.integrations.tasks.sync_all_active_connections",
+        "schedule": crontab(minute=0, hour=1),  # 1 AM daily
+    },
     "refresh-symbol-cache": {
         "task": "apps.pricing.tasks.refresh_symbol_cache",
         "schedule": crontab(minute=0, hour=2),  # 2 AM daily
