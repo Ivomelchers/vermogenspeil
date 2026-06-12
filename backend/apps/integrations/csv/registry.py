@@ -98,6 +98,21 @@ def _load_trade_republic_entry() -> CsvParserEntry:
     )
 
 
+def _load_saxo_entry() -> CsvParserEntry:
+    from apps.integrations.saxo.fingerprint import saxo_fingerprint_score, saxo_missing_required
+    from apps.integrations.saxo.import_service import import_saxo_csv_for_user
+    from apps.integrations.saxo.parser import parse_saxo_csv
+
+    return CsvParserEntry(
+        platform=PlatformType.SAXO,
+        platform_display="Saxo Bank",
+        fingerprint_score=saxo_fingerprint_score,
+        missing_required_headers=saxo_missing_required,
+        parse=parse_saxo_csv,
+        import_for_user=import_saxo_csv_for_user,
+    )
+
+
 def _build_registry() -> dict[str, CsvParserEntry]:
     entries = [
         _load_degiro_entry(),
@@ -105,6 +120,7 @@ def _build_registry() -> dict[str, CsvParserEntry]:
         _load_okx_entry(),
         _load_trading212_entry(),
         _load_trade_republic_entry(),
+        _load_saxo_entry(),
     ]
     return {entry.platform: entry for entry in entries}
 

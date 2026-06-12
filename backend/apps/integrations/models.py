@@ -11,6 +11,7 @@ class PlatformType(models.TextChoices):
     DEGIRO = "degiro", "DEGIRO"
     TRADING212 = "trading212", "Trading 212"
     TRADE_REPUBLIC = "trade_republic", "Trade Republic"
+    SAXO = "saxo", "Saxo Bank"
     MANUAL = "manual", "Handmatig"
 
 

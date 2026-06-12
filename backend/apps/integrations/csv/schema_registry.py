@@ -17,4 +17,8 @@ def get_column_schema(platform: str) -> PlatformColumnSchema | None:
         from apps.integrations.trade_republic.column_schema import TRADE_REPUBLIC_SCHEMA
 
         return TRADE_REPUBLIC_SCHEMA
+    if platform == PlatformType.SAXO:
+        from apps.integrations.saxo.column_schema import SAXO_SCHEMA
+
+        return SAXO_SCHEMA
     return None

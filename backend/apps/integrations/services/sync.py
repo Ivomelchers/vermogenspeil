@@ -178,12 +178,14 @@ def get_adapter(connection):
     from apps.integrations.bitvavo.adapter import BitvavoPlatformAdapter
     from apps.integrations.bybit.adapter import BybitPlatformAdapter
     from apps.integrations.okx.adapter import OkxPlatformAdapter
+    from apps.integrations.saxo.adapter import SaxoPlatformAdapter
     from apps.integrations.trading212.adapter import Trading212Adapter
 
     adapters = {
         PlatformType.BITVAVO: BitvavoPlatformAdapter,
         PlatformType.BYBIT: BybitPlatformAdapter,
         PlatformType.OKX: OkxPlatformAdapter,
+        PlatformType.SAXO: SaxoPlatformAdapter,
         PlatformType.TRADING212: Trading212Adapter,
     }
     adapter_cls = adapters.get(connection.platform)
@@ -208,6 +210,13 @@ def get_adapter(connection):
         ):
             raise PlatformAdapterError(
                 "OKX wordt via CSV bijgewerkt. Upload een nieuw exportbestand."
+            )
+        if (
+            connection.platform == PlatformType.SAXO
+            and connection.connection_method == ConnectionMethod.CSV
+        ):
+            raise PlatformAdapterError(
+                "Saxo wordt via CSV bijgewerkt. Upload een nieuw exportbestand."
             )
         raise PlatformAdapterError(f"Platform {connection.platform} wordt nog niet ondersteund.")
     return adapter_cls(connection)

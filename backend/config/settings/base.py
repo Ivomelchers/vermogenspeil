@@ -268,6 +268,12 @@ BYBIT_RECV_WINDOW = int(os.environ.get("BYBIT_RECV_WINDOW", "5000"))
 OKX_API_URL = os.environ.get("OKX_API_URL", "https://www.okx.com")
 PRICE_API_KEY = os.environ.get("PRICE_API_KEY", "")
 
+# Saxo Bank OAuth Configuration
+SAXO_CLIENT_ID = os.environ.get("SAXO_CLIENT_ID", "")
+SAXO_CLIENT_SECRET = os.environ.get("SAXO_CLIENT_SECRET", "")
+SAXO_OAUTH_TOKEN_URL = os.environ.get("SAXO_OAUTH_TOKEN_URL", "https://sim.logonvalidation.net/token")
+SAXO_OAUTH_AUTHORIZE_URL = os.environ.get("SAXO_OAUTH_AUTHORIZE_URL", "https://sim.logonvalidation.net/authorize")
+
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@mijnvermogen.nl")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")

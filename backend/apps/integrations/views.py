@@ -1,6 +1,10 @@
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
+from django.shortcuts import redirect
+from django.views import View
+import requests
+import logging
 
 from apps.accounts.utils.responses import api_error, api_response, first_validation_message
 from apps.integrations.base import PlatformAdapterError
@@ -8,6 +12,7 @@ from apps.integrations.bitvavo.adapter import BitvavoPlatformAdapter
 from apps.integrations.bybit.adapter import BybitPlatformAdapter
 from apps.integrations.okx.adapter import OkxPlatformAdapter
 from apps.integrations.trading212.adapter import Trading212Adapter
+from apps.integrations.saxo.adapter import SaxoPlatformAdapter
 from apps.integrations.models import (
     ConnectionMethod,
     PlatformConnection,
@@ -30,6 +35,8 @@ from apps.integrations.api_helpers import linked_user_or_error, require_verified
 from apps.integrations.services.demo_seed import demo_features_enabled, seed_demo_for_user
 from apps.integrations.tasks import sync_platform_connection
 from apps.portfolio.services import get_or_create_default_portfolio
+
+logger = logging.getLogger(__name__)
 
 
 class PlatformConnectionListView(APIView):
@@ -599,6 +606,145 @@ class OkxValidateCredentialsView(APIView):
                 },
                 status=status.HTTP_200_OK,  # 200 maar valid=False (geen 4xx error)
             )
+
+
+class SaxoOAuthCallbackView(View):
+    """Handle OAuth2 callback from Saxo Bank."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        code = request.GET.get("code")
+        state = request.GET.get("state")
+        error = request.GET.get("error")
+        error_description = request.GET.get("error_description")
+
+        if error:
+            logger.warning(f"Saxo OAuth error: {error} - {error_description}")
+            return redirect(f"/auth/saxo/error?error={error}&description={error_description}")
+
+        if not code:
+            logger.warning("Saxo OAuth callback received without authorization code")
+            return redirect("/auth/saxo/error?error=missing_code&description=Authorization code not received")
+
+        # Get user from session or request
+        user = request.user
+        if not user.is_authenticated:
+            logger.warning("Saxo OAuth callback received from unauthenticated user")
+            return redirect("/auth/saxo/error?error=not_authenticated&description=You must be logged in")
+
+        # Exchange authorization code for access token
+        try:
+            token_response = self._exchange_code_for_token(code)
+        except Exception as exc:
+            logger.error(f"Saxo OAuth token exchange failed: {exc}")
+            return redirect(f"/auth/saxo/error?error=token_exchange_failed&description={str(exc)}")
+
+        if not token_response:
+            return redirect("/auth/saxo/error?error=invalid_token_response&description=Invalid token response from Saxo")
+
+        # Create or update PlatformConnection
+        try:
+            connection = self._create_or_update_connection(
+                user=user,
+                access_token=token_response.get("access_token"),
+                refresh_token=token_response.get("refresh_token"),
+            )
+        except Exception as exc:
+            logger.error(f"Saxo connection creation failed: {exc}")
+            return redirect(f"/auth/saxo/error?error=connection_failed&description={str(exc)}")
+
+        # Validate the connection
+        try:
+            SaxoPlatformAdapter(connection).validate_connection()
+        except PlatformAdapterError as exc:
+            connection.is_active = False
+            connection.status = SyncStatus.ERROR
+            connection.last_error = str(exc)
+            connection.save(update_fields=["is_active", "status", "last_error", "updated_at"])
+            logger.error(f"Saxo connection validation failed: {exc}")
+            return redirect(f"/auth/saxo/error?error=validation_failed&description={str(exc)}")
+
+        # Start sync job
+        try:
+            connection.status = SyncStatus.PENDING
+            connection.last_error = ""
+            connection.save(update_fields=["status", "last_error", "updated_at"])
+
+            sync_job = SyncJob.objects.create(
+                connection=connection,
+                status=SyncStatus.PENDING,
+            )
+            task = sync_platform_connection.delay(sync_job.id)
+            sync_job.celery_task_id = task.id
+            sync_job.save(update_fields=["celery_task_id"])
+        except Exception as exc:
+            logger.error(f"Saxo sync job creation failed: {exc}")
+            # Don't fail, just log - connection is already valid
+
+        logger.info(f"Saxo OAuth callback successful for user {user.id}")
+        return redirect(f"/auth/saxo/success?connection_id={connection.id}")
+
+    def _exchange_code_for_token(self, code: str) -> dict | None:
+        """Exchange authorization code for access token."""
+        from django.conf import settings
+
+        token_endpoint = "https://sim.logonvalidation.net/token"
+        client_id = getattr(settings, "SAXO_CLIENT_ID", "")
+        client_secret = getattr(settings, "SAXO_CLIENT_SECRET", "")
+
+        # Get the correct redirect_uri based on the request
+        if self.request.is_secure():
+            scheme = "https"
+        else:
+            scheme = "http"
+        redirect_uri = f"{scheme}://{self.request.get_host()}/auth/saxo/callback/"
+
+        data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+        }
+
+        try:
+            response = requests.post(token_endpoint, data=data, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as exc:
+            logger.error(f"Token endpoint error: {exc}")
+            raise
+
+    def _create_or_update_connection(self, user, access_token: str, refresh_token: str | None = None) -> PlatformConnection:
+        """Create or update Saxo platform connection."""
+        portfolio = get_or_create_default_portfolio(user)
+
+        connection, created = PlatformConnection.objects.get_or_create(
+            user=user,
+            platform=PlatformType.SAXO,
+            label="Saxo Bank",
+            defaults={
+                "portfolio": portfolio,
+                "connection_method": ConnectionMethod.OAUTH,
+                "status": SyncStatus.PENDING,
+            },
+        )
+
+        if not created:
+            connection.portfolio = portfolio
+            connection.is_active = True
+            connection.connection_method = ConnectionMethod.OAUTH
+            connection.save(update_fields=["portfolio", "is_active", "connection_method", "updated_at"])
+
+        # Store tokens encrypted
+        store_api_credentials(
+            connection,
+            api_key=access_token,  # Store access_token as api_key
+            api_secret=refresh_token or "",  # Store refresh_token as api_secret
+        )
+
+        return connection
 
 
 class DemoFeaturesStatusView(APIView):

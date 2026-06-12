@@ -14,6 +14,7 @@ from apps.integrations.views import (
     OkxConnectView,
     OkxValidateCredentialsView,
     Trading212ConnectView,
+    SaxoOAuthCallbackView,
     PlatformConnectionDeleteView,
     PlatformConnectionListView,
     PlatformConnectionPurgeDataView,
@@ -30,6 +31,7 @@ urlpatterns = [
     path("connections/okx/", OkxConnectView.as_view(), name="okx-connect"),
     path("connections/okx/validate/", OkxValidateCredentialsView.as_view(), name="okx-validate"),
     path("connections/trading212/", Trading212ConnectView.as_view(), name="trading212-connect"),
+    path("auth/saxo/callback/", SaxoOAuthCallbackView.as_view(), name="saxo-oauth-callback"),
     path(
         "connections/<int:connection_id>/",
         PlatformConnectionDeleteView.as_view(),
