@@ -15,6 +15,8 @@ import OnboardingPage from "../pages/OnboardingPage";
 import TaxPositionPage from "../pages/TaxPositionPage";
 import TransactionsPage from "../pages/TransactionsPage";
 import TwoFactorSetupPage from "../pages/TwoFactorSetupPage";
+import SaxoAuthSuccessPage from "../pages/SaxoAuthSuccessPage";
+import SaxoAuthErrorPage from "../pages/SaxoAuthErrorPage";
 import { useUser } from "../contexts/UserContext";
 
 function PrivateAuthGuard() {
@@ -48,6 +50,8 @@ function OnboardingGuard() {
 export function PrivateRoutes() {
   return (
     <Route element={<PrivateAuthGuard />}>
+      <Route path="/auth/saxo/success" element={<SaxoAuthSuccessPage />} />
+      <Route path="/auth/saxo/error" element={<SaxoAuthErrorPage />} />
       <Route element={<OnboardingGuard />}>
         <Route path="/onboarding" element={<OnboardingPage />} />
       <Route element={<AppLayout />}>

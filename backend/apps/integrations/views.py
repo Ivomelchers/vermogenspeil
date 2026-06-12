@@ -3,6 +3,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 from django.shortcuts import redirect
 from django.views import View
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 import requests
 import logging
 
@@ -608,10 +610,9 @@ class OkxValidateCredentialsView(APIView):
             )
 
 
+@method_decorator(login_required(login_url="/auth/login"), name="dispatch")
 class SaxoOAuthCallbackView(View):
     """Handle OAuth2 callback from Saxo Bank."""
-
-    permission_classes = [AllowAny]
 
     def get(self, request):
         code = request.GET.get("code")
@@ -619,53 +620,59 @@ class SaxoOAuthCallbackView(View):
         error = request.GET.get("error")
         error_description = request.GET.get("error_description")
 
+        logger.info(f"Saxo OAuth callback received for user {request.user.id}")
+
         if error:
             logger.warning(f"Saxo OAuth error: {error} - {error_description}")
-            return redirect(f"/auth/saxo/error?error={error}&description={error_description}")
+            return redirect(f"/#/auth/saxo/error?error={error}&description={error_description}")
 
         if not code:
             logger.warning("Saxo OAuth callback received without authorization code")
-            return redirect("/auth/saxo/error?error=missing_code&description=Authorization code not received")
+            return redirect("/#/auth/saxo/error?error=missing_code&description=Authorization code not received")
 
-        # Get user from session or request
         user = request.user
-        if not user.is_authenticated:
-            logger.warning("Saxo OAuth callback received from unauthenticated user")
-            return redirect("/auth/saxo/error?error=not_authenticated&description=You must be logged in")
 
         # Exchange authorization code for access token
+        logger.info(f"Exchanging Saxo authorization code for access token (user: {user.id})")
         try:
             token_response = self._exchange_code_for_token(code)
+            logger.info(f"Token exchange succeeded: got access_token and refresh_token (user: {user.id})")
         except Exception as exc:
-            logger.error(f"Saxo OAuth token exchange failed: {exc}")
-            return redirect(f"/auth/saxo/error?error=token_exchange_failed&description={str(exc)}")
+            logger.error(f"Saxo OAuth token exchange failed: {exc}", exc_info=True)
+            return redirect(f"/#/auth/saxo/error?error=token_exchange_failed&description=Token exchange failed")
 
         if not token_response:
-            return redirect("/auth/saxo/error?error=invalid_token_response&description=Invalid token response from Saxo")
+            logger.error("Token response is empty")
+            return redirect("/#/auth/saxo/error?error=invalid_token_response&description=Invalid token response")
 
         # Create or update PlatformConnection
+        logger.info(f"Creating/updating Saxo PlatformConnection (user: {user.id})")
         try:
             connection = self._create_or_update_connection(
                 user=user,
                 access_token=token_response.get("access_token"),
                 refresh_token=token_response.get("refresh_token"),
             )
+            logger.info(f"Connection created/updated: ID={connection.id} (user: {user.id})")
         except Exception as exc:
-            logger.error(f"Saxo connection creation failed: {exc}")
-            return redirect(f"/auth/saxo/error?error=connection_failed&description={str(exc)}")
+            logger.error(f"Saxo connection creation failed: {exc}", exc_info=True)
+            return redirect(f"/#/auth/saxo/error?error=connection_failed&description=Failed to create connection")
 
         # Validate the connection
+        logger.info(f"Validating Saxo connection (connection: {connection.id}, user: {user.id})")
         try:
             SaxoPlatformAdapter(connection).validate_connection()
+            logger.info(f"Connection validation succeeded (connection: {connection.id})")
         except PlatformAdapterError as exc:
             connection.is_active = False
             connection.status = SyncStatus.ERROR
             connection.last_error = str(exc)
             connection.save(update_fields=["is_active", "status", "last_error", "updated_at"])
             logger.error(f"Saxo connection validation failed: {exc}")
-            return redirect(f"/auth/saxo/error?error=validation_failed&description={str(exc)}")
+            return redirect(f"/#/auth/saxo/error?error=validation_failed&description=Connection validation failed")
 
         # Start sync job
+        logger.info(f"Starting sync job for Saxo connection (connection: {connection.id})")
         try:
             connection.status = SyncStatus.PENDING
             connection.last_error = ""
@@ -678,12 +685,13 @@ class SaxoOAuthCallbackView(View):
             task = sync_platform_connection.delay(sync_job.id)
             sync_job.celery_task_id = task.id
             sync_job.save(update_fields=["celery_task_id"])
+            logger.info(f"Sync job created (job: {sync_job.id}, connection: {connection.id})")
         except Exception as exc:
-            logger.error(f"Saxo sync job creation failed: {exc}")
-            # Don't fail, just log - connection is already valid
+            logger.error(f"Saxo sync job creation failed: {exc}", exc_info=True)
+            # Don't fail, connection is already valid
 
-        logger.info(f"Saxo OAuth callback successful for user {user.id}")
-        return redirect(f"/auth/saxo/success?connection_id={connection.id}")
+        logger.info(f"Saxo OAuth callback completed successfully (connection: {connection.id}, user: {user.id})")
+        return redirect(f"/#/auth/saxo/success?connection_id={connection.id}")
 
     def _exchange_code_for_token(self, code: str) -> dict | None:
         """Exchange authorization code for access token."""
