@@ -101,12 +101,12 @@ export async function connectTrading212(
 export function connectSaxoOAuth(): void {
   /**
    * Redirect to Saxo OAuth authorization endpoint.
-   * The user will log in and approve the app, then be redirected to /auth/saxo/callback/
+   * The user will log in and approve the app, then be redirected to /api/v1/integrations/auth/saxo/callback/
    */
   const authorizeUrl = new URL("https://sim.logonvalidation.net/authorize");
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", "4a56376e1b374179a7753010d0885c51");
-  authorizeUrl.searchParams.set("redirect_uri", `${window.location.origin}/auth/saxo/callback/`);
+  authorizeUrl.searchParams.set("redirect_uri", `${window.location.origin}/api/v1/integrations/auth/saxo/callback/`);
   authorizeUrl.searchParams.set("state", Math.random().toString(36).substring(7));
 
   window.location.href = authorizeUrl.toString();
