@@ -74,17 +74,19 @@ class SaxoAdapterTestCase(TestCase):
         ]
         mock_client.get_positions.return_value = [
             {
-                "Uic": "IWDA",
-                "Identifier": "IWDA",
-                "NetPosition": 10.0,
-                "AssetType": "Stock",
+                "PositionBase": {
+                    "Uic": "IWDA",
+                    "Amount": 10.0,
+                    "AssetType": "Stock",
+                },
                 "DisplayAndFormat": {"Description": "iShares Core MSCI World"},
             },
             {
-                "Uic": "ASML",
-                "Identifier": "ASML",
-                "NetPosition": 5.0,
-                "AssetType": "Stock",
+                "PositionBase": {
+                    "Uic": "ASML",
+                    "Amount": 5.0,
+                    "AssetType": "Stock",
+                },
                 "DisplayAndFormat": {"Description": "ASML Holding NV"},
             },
         ]
@@ -157,9 +159,11 @@ class SaxoAdapterTestCase(TestCase):
         ]
         mock_client.get_positions.return_value = [
             {
-                "Uic": "IWDA",
-                "NetPosition": 0.0,  # Zero position
-                "AssetType": "Stock",
+                "PositionBase": {
+                    "Uic": "IWDA",
+                    "Amount": 0.0,
+                    "AssetType": "Stock",
+                },
                 "DisplayAndFormat": {"Description": "iShares Core MSCI World"},
             },
         ]

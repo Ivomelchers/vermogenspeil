@@ -31,6 +31,48 @@ def _resolve_valuation_method(market_count: int, total_positions: int) -> str:
     return "cost_basis"
 
 
+def _prefetch_all_dashboard_dates(positions_qs: list) -> None:
+    """
+    Download all historical price data needed by the dashboard in a single yfinance call.
+    Covers: YTD start (Jan 1), value-history monthly dates, hero-delta (30d), movers periods.
+    """
+    from datetime import date, timedelta
+
+    from django.utils import timezone
+
+    from apps.pricing.services.historical import prefetch_dates_into_cache
+    from apps.pricing.providers.yahoo_equities import EQUITY_ASSET_TYPES
+
+    equity_items = [
+        (pos.asset.symbol, pos.asset.asset_type)
+        for pos in positions_qs
+        if pos.asset.asset_type in EQUITY_ASSET_TYPES and pos.quantity > 0
+    ]
+    if not equity_items:
+        return
+
+    today = timezone.now().date()
+    year_start = date(today.year, 1, 1)
+
+    # Monthly first-of-month dates for value_history (up to 12 months)
+    monthly_dates: list[date] = []
+    y, m = today.year, today.month
+    for _ in range(12):
+        monthly_dates.append(date(y, m, 1))
+        m -= 1
+        if m < 1:
+            m = 12
+            y -= 1
+
+    all_dates = set(monthly_dates)
+    all_dates.add(year_start)                   # ytd
+    all_dates.add(today - timedelta(days=1))    # movers: day
+    all_dates.add(today - timedelta(days=7))    # movers: week
+    all_dates.add(today - timedelta(days=30))   # movers: month / hero_delta
+
+    prefetch_dates_into_cache(equity_items, sorted(d for d in all_dates if d < today))
+
+
 def build_dashboard_summary(user) -> dict:
     portfolio = (
         Portfolio.objects.for_user(user).filter(is_default=True).first()
@@ -56,6 +98,10 @@ def build_dashboard_summary(user) -> dict:
 
     positions_qs = list(portfolio.positions.select_related("asset").order_by("-updated_at"))
     live_prices = fetch_live_prices_for_positions(positions_qs)
+
+    # Unified prefetch: one yfinance batch download for all historical dates
+    # needed by ytd, value_history, hero_delta_30d, and movers.
+    _prefetch_all_dashboard_dates(positions_qs)
 
     position_rows = []
     category_totals: dict[str, Decimal] = {}

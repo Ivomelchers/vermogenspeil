@@ -22,7 +22,6 @@ import {
 import CsvImportWizard, {
   formatPreviewMessage,
 } from "../components/platforms/CsvImportWizard";
-import { getDashboardSummary } from "../api/portfolio";
 import AuthAlert from "../components/auth/AuthAlert";
 import SectionHeader from "../components/common/SectionHeader";
 import StatStrip from "../components/common/StatStrip";
@@ -37,7 +36,6 @@ import {
   type IntegrationMethod,
 } from "../data/platformCatalog";
 import { useUser } from "../contexts/UserContext";
-import { formatEur } from "../utils/formatMoney";
 import { LIVE_CSV_PLATFORMS } from "../utils/platformLabels";
 import { getApiErrorMessage } from "../utils/apiError";
 
@@ -56,9 +54,6 @@ export default function PlatformsPage() {
   const { user } = useUser();
   const location = useLocation();
   const [connections, setConnections] = useState<PlatformConnection[]>([]);
-  const [platformStats, setPlatformStats] = useState<
-    Record<number, { value: string; holdings: number }>
-  >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState(
@@ -75,21 +70,8 @@ export default function PlatformsPage() {
     setLoading(true);
     setError("");
     try {
-      const [data, summary] = await Promise.all([
-        listConnections(),
-        getDashboardSummary().catch(() => null),
-      ]);
+      const data = await listConnections();
       setConnections(data);
-      if (summary?.platforms) {
-        const stats: Record<number, { value: string; holdings: number }> = {};
-        for (const p of summary.platforms) {
-          stats[p.id] = {
-            value: formatEur(summary.total_value_eur),
-            holdings: summary.positions_count,
-          };
-        }
-        setPlatformStats(stats);
-      }
     } catch (loadError) {
       setError(getApiErrorMessage(loadError, "Platformen laden mislukt."));
     } finally {
@@ -212,14 +194,6 @@ export default function PlatformsPage() {
     }
   }
 
-  function secondaryForConnection(c: PlatformConnection): string | undefined {
-    const stats = platformStats[c.id];
-    if (stats) {
-      return `${stats.value} · ${stats.holdings} posities`;
-    }
-    return undefined;
-  }
-
   function renderGroup(method: IntegrationMethod) {
     const meta = METHOD_META[method];
     const items = grouped[method];
@@ -253,7 +227,6 @@ export default function PlatformsPage() {
               <ConnectionRowCard
                 key={connection.id}
                 connection={connection}
-                secondaryLine={secondaryForConnection(connection)}
                 syncing={syncingId === connection.id}
                 onSync={
                   connection.connection_method === "api"

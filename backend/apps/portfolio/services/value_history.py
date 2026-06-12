@@ -29,10 +29,17 @@ def _unit_cost_eur(portfolio: Portfolio, position, on_date: date) -> Decimal | N
     return None
 
 
-def _cost_basis_total_on_date(portfolio: Portfolio, on_date: date) -> Decimal:
+def _cost_basis_total_on_date(
+    portfolio: Portfolio,
+    on_date: date,
+    *,
+    tx_cache: list | None = None,
+    positions: list | None = None,
+) -> Decimal:
     total = Decimal(0)
-    for position in portfolio.positions.select_related("asset"):
-        qty = quantity_on_date(portfolio, position.asset_id, on_date)
+    pos_list = positions if positions is not None else list(portfolio.positions.select_related("asset"))
+    for position in pos_list:
+        qty = quantity_on_date(portfolio, position.asset_id, on_date, tx_cache=tx_cache)
         if qty <= 0:
             continue
         unit_cost = _unit_cost_eur(portfolio, position, on_date)
@@ -41,10 +48,15 @@ def _cost_basis_total_on_date(portfolio: Portfolio, on_date: date) -> Decimal:
     return total.quantize(Decimal("0.01"))
 
 
-def _portfolio_value_on_date(portfolio: Portfolio, on_date: date) -> Decimal:
+def _portfolio_value_on_date(
+    portfolio: Portfolio,
+    on_date: date,
+    *,
+    tx_cache: list | None = None,
+) -> Decimal:
     if on_date >= timezone.now().date():
         return Decimal(0)
-    result = portfolio_valuation_at_date(portfolio, on_date)
+    result = portfolio_valuation_at_date(portfolio, on_date, tx_cache=tx_cache)
     return result["total_value_eur"]
 
 
@@ -89,7 +101,17 @@ def compute_value_history(
             thinned.append(today)
         sample_dates = thinned[-MAX_POINTS:]
 
-    current_cost = _cost_basis_total_on_date(portfolio, today)
+    # --- PERFORMANCE: pre-load once, avoid N×12 DB queries and 12 serial yfinance calls ---
+    positions = list(portfolio.positions.select_related("asset"))
+    tx_cache = list(portfolio.transactions.filter(transaction_type__in=["buy", "sell"]))
+
+    historical_dates = [d for d in sample_dates if d < today]
+    if historical_dates and positions:
+        from apps.pricing.services.historical import prefetch_dates_into_cache
+        price_items = [(pos.asset.symbol, pos.asset.asset_type) for pos in positions if pos.quantity > 0]
+        prefetch_dates_into_cache(price_items, historical_dates)
+
+    current_cost = _cost_basis_total_on_date(portfolio, today, tx_cache=tx_cache, positions=positions)
     points: list[dict] = []
 
     for on_date in sample_dates:
@@ -98,10 +120,10 @@ def compute_value_history(
             cost_basis = current_cost
             method = "current"
         else:
-            portfolio_value = _portfolio_value_on_date(portfolio, on_date)
+            portfolio_value = _portfolio_value_on_date(portfolio, on_date, tx_cache=tx_cache)
             if portfolio_value <= 0:
-                portfolio_value = _cost_basis_total_on_date(portfolio, on_date)
-            cost_basis = _cost_basis_total_on_date(portfolio, on_date)
+                portfolio_value = _cost_basis_total_on_date(portfolio, on_date, tx_cache=tx_cache, positions=positions)
+            cost_basis = _cost_basis_total_on_date(portfolio, on_date, tx_cache=tx_cache, positions=positions)
             method = "historical" if portfolio_value > 0 else "cost_basis"
 
         if portfolio_value > 0 or cost_basis > 0 or on_date == today:
@@ -127,7 +149,9 @@ def compute_value_history(
     if len(points) < 2 and current_value_eur > 0:
         start_date = ytd_start_date or date(today.year, 1, 1).isoformat()
         start_value = ytd_start_eur if ytd_start_eur and ytd_start_eur > 0 else None
-        start_cost = _cost_basis_total_on_date(portfolio, date.fromisoformat(start_date[:10]))
+        start_cost = _cost_basis_total_on_date(
+            portfolio, date.fromisoformat(start_date[:10]), tx_cache=tx_cache, positions=positions
+        )
         if start_value is None or start_value <= 0:
             start_value = start_cost if start_cost > 0 else current_value_eur
         if not any(p["date"] == start_date[:10] for p in points):
@@ -152,9 +176,20 @@ def compute_hero_delta_30d(
     """Delta totaalvermogen over ~30 dagen (FSD §5.1 hero-kaart)."""
     today = timezone.now().date()
     start_date = today - timedelta(days=30)
-    start_value = _portfolio_value_on_date(portfolio, start_date)
+
+    tx_cache = list(portfolio.transactions.filter(transaction_type__in=["buy", "sell"]))
+
+    # Prefetch the 30-day date — covers the case where it's not a month-start
+    # and therefore wasn't cached by compute_value_history's prefetch.
+    positions = list(portfolio.positions.select_related("asset").filter(quantity__gt=0))
+    if positions:
+        from apps.pricing.services.historical import prefetch_dates_into_cache
+        price_items = [(pos.asset.symbol, pos.asset.asset_type) for pos in positions]
+        prefetch_dates_into_cache(price_items, [start_date])
+
+    start_value = _portfolio_value_on_date(portfolio, start_date, tx_cache=tx_cache)
     if start_value <= 0:
-        start_value = _cost_basis_total_on_date(portfolio, start_date)
+        start_value = _cost_basis_total_on_date(portfolio, start_date, tx_cache=tx_cache)
 
     if start_value <= 0:
         return {

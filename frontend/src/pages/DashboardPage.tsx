@@ -62,10 +62,9 @@ export default function DashboardPage() {
     setError("");
     setSnapshotMessage("");
     try {
-      const ctx = await getTaxYearContext();
+      const [ctx, data] = await Promise.all([getTaxYearContext(), getDashboardSummary()]);
       const year = ctx.relevant_tax_year;
       setTaxYear(year);
-      const data = await getDashboardSummary();
       setSummary(data);
       const snap = await getPeildatumSnapshot(year);
       setPeildatum(snap);

@@ -20,7 +20,7 @@ import { Link as RouterLink } from "react-router-dom";
 
 import type { Transaction } from "../../api/portfolio";
 import { getLiveQuotes } from "../../api/pricing";
-import { formatDateNl, formatDateTimeNl, formatEur } from "../../utils/formatMoney";
+import { formatDateNl, formatDateTimeNl, formatEur, formatSmartEur } from "../../utils/formatMoney";
 import { formatQuantity } from "../../utils/formatQuantity";
 import { platformLabel } from "../../utils/platformLabels";
 import {
@@ -262,7 +262,7 @@ export default function TransactionDetailDrawer({
                   <>
                     <DetailRow
                       label="Live koers"
-                      value={`${formatEur(liveQuote.price_eur)} / st.`}
+                      value={`${formatSmartEur(liveQuote.price_eur)} / st.`}
                       highlight
                     />
                     {liveQuote.market_label ? (
@@ -316,7 +316,7 @@ export default function TransactionDetailDrawer({
               <Divider borderColor="line.soft" />
               <DetailRow
                 label={unitAmountLabel(tx.transaction_type)}
-                value={tx.price_eur ? `${formatEur(tx.price_eur)} / st.` : "—"}
+                value={tx.price_eur ? `${formatSmartEur(tx.price_eur)} / st.` : "—"}
               />
               <Divider borderColor="line.soft" />
               <DetailRow label="Kosten" value={fee > 0 ? formatEur(fee) : "—"} />

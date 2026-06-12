@@ -39,8 +39,9 @@ def _position_value_at_date(
     on_date: date,
     *,
     price_cache: dict[tuple[str, date], Decimal],
+    tx_cache: list | None = None,
 ) -> tuple[Decimal, str]:
-    qty = quantity_on_date(portfolio, position.asset_id, on_date)
+    qty = quantity_on_date(portfolio, position.asset_id, on_date, tx_cache=tx_cache)
     if qty <= 0:
         return Decimal(0), "zero"
 
@@ -65,18 +66,23 @@ def compute_top_movers(
     *,
     limit: int = 3,
     price_cache: dict[tuple[str, date], Decimal] | None = None,
+    tx_cache: list | None = None,
+    live_prices: dict | None = None,
+    positions: list | None = None,
 ) -> dict:
     if period not in PERIODS:
         period = "month"
 
     start = period_start(period)
-    positions = list(portfolio.positions.select_related("asset"))
-    live_prices = fetch_live_prices_for_positions(positions)
+    if positions is None:
+        positions = list(portfolio.positions.select_related("asset"))
+    if live_prices is None:
+        live_prices = fetch_live_prices_for_positions(positions)
 
     if price_cache is None:
         items = []
         for position in positions:
-            if quantity_on_date(portfolio, position.asset_id, start) > 0:
+            if quantity_on_date(portfolio, position.asset_id, start, tx_cache=tx_cache) > 0:
                 items.append((position.asset.symbol, position.asset.asset_type, start))
         price_cache = fetch_historical_prices(items)
 
@@ -86,11 +92,11 @@ def compute_top_movers(
         if current_value <= 0:
             continue
 
-        if quantity_on_date(portfolio, position.asset_id, start) <= 0:
+        if quantity_on_date(portfolio, position.asset_id, start, tx_cache=tx_cache) <= 0:
             continue
 
         start_value, start_source = _position_value_at_date(
-            portfolio, position, start, price_cache=price_cache
+            portfolio, position, start, price_cache=price_cache, tx_cache=tx_cache
         )
         if start_value <= 0:
             continue
@@ -130,26 +136,41 @@ def compute_top_movers(
 
 
 def compute_all_top_movers(portfolio: Portfolio, *, limit: int = 3) -> dict:
-    """Alle periodes met één gebundelde historische koers-fetch."""
+    """Alle periodes met één gebundelde historische koers-fetch en één transactie-fetch."""
     positions = list(portfolio.positions.select_related("asset"))
-    starts = {p: period_start(p) for p in PERIODS}
+    live_prices = fetch_live_prices_for_positions(positions)
 
+    # Pre-load all buy/sell transactions once — avoids N×4 queries in quantity_on_date
+    tx_cache = list(
+        portfolio.transactions.filter(transaction_type__in=["buy", "sell"])
+    )
+
+    starts = {p: period_start(p) for p in PERIODS}
     items: list[tuple[str, str, date]] = []
     seen: set[tuple[str, str, date]] = set()
     for start in starts.values():
         for position in positions:
-            if quantity_on_date(portfolio, position.asset_id, start) <= 0:
+            if quantity_on_date(portfolio, position.asset_id, start, tx_cache=tx_cache) <= 0:
                 continue
             key = (position.asset.symbol.upper(), position.asset.asset_type, start)
             if key not in seen:
                 seen.add(key)
                 items.append(key)
 
+    # Batch-prefetch ALL period dates in ONE yfinance download before per-date fetches
+    if items and positions:
+        from apps.pricing.services.historical import prefetch_dates_into_cache
+        equity_items = [(pos.asset.symbol, pos.asset.asset_type) for pos in positions]
+        unique_dates = list({d for _, _, d in items})
+        prefetch_dates_into_cache(equity_items, unique_dates)
+
     price_cache = fetch_historical_prices(items) if items else {}
 
     return {
         period: compute_top_movers(
-            portfolio, period, limit=limit, price_cache=price_cache
+            portfolio, period, limit=limit,
+            price_cache=price_cache, tx_cache=tx_cache,
+            live_prices=live_prices, positions=positions,
         )
         for period in PERIODS
     }

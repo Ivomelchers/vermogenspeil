@@ -10,19 +10,23 @@ from apps.pricing.services.historical import fetch_historical_price_eur, fetch_h
 AMSTERDAM = ZoneInfo("Europe/Amsterdam")
 
 
-def quantity_on_date(portfolio: Portfolio, asset_id: int, on_date: date) -> Decimal:
+def quantity_on_date(
+    portfolio: Portfolio,
+    asset_id: int,
+    on_date: date,
+    *,
+    tx_cache: list | None = None,
+) -> Decimal:
     """Netto positie op einde van on_date (alle transacties t/m die dag)."""
-    cutoff = datetime(
-        on_date.year,
-        on_date.month,
-        on_date.day,
-        23,
-        59,
-        59,
-        tzinfo=AMSTERDAM,
-    )
+    cutoff = datetime(on_date.year, on_date.month, on_date.day, 23, 59, 59, tzinfo=AMSTERDAM)
+
+    if tx_cache is not None:
+        txs = [tx for tx in tx_cache if tx.asset_id == asset_id and tx.occurred_at <= cutoff]
+    else:
+        txs = list(portfolio.transactions.filter(asset_id=asset_id, occurred_at__lte=cutoff))
+
     total = Decimal(0)
-    for tx in portfolio.transactions.filter(asset_id=asset_id, occurred_at__lte=cutoff):
+    for tx in txs:
         if tx.transaction_type == TransactionType.SELL:
             total -= tx.quantity
         elif tx.transaction_type == TransactionType.BUY:
@@ -42,12 +46,13 @@ def position_value_on_peildatum(
     on_date: date,
     *,
     price_cache: dict[tuple[str, date], Decimal] | None = None,
+    tx_cache: list | None = None,
 ) -> tuple[Decimal, str]:
     """
     Waarde van één positie op peildatum.
     Returns (value_eur, valuation_source).
     """
-    qty = quantity_on_date(portfolio, position.asset_id, on_date)
+    qty = quantity_on_date(portfolio, position.asset_id, on_date, tx_cache=tx_cache)
     if qty <= 0:
         return Decimal(0), "zero_on_peildatum"
 
@@ -70,7 +75,12 @@ def position_value_on_peildatum(
     return Decimal(0), "unpriced"
 
 
-def portfolio_valuation_at_date(portfolio: Portfolio, on_date: date) -> dict:
+def portfolio_valuation_at_date(
+    portfolio: Portfolio,
+    on_date: date,
+    *,
+    tx_cache: list | None = None,
+) -> dict:
     """
     Waardeer alle posities op peildatum met historische koersen waar beschikbaar.
     """
@@ -87,7 +97,7 @@ def portfolio_valuation_at_date(portfolio: Portfolio, on_date: date) -> dict:
     fetch_items = [
         (pos.asset.symbol, pos.asset.asset_type, on_date)
         for pos in positions
-        if quantity_on_date(portfolio, pos.asset_id, on_date) > 0
+        if quantity_on_date(portfolio, pos.asset_id, on_date, tx_cache=tx_cache) > 0
     ]
     price_cache = fetch_historical_prices(fetch_items)
 
@@ -102,6 +112,7 @@ def portfolio_valuation_at_date(portfolio: Portfolio, on_date: date) -> dict:
             position,
             on_date,
             price_cache=price_cache,
+            tx_cache=tx_cache,
         )
         if value <= 0:
             continue
@@ -113,7 +124,7 @@ def portfolio_valuation_at_date(portfolio: Portfolio, on_date: date) -> dict:
         unit_price = price_cache.get((position.asset.symbol.upper(), on_date))
         row = {
             "position": position,
-            "quantity": quantity_on_date(portfolio, position.asset_id, on_date),
+            "quantity": quantity_on_date(portfolio, position.asset_id, on_date, tx_cache=tx_cache),
             "value_eur": value,
             "valuation_source": source,
             "unit_price_eur": unit_price,

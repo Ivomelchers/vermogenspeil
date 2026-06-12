@@ -18,7 +18,7 @@ import {
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import {
   downloadPortfolioTransactionsCsv,
-  getDashboardSummary,
+  listPortfolios,
   getPortfolioTransactions,
   type Transaction,
   type TransactionImportBatchFilter,
@@ -34,7 +34,7 @@ import PageHeader from "../components/layout/PageHeader";
 import PageShell from "../components/layout/PageShell";
 import TransactionDetailDrawer from "../components/transactions/TransactionDetailDrawer";
 import TransactionTypeBadge from "../components/transactions/TransactionTypeBadge";
-import { formatDateNl, formatEur, formatTimeNl } from "../utils/formatMoney";
+import { formatDateNl, formatEur, formatSmartEur, formatTimeNl } from "../utils/formatMoney";
 import { formatQuantity } from "../utils/formatQuantity";
 import { platformLabel } from "../utils/platformLabels";
 import { transactionTypeLabel } from "../utils/transactionLabels";
@@ -147,8 +147,9 @@ export default function TransactionsPage() {
     void (async () => {
       setLoading(true);
       try {
-        const summary = await getDashboardSummary();
-        setPortfolioId(summary.portfolio_id ?? null);
+        const portfolios = await listPortfolios();
+        const defaultPf = portfolios.find((p) => p.is_default) ?? portfolios[0] ?? null;
+        setPortfolioId(defaultPf?.id ?? null);
       } catch (loadError) {
         setError(getApiErrorMessage(loadError, "Portefeuille laden mislukt."));
         setLoading(false);
@@ -526,7 +527,7 @@ export default function TransactionsPage() {
                       {tx.total_eur ? formatEur(tx.total_eur) : "—"}
                     </Td>
                     <Td isNumeric fontSize="xs" color="ink.dim">
-                      {tx.price_eur ? formatEur(tx.price_eur) : "—"}
+                      {tx.price_eur ? formatSmartEur(tx.price_eur) : "—"}
                     </Td>
                     <Td isNumeric fontSize="xs" color="ink.dim">
                       {feeDisplay(tx.fee_eur)}

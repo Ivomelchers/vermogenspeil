@@ -24,6 +24,27 @@ export function formatEur(value: string | number): string {
   }).format(amount);
 }
 
+export function formatSmartEur(value: string | number): string {
+  const amount = typeof value === "string" ? parseFloat(value) : value;
+  if (Number.isNaN(amount)) return "€ 0,00";
+
+  const abs = Math.abs(amount);
+  if (abs > 0 && abs < 0.01) {
+    const magnitude = Math.floor(Math.log10(abs));
+    const decimals = Math.min(-magnitude + 3, 12);
+    const formatted = new Intl.NumberFormat("nl-NL", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    }).format(amount);
+    return `€ ${formatted}`;
+  }
+
+  return new Intl.NumberFormat("nl-NL", {
+    style: "currency",
+    currency: "EUR",
+  }).format(amount);
+}
+
 export function formatDateNl(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString("nl-NL", {
     day: "numeric",
